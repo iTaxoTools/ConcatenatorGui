@@ -33,6 +33,9 @@ from itaxotools.common import widgets
 from itaxotools.common import resources
 from itaxotools.common import io
 
+from .widgets import StepProgressBar, Step
+
+
 try:
     import importlib.resources
     _resource_path = importlib.resources.files(resources)
@@ -201,8 +204,16 @@ class Main(widgets.ToolDialog):
             'Convert between sequence file formats'
         )
 
+        self.stepProgressBar = StepProgressBar()
+        self.stepProgressBar.addStep('Open')
+        self.stepProgressBar.addStep('Align', 2)
+        self.stepProgressBar.addStep('Export')
 
-        self.header.widget.setStyleSheet("background: red;")
+        layout = QtWidgets.QHBoxLayout()
+        layout.addWidget(self.stepProgressBar)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.header.widget.setStyleSheet("background: magenta;")
+        self.header.widget.setLayout(layout)
 
         self.body = QtWidgets.QHBoxLayout()
         self.body.addSpacing(4)
