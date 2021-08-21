@@ -207,9 +207,14 @@ class Main(widgets.ToolDialog):
 
         from .StepProgressBar import states
         self.stepProgressBar = StepProgressBar.StepProgressBar()
-        self.stepProgressBar.addStep('Open', 1, states.Active)
-        self.stepProgressBar.addStep('Align', 2)
-        self.stepProgressBar.addStep('Export')
+        font = QtGui.QGuiApplication.font()
+        font.setPointSize(9)
+        font.setLetterSpacing(QtGui.QFont.AbsoluteSpacing, 1)
+        font.setItalic(True)
+        self.stepProgressBar.font = font
+        self.stepProgressBar.addStep('Open Files', 1, states.Active)
+        self.stepProgressBar.addStep('Align Sequences', 2)
+        self.stepProgressBar.addStep('Export Results')
 
         layout = QtWidgets.QHBoxLayout()
         layout.addWidget(self.stepProgressBar)

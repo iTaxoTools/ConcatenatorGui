@@ -36,6 +36,21 @@ class Active(AbstractStatus):
     indicatorInner = 3
 
     @classmethod
+    def drawText(cls, painter, point, text):
+        painter.save()
+        font = painter.font()
+        size = font.pointSize()
+        font.setBold(True)
+        font.setUnderline(True)
+        font.setPointSize(size + 1)
+        painter.setFont(font)
+        metrics = painter.fontMetrics()
+        width = metrics.horizontalAdvance(text)
+        descent = metrics.descent()
+        painter.drawText(point.x() - width/2, point.y() - descent, text)
+        painter.restore()
+
+    @classmethod
     def drawIndicator(cls, painter, point):
         painter.save()
         painter.setPen(QtCore.Qt.NoPen)
@@ -49,6 +64,15 @@ class Active(AbstractStatus):
 
 class Pending(AbstractStatus):
     indicatorRadius = 4
+
+    @classmethod
+    def drawText(cls, painter, point, text):
+        painter.save()
+        metrics = painter.fontMetrics()
+        width = metrics.horizontalAdvance(text)
+        descent = metrics.descent()
+        painter.drawText(point.x() - width/2, point.y() - descent, text)
+        painter.restore()
 
     @classmethod
     def drawIndicator(cls, painter, point):
