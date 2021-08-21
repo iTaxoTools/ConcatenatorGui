@@ -42,6 +42,10 @@ class Pending(AbstractStatus):
     @classmethod
     def drawText(cls, painter, point, text):
         painter.save()
+        palette = QtGui.QGuiApplication.palette()
+        color = palette.color(QtGui.QPalette.Dark)
+        pen = QtGui.QPen(color, 2, QtCore.Qt.SolidLine)
+        painter.setPen(pen)
         metrics = painter.fontMetrics()
         width = metrics.horizontalAdvance(text)
         descent = metrics.descent()
@@ -62,7 +66,7 @@ class Pending(AbstractStatus):
 
 class Final(Pending):
 
-    indicatorRadius = 5
+    indicatorRadius = 4
 
 
 class Complete(Pending):
@@ -73,7 +77,7 @@ class Complete(Pending):
     def drawIndicator(cls, painter, point):
         point1 = point + QtCore.QPoint(-4, 0)
         point2 = point + QtCore.QPoint(-2, 3)
-        point3 = point + QtCore.QPoint(5, -5)
+        point3 = point + QtCore.QPoint(6, -6)
         polygon = QtGui.QPolygon([point1, point2, point3])
         painter.save()
         painter.setBrush(QtCore.Qt.NoBrush)
@@ -93,13 +97,12 @@ class Active(AbstractStatus):
         size = font.pointSize()
         font.setBold(True)
         font.setUnderline(True)
-        font.setPointSize(size + 1)
-        font.setPointSize(10)
+        # font.setPointSize(size + 1)
         painter.setFont(font)
         metrics = painter.fontMetrics()
         width = metrics.horizontalAdvance(text)
         descent = metrics.descent()
-        painter.drawText(point.x() - width/2, point.y() - descent - 1, text)
+        painter.drawText(point.x() - width/2, point.y() - descent, text)
         painter.restore()
 
     @classmethod
