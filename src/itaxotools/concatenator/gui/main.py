@@ -208,18 +208,20 @@ class Main(widgets.ToolDialog):
         from .StepProgressBar import states
         self.stepProgressBar = StepProgressBar.StepProgressBar()
         font = QtGui.QGuiApplication.font()
-        font.setPointSize(9)
+        font.setPointSize(10)
         font.setLetterSpacing(QtGui.QFont.AbsoluteSpacing, 1)
-        font.setItalic(True)
+        # font.setBold(True)
         self.stepProgressBar.font = font
-        self.stepProgressBar.addStep('Open Files', 1, states.Active)
-        self.stepProgressBar.addStep('Align Sequences', 2)
-        self.stepProgressBar.addStep('Export Results')
+        self.stepProgressBar.addStep('Input Files', 1, states.Complete)
+        self.stepProgressBar.addStep('Sequence Alignment', 2, states.Complete)
+        self.stepProgressBar.addStep('Codon Positions', 1, states.Failed)
+        self.stepProgressBar.addStep('Filters', 1, states.Pending)
+        self.stepProgressBar.addStep('Export', 1, states.Final)
 
         layout = QtWidgets.QHBoxLayout()
         layout.addWidget(self.stepProgressBar)
-        layout.setContentsMargins(0, 0, 0, 0)
-        self.header.widget.setStyleSheet("background: magenta;")
+        layout.setContentsMargins(0, 8, 0, 8)
+        # self.header.widget.setStyleSheet("background: magenta;")
         self.header.widget.setLayout(layout)
 
         self.body = QtWidgets.QHBoxLayout()

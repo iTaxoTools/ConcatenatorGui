@@ -48,7 +48,7 @@ class StepProgressBar(QtWidgets.QWidget):
         self.setSizePolicy(
             QtWidgets.QSizePolicy.Policy.Minimum,
             QtWidgets.QSizePolicy.Policy.Minimum)
-        self.textPadding = 15
+        self.textPadding = 20
         self.verticalPadding = 2
         self.indicatorPadding = 6
         self.steps = []
@@ -92,9 +92,9 @@ class StepProgressBar(QtWidgets.QWidget):
 
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
 
-        painter.setPen(QtGui.QColor(255, 255, 255))
-        painter.setBrush(QtGui.QColor(255, 255, 184))
-        painter.drawRect(0, 0, width, height)
+        # painter.setPen(QtGui.QColor(255, 255, 255))
+        # painter.setBrush(QtGui.QColor(255, 255, 184))
+        # painter.drawRect(0, 0, width, height)
 
         totalStepWeight = sum(step.weight for step in self.steps[:-1])
         extraWidth = width - self.minimumWidth()
@@ -142,6 +142,11 @@ class StepProgressBar(QtWidgets.QWidget):
     def drawStepLines(self, painter, stepXs, lineY):
         pairs = zip(self.steps[:-1], self.steps[1:])
         for count, (step1, step2) in enumerate(pairs):
+            if count > 1:
+                palette = QtGui.QGuiApplication.palette()
+                color = palette.color(QtGui.QPalette.Shadow)
+                pen = QtGui.QPen(color, 1, QtCore.Qt.SolidLine)
+                painter.setPen(pen)
             x1 = stepXs[count]
             x1 += step1.status.indicatorRadius
             x1 += self.indicatorPadding
