@@ -33,7 +33,7 @@ from itaxotools.common import widgets
 from itaxotools.common import resources
 from itaxotools.common import io
 
-from .widgets import StepProgressBar, Step
+from . import StepProgressBar
 
 
 try:
@@ -205,9 +205,9 @@ class Main(widgets.ToolDialog):
             'Convert between sequence file formats'
         )
 
-        from . import indicators
-        self.stepProgressBar = StepProgressBar()
-        self.stepProgressBar.addStep('Open', 1, indicators.Active)
+        from .StepProgressBar import states
+        self.stepProgressBar = StepProgressBar.StepProgressBar()
+        self.stepProgressBar.addStep('Open', 1, states.Active)
         self.stepProgressBar.addStep('Align', 2)
         self.stepProgressBar.addStep('Export')
 

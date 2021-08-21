@@ -24,14 +24,14 @@ from PySide6 import QtGui
 
 from dataclasses import dataclass, field
 
-from . import indicators
+from . import states
 
 
 @dataclass
 class Step():
     text: str = ''
     weight: int = 1
-    indicator: indicators.AbstractIndicator = indicators.Pending
+    status: states.AbstractStatus = states.Pending
     width: int = field(repr=False, default=0)
 
 
@@ -48,7 +48,6 @@ class StepProgressBar(QtWidgets.QWidget):
         self.steps = []
         self.font = font if font is not None else QtGui.QGuiApplication.font()
         self.setSteps(steps)
-        self.setStyleSheet("background: cyan;")
 
     @property
     def font(self):
@@ -110,7 +109,7 @@ class StepProgressBar(QtWidgets.QWidget):
         textY = int(textY)
         lineY = height - extraHeight / 2
         lineY -= self.verticalPadding
-        lineY -= indicators.AbstractIndicator.radius
+        lineY -= states.AbstractStatus.indicatorRadius
         lineY = int(lineY)
 
         palette = QtGui.QGuiApplication.palette()
@@ -138,17 +137,17 @@ class StepProgressBar(QtWidgets.QWidget):
         pairs = zip(self.steps[:-1], self.steps[1:])
         for count, (step1, step2) in enumerate(pairs):
             x1 = stepXs[count]
-            x1 += step1.indicator.radius
+            x1 += step1.status.indicatorRadius
             x1 += self.indicatorPadding
             x2 = stepXs[count + 1]
-            x2 -= step2.indicator.radius
+            x2 -= step2.status.indicatorRadius
             x2 -= self.indicatorPadding
             painter.drawLine(x1, lineY, x2, lineY)
 
     def drawStepIndicators(self, painter, stepXs, lineY):
         for count, step in enumerate(self.steps):
             point = QtCore.QPoint(stepXs[count], lineY)
-            step.indicator.draw(painter, point)
+            step.status.drawIndicator(painter, point)
 
     def minimumWidth(self):
         width = sum(step.width for step in self.steps)
@@ -157,7 +156,7 @@ class StepProgressBar(QtWidgets.QWidget):
 
     def minimumHeight(self):
         height = self.metrics.height()
-        height += indicators.AbstractIndicator.radius * 2
+        height += states.AbstractStatus.indicatorRadius * 2
         height += 3 * self.verticalPadding
         return height
 

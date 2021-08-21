@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# ConcatenatorQt - GUI for Concatenator
+# StepProgressBar - A custom widget for PySide6
 # Copyright (C) 2021  Patmanidis Stefanos
 #
 # This program is free software: you can redistribute it and/or modify
@@ -16,55 +16,55 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 # -----------------------------------------------------------------------------
 
-"""Status indicators for StepProgressBar Steps"""
+"""Status classes for StepProgressBar Steps"""
 
 from PySide6 import QtCore
 
 
-class AbstractIndicator():
+class AbstractStatus():
 
-    radius = 10
+    indicatorRadius = 10
 
     @classmethod
-    def draw(cls, painter, point):
+    def drawIndicator(cls, painter, point):
         raise NotImplementedError()
 
 
-class Active(AbstractIndicator):
+class Active(AbstractStatus):
 
-    radius = 6
-    radiusInner = 3
+    indicatorRadius = 6
+    indicatorInner = 3
 
     @classmethod
-    def draw(cls, painter, point):
+    def drawIndicator(cls, painter, point):
         painter.save()
         painter.setPen(QtCore.Qt.NoPen)
-        painter.drawEllipse(point, cls.radiusInner, cls.radiusInner)
+        painter.drawEllipse(point, cls.indicatorInner, cls.indicatorInner)
         painter.restore()
         painter.save()
         painter.setBrush(QtCore.Qt.NoBrush)
-        painter.drawEllipse(point, cls.radius, cls.radius)
+        painter.drawEllipse(point, cls.indicatorRadius, cls.indicatorRadius)
         painter.restore()
 
 
-class Pending(AbstractIndicator):
-    radius = 4
+class Pending(AbstractStatus):
+    indicatorRadius = 4
 
     @classmethod
-    def draw(cls, painter, point):
+    def drawIndicator(cls, painter, point):
         painter.save()
         painter.setBrush(QtCore.Qt.NoBrush)
-        painter.drawEllipse(point, cls.radius, cls.radius)
+        painter.drawEllipse(point, cls.indicatorRadius, cls.indicatorRadius)
         painter.restore()
 
 
-class Complete(AbstractIndicator):
+class Complete(AbstractStatus):
     pass
 
 
-class Failed(AbstractIndicator):
+class Failed(AbstractStatus):
     pass
 
 
-class Ongoing(AbstractIndicator):
+class Ongoing(AbstractStatus):
     pass
