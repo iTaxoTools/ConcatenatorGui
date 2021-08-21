@@ -67,8 +67,9 @@ class Main(widgets.ToolDialog):
         self._temp = None
         self.temp = None
 
+        icon = QtGui.QIcon(get_resource('logos/ico/concatenator.ico'))
+        self.setWindowIcon(icon)
         self.setWindowTitle(self.title)
-        self.setWindowIcon(QtGui.QIcon(get_resource('logos/ico/concatenator.ico')))
         self.resize(840, 540)
 
         self.process = None
@@ -204,8 +205,9 @@ class Main(widgets.ToolDialog):
             'Convert between sequence file formats'
         )
 
+        from . import indicators
         self.stepProgressBar = StepProgressBar()
-        self.stepProgressBar.addStep('Open')
+        self.stepProgressBar.addStep('Open', 1, indicators.Active)
         self.stepProgressBar.addStep('Align', 2)
         self.stepProgressBar.addStep('Export')
 

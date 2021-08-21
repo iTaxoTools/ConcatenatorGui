@@ -19,29 +19,52 @@
 """Status indicators for StepProgressBar Steps"""
 
 from PySide6 import QtCore
-from PySide6 import QtWidgets
-from PySide6 import QtGui
 
 
 class AbstractIndicator():
 
-    radius = 20
+    radius = 10
 
     @classmethod
-    def draw(cls):
+    def draw(cls, painter, point):
         raise NotImplementedError()
 
-class Current(AbstractIndicator):
-    pass
+
+class Active(AbstractIndicator):
+
+    radius = 6
+    radiusInner = 3
+
+    @classmethod
+    def draw(cls, painter, point):
+        painter.save()
+        painter.setPen(QtCore.Qt.NoPen)
+        painter.drawEllipse(point, cls.radiusInner, cls.radiusInner)
+        painter.restore()
+        painter.save()
+        painter.setBrush(QtCore.Qt.NoBrush)
+        painter.drawEllipse(point, cls.radius, cls.radius)
+        painter.restore()
+
 
 class Pending(AbstractIndicator):
-    pass
+    radius = 4
+
+    @classmethod
+    def draw(cls, painter, point):
+        painter.save()
+        painter.setBrush(QtCore.Qt.NoBrush)
+        painter.drawEllipse(point, cls.radius, cls.radius)
+        painter.restore()
+
 
 class Complete(AbstractIndicator):
     pass
 
+
 class Failed(AbstractIndicator):
     pass
+
 
 class Ongoing(AbstractIndicator):
     pass

@@ -22,7 +22,6 @@ from PySide6 import QtCore
 from PySide6 import QtWidgets
 from PySide6 import QtGui
 
-from enum import Enum, auto
 from dataclasses import dataclass, field
 
 from . import indicators
@@ -44,7 +43,8 @@ class StepProgressBar(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Policy.Minimum,
             QtWidgets.QSizePolicy.Policy.Minimum)
         self.textPadding = 15
-        self.verticalPadding = 10
+        self.verticalPadding = 2
+        self.indicatorPadding = 4
         self.steps = []
         self.font = font if font is not None else QtGui.QGuiApplication.font()
         self.setSteps(steps)
@@ -82,9 +82,10 @@ class StepProgressBar(QtWidgets.QWidget):
 
     def draw(self, painter):
 
-
         width = self.size().width()
         height = self.size().height()
+
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
 
         painter.setPen(QtGui.QColor(255, 255, 255))
         painter.setBrush(QtGui.QColor(255, 255, 184))
@@ -99,44 +100,55 @@ class StepProgressBar(QtWidgets.QWidget):
         for step in self.steps:
             cursor += self.textPadding
             cursor += step.width / 2
-            stepXs.append(cursor)
+            stepXs.append(int(cursor))
             cursor += step.width / 2
             cursor += (step.weight / totalStepWeight) * extraWidth
 
         textY = extraHeight / 2
-        textY += self.verticalPadding / 2
+        textY += self.verticalPadding
         textY += self.metrics.height()
+        textY = int(textY)
         lineY = height - extraHeight / 2
-        lineY -= self.verticalPadding / 2
-        lineY -= indicators.AbstractIndicator.radius /2
+        lineY -= self.verticalPadding
+        lineY -= indicators.AbstractIndicator.radius
+        lineY = int(lineY)
 
-        self.drawStepTexts(painter, stepXs, textY)
-        self.drawStepLines(painter, stepXs, lineY)
-
-    def drawStepTexts(self, painter, stepXs, textY):
-        painter.setFont(self.font)
-        palette = QtGui.QGuiApplication.palette()
-        painter.setPen(palette.color(QtGui.QPalette.Shadow))
-        for count, step in enumerate(self.steps):
-            self.drawStepText(painter, step, stepXs[count], textY)
-
-    def drawStepText(self, painter, step, x, y):
-        # painter.save()
-        width = painter.fontMetrics().horizontalAdvance(step.text)
-        painter.drawText(x - width/2, y, step.text)
-        # painter.restore()
-
-    def drawStepLines(self, painter, stepXs, lineY):
         palette = QtGui.QGuiApplication.palette()
         color = palette.color(QtGui.QPalette.Shadow)
         pen = QtGui.QPen(color, 2, QtCore.Qt.SolidLine)
         painter.setPen(pen)
+        painter.setBrush(color)
+        painter.setFont(self.font)
 
+        self.drawStepTexts(painter, stepXs, textY)
+        self.drawStepLines(painter, stepXs, lineY)
+        self.drawStepIndicators(painter, stepXs, lineY)
+
+    def drawStepTexts(self, painter, stepXs, textY):
+        for count, step in enumerate(self.steps):
+            self.drawStepText(painter, step, stepXs[count], textY)
+
+    def drawStepText(self, painter, step, x, y):
+        metrics = painter.fontMetrics()
+        width = metrics.horizontalAdvance(step.text)
+        descent = metrics.descent()
+        painter.drawText(x - width/2, y - descent, step.text)
+
+    def drawStepLines(self, painter, stepXs, lineY):
         pairs = zip(self.steps[:-1], self.steps[1:])
         for count, (step1, step2) in enumerate(pairs):
-            x1 = stepXs[count] + step1.indicator.radius / 2
-            x2 = stepXs[count + 1] - step2.indicator.radius / 2
+            x1 = stepXs[count]
+            x1 += step1.indicator.radius
+            x1 += self.indicatorPadding
+            x2 = stepXs[count + 1]
+            x2 -= step2.indicator.radius
+            x2 -= self.indicatorPadding
             painter.drawLine(x1, lineY, x2, lineY)
+
+    def drawStepIndicators(self, painter, stepXs, lineY):
+        for count, step in enumerate(self.steps):
+            point = QtCore.QPoint(stepXs[count], lineY)
+            step.indicator.draw(painter, point)
 
     def minimumWidth(self):
         width = sum(step.width for step in self.steps)
@@ -145,7 +157,7 @@ class StepProgressBar(QtWidgets.QWidget):
 
     def minimumHeight(self):
         height = self.metrics.height()
-        height = indicators.AbstractIndicator.radius
+        height += indicators.AbstractIndicator.radius * 2
         height += 3 * self.verticalPadding
         return height
 
