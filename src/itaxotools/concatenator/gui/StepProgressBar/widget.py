@@ -48,6 +48,9 @@ class StepProgressBar(QtWidgets.QWidget):
         self.setSizePolicy(
             QtWidgets.QSizePolicy.Policy.Minimum,
             QtWidgets.QSizePolicy.Policy.Minimum)
+        self.timer = QtCore.QTimer(self)
+        self.timer.timeout.connect(self.handleTimer)
+        self.timerStep = 50
         self.textPadding = 20
         self.verticalPadding = 2
         self.indicatorPadding = 6
@@ -89,6 +92,7 @@ class StepProgressBar(QtWidgets.QWidget):
         self.activateIndex(index)
 
     def activateIndex(self, index):
+        self.timer.stop()
         index = min(max(index, -1), len(self.steps))
         self.steps[-1].status = states.Final
         for i in range(0, index):
@@ -108,12 +112,18 @@ class StepProgressBar(QtWidgets.QWidget):
 
     def activeReactivate(self):
         self.steps[self.active].status = states.Active
+        self.timer.stop()
 
     def activeFailed(self):
         self.steps[self.active].status = states.Failed
+        self.timer.stop()
 
     def activeOngoing(self):
+        self.timer.start(self.timerStep)
         self.steps[self.active].status = states.Ongoing
+
+    def handleTimer(self):
+        self.repaint()
 
     def paintEvent(self, event):
         painter = QtGui.QPainter()

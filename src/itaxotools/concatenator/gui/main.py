@@ -218,7 +218,7 @@ class Main(widgets.ToolDialog):
         self.stepProgressBar.addStep('filters', 'Filters')
         self.stepProgressBar.addStep('export', 'Export')
         self.stepProgressBar.activateKey('filters')
-        self.stepProgressBar.activatePrevious()
+        self.stepProgressBar.activeOngoing()
         layout = QtWidgets.QHBoxLayout()
         layout.addWidget(self.stepProgressBar)
         layout.setContentsMargins(0, 8, 0, 8)

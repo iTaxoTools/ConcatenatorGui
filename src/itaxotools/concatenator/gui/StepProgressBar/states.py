@@ -21,6 +21,8 @@
 from PySide6 import QtCore
 from PySide6 import QtGui
 
+from time import time_ns
+
 
 class AbstractStatus():
 
@@ -42,6 +44,7 @@ class Pending(AbstractStatus):
     @classmethod
     def drawText(cls, painter, point, text):
         painter.save()
+        painter.translate(point)
         palette = QtGui.QGuiApplication.palette()
         color = palette.color(QtGui.QPalette.Dark)
         pen = QtGui.QPen(color, 2, QtCore.Qt.SolidLine)
@@ -49,7 +52,7 @@ class Pending(AbstractStatus):
         metrics = painter.fontMetrics()
         width = metrics.horizontalAdvance(text)
         descent = metrics.descent()
-        painter.drawText(point.x() - width/2, point.y() - descent, text)
+        painter.drawText(-width/2, -descent, text)
         painter.restore()
 
     @classmethod
@@ -75,11 +78,12 @@ class Complete(Pending):
 
     @classmethod
     def drawIndicator(cls, painter, point):
-        point1 = point + QtCore.QPoint(-4, 0)
-        point2 = point + QtCore.QPoint(-2, 3)
-        point3 = point + QtCore.QPoint(6, -6)
+        point1 = QtCore.QPoint(-4, 0)
+        point2 = QtCore.QPoint(-2, 3)
+        point3 = QtCore.QPoint(6, -6)
         polygon = QtGui.QPolygon([point1, point2, point3])
         painter.save()
+        painter.translate(point)
         painter.setBrush(QtCore.Qt.NoBrush)
         painter.drawPolyline(polygon)
         painter.restore()
@@ -93,6 +97,7 @@ class Active(AbstractStatus):
     @classmethod
     def drawText(cls, painter, point, text):
         painter.save()
+        painter.translate(point)
         font = painter.font()
         size = font.pointSize()
         font.setBold(True)
@@ -102,7 +107,7 @@ class Active(AbstractStatus):
         metrics = painter.fontMetrics()
         width = metrics.horizontalAdvance(text)
         descent = metrics.descent()
-        painter.drawText(point.x() - width/2, point.y() - descent, text)
+        painter.drawText(-width/2, -descent, text)
         painter.restore()
 
     @classmethod
@@ -123,12 +128,13 @@ class Failed(Active):
 
      @classmethod
      def drawIndicator(cls, painter, point):
-         a = 4
-         point1 = point + QtCore.QPoint(-a, -a)
-         point2 = point + QtCore.QPoint(a, a)
-         point3 = point + QtCore.QPoint(-a, a)
-         point4 = point + QtCore.QPoint(a, -a)
+         rad = 4
+         point1 = QtCore.QPoint(-rad, -rad)
+         point2 = QtCore.QPoint(rad, rad)
+         point3 = QtCore.QPoint(-rad, rad)
+         point4 = QtCore.QPoint(rad, -rad)
          painter.save()
+         painter.translate(point)
          pen = painter.pen()
          pen.setWidth(3)
          painter.setPen(pen)
@@ -138,5 +144,29 @@ class Failed(Active):
          painter.restore()
 
 
-class Ongoing(AbstractStatus):
-    pass
+class Ongoing(Active):
+
+    indicatorRadius = 6
+    indicatorSpan = 120
+    indicatorSpeed = 0.5
+
+    @classmethod
+    def drawIndicator(cls, painter, point):
+        rad = cls.indicatorRadius
+        rect = QtCore.QRect(-rad, -rad, 2 * rad, 2 * rad)
+        painter.save()
+        painter.translate(point)
+        color = painter.pen().color().lighter(200)
+        pen = QtGui.QPen(color, 2, QtCore.Qt.SolidLine)
+        painter.setPen(pen)
+        painter.setBrush(QtCore.Qt.NoBrush)
+        painter.drawEllipse(rect)
+        painter.restore()
+        painter.save()
+        painter.translate(point)
+        painter.setBrush(QtCore.Qt.NoBrush)
+        rect = QtCore.QRect(-rad, -rad, 2*rad, 2*rad)
+        ns = (time_ns() * cls.indicatorSpeed) % 10**9
+        degrees = - 360 * ns / 10**9
+        painter.drawArc(rect, degrees * 16, cls.indicatorSpan * 16)
+        painter.restore()
