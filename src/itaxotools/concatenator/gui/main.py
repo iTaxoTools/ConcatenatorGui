@@ -33,7 +33,7 @@ from itaxotools.common import widgets
 from itaxotools.common import resources
 from itaxotools.common import io
 
-from . import StepProgressBar
+from . import stepprogressbar
 
 
 try:
@@ -205,24 +205,25 @@ class Main(widgets.ToolDialog):
             'Convert between sequence file formats'
         )
 
-        from .StepProgressBar import states
-        self.stepProgressBar = StepProgressBar.StepProgressBar()
+        self.stepProgressBar = stepprogressbar.StepProgressBar()
         font = QtGui.QGuiApplication.font()
         font.setPointSize(9)
         font.setLetterSpacing(QtGui.QFont.AbsoluteSpacing, 1)
         font.setBold(True)
         self.stepProgressBar.font = font
-        self.stepProgressBar.addStep('input', 'Input Files', 1)
-        self.stepProgressBar.addStep('align', 'Sequence Alignment', 3)
-        self.stepProgressBar.addStep('codons', 'Codon Positions', 2)
+        self.stepProgressBar.addStep('input', 'Input', 1)
+        self.stepProgressBar.addStep('align', 'Alignment', 3)
+        self.stepProgressBar.addStep('codons', 'Codons', 2)
         self.stepProgressBar.addStep('filters', 'Filters')
         self.stepProgressBar.addStep('export', 'Export')
-        self.stepProgressBar.activateKey('filters')
-        self.stepProgressBar.activeOngoing()
+        self.stepProgressBar.activateKey('codons')
+        self.stepProgressBar.setOngoing()
+        # self.stepProgressBar.setFailed()
+
         layout = QtWidgets.QHBoxLayout()
         layout.addWidget(self.stepProgressBar)
         layout.setContentsMargins(0, 8, 0, 8)
-        # self.header.widget.setStyleSheet("background: magenta;")
+
         self.header.widget.setLayout(layout)
 
         self.body = QtWidgets.QHBoxLayout()

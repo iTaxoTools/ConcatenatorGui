@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# ConcatenatorQt - GUI for Concatenator
+# StepProgressBar - A simple step progress widget for PySide6
 # Copyright (C) 2021  Patmanidis Stefanos
 #
 # This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 # -----------------------------------------------------------------------------
 
-"""Custom widgets for Concatenator"""
+"""StepProgressBar widget definition"""
+
 
 from PySide6 import QtCore
 from PySide6 import QtWidgets
@@ -25,32 +26,88 @@ from PySide6 import QtGui
 from dataclasses import dataclass, field
 
 from . import states
+from . import palette
+
+
+@palette.palette
+class Palette():
+    """Theme-aware three-color palette"""
+
+    def bold(self):
+        """For active parts"""
+        qt_palette = QtGui.QGuiApplication.palette()
+        color = qt_palette.color(QtGui.QPalette.Shadow)
+        # color = QtGui.QColor('red')
+        return color
+
+    def base(self):
+        """For inactive parts"""
+        qt_palette = QtGui.QGuiApplication.palette()
+        color = qt_palette.color(QtGui.QPalette.Dark)
+        # color = QtGui.QColor('blue')
+        return color
+
+    def weak(self):
+        """For background parts"""
+        qt_palette = QtGui.QGuiApplication.palette()
+        color = qt_palette.color(QtGui.QPalette.Dark).lighter(140)
+        # color = QtGui.QColor('green')
+        return color
 
 
 @dataclass
 class Step():
+    """
+    Holds information for each step:
+    - `text` will be visible on the bar
+    - `weight` affects the length of the line after the step
+    - `status` affects text and indicator style
+    The following are used internally by StepProgressBar:
+    - `width` is the minimum required for the text
+    - `pos` holds the step horizontal position
+    """
     text: str = ''
     weight: int = 1
     status: states.AbstractStatus = states.Pending
     width: int = field(repr=False, default=0)
+    pos: int = field(repr=False, default=0)
 
-    def drawText(self, painter, point):
-        self.status.drawText(painter, point, self.text)
+    def drawText(self, painter, palette):
+        self.status.drawText(painter, palette, self.text)
 
-    def drawIndicator(self, painter, point):
-        self.status.drawIndicator(painter, point)
+    def drawIndicator(self, painter, palette):
+        self.status.drawIndicator(painter, palette)
 
 
 class StepProgressBar(QtWidgets.QWidget):
+    """
+    Shows user progress in a series of steps towards a goal.
+    The active step is highlighted as either active, ongoing or failed.
+
+    Text font, color style and spacing are configurable.
+    Ongoing status is animated.
+
+    Usage example
+    -------------
+    import stepprogressbar
+    stepProgressBar = stepprogressbar.StepProgressBar()
+    stepProgressBar.addStep('a', 'A', 1)
+    stepProgressBar.addStep('b', 'B', 2)
+    stepProgressBar.addStep('c', 'C', 0)
+    stepProgressBar.activateKey('b')
+    stepProgressBar.setOngoing()
+    """
 
     def __init__(self, steps=[], font=None, *args, **kwargs):
+        """Steps and font may be set on construction"""
         super().__init__(*args, **kwargs)
         self.setSizePolicy(
             QtWidgets.QSizePolicy.Policy.Minimum,
             QtWidgets.QSizePolicy.Policy.Minimum)
+        self.palette = Palette()
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.handleTimer)
-        self.timerStep = 50
+        self.timerStep = 10
         self.textPadding = 20
         self.verticalPadding = 2
         self.indicatorPadding = 6
@@ -74,8 +131,9 @@ class StepProgressBar(QtWidgets.QWidget):
     def updateStepWidth(self, step):
         step.width = self.metrics.horizontalAdvance(step.text)
 
-    def addStep(self, key=None, *args, **kwargs):
-        step = Step(*args, **kwargs)
+    def addStep(self, key=None, text='', weight=1):
+        """Steps may be added along with a key for faster reference."""
+        step = Step(text=text, weight=weight)
         self.updateStepWidth(step)
         self.steps.append(step)
         if key is not None:
@@ -88,20 +146,20 @@ class StepProgressBar(QtWidgets.QWidget):
             self.addStep(string)
 
     def activateKey(self, key):
+        """Activates the Step identified by given key"""
         index = self.keys[key] if key is not None else -1
         self.activateIndex(index)
 
     def activateIndex(self, index):
-        self.timer.stop()
+        """Activates the Step identified by given index"""
         index = min(max(index, -1), len(self.steps))
         self.steps[-1].status = states.Final
         for i in range(0, index):
             self.steps[i].status = states.Complete
         for i in range(index + 1, len(self.steps) - 1):
             self.steps[i].status = states.Pending
-        if index >= 0 and index < len(self.steps):
-            self.steps[index].status = states.Active
         self.active = index
+        self.setActive()
         self.repaint()
 
     def activateNext(self):
@@ -110,17 +168,26 @@ class StepProgressBar(QtWidgets.QWidget):
     def activatePrevious(self):
         self.activateIndex(self.active - 1)
 
-    def activeReactivate(self):
-        self.steps[self.active].status = states.Active
+    def setStatus(self, status=states.Active):
+        index = self.active
+        if index >= 0 and index < len(self.steps):
+            self.steps[index].status = status
         self.timer.stop()
 
-    def activeFailed(self):
-        self.steps[self.active].status = states.Failed
+    def setActive(self):
+        """Current step is marked as Active"""
+        self.setStatus(states.Active)
         self.timer.stop()
 
-    def activeOngoing(self):
+    def setFailed(self):
+        """Current step is marked as Failed"""
+        self.setStatus(states.Failed)
+        self.timer.stop()
+
+    def setOngoing(self):
+        """Current step is marked as Ongoing (animated)"""
+        self.setStatus(states.Ongoing)
         self.timer.start(self.timerStep)
-        self.steps[self.active].status = states.Ongoing
 
     def handleTimer(self):
         self.repaint()
@@ -138,68 +205,69 @@ class StepProgressBar(QtWidgets.QWidget):
 
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
 
-        # painter.setPen(QtGui.QColor(255, 255, 255))
-        # painter.setBrush(QtGui.QColor(255, 255, 184))
-        # painter.drawRect(0, 0, width, height)
-
         totalStepWeight = sum(step.weight for step in self.steps[:-1])
         extraWidth = width - self.minimumWidth()
         extraHeight = height - self.minimumHeight()
 
         cursor = 0
-        stepXs = []
         for step in self.steps:
             cursor += self.textPadding
             cursor += step.width / 2
-            stepXs.append(int(cursor))
+            step.pos = int(cursor)
             cursor += step.width / 2
             cursor += (step.weight / totalStepWeight) * extraWidth
 
         textY = extraHeight / 2
         textY += self.verticalPadding
-        textY += self.metrics.height()
+        textY += self.metrics.ascent()
         textY = int(textY)
         lineY = height - extraHeight / 2
         lineY -= self.verticalPadding
         lineY -= states.AbstractStatus.indicatorRadius
         lineY = int(lineY)
 
-        palette = QtGui.QGuiApplication.palette()
-        color = palette.color(QtGui.QPalette.Shadow)
-        pen = QtGui.QPen(color, 2, QtCore.Qt.SolidLine)
-        painter.setPen(pen)
-        painter.setBrush(color)
+        painter.setBrush(QtCore.Qt.NoBrush)
+        painter.setPen(QtCore.Qt.NoPen)
         painter.setFont(self.font)
 
-        self.drawStepTexts(painter, stepXs, textY)
-        self.drawStepIndicators(painter, stepXs, lineY)
-        self.drawStepLines(painter, stepXs, lineY)
+        self.drawStepTexts(painter, textY)
+        self.drawStepIndicators(painter, lineY)
+        self.drawStepLines(painter, lineY)
 
-    def drawStepTexts(self, painter, stepXs, textY):
-        for count, step in enumerate(self.steps):
-            point = QtCore.QPoint(stepXs[count], textY)
-            step.drawText(painter, point)
+    def drawStepTexts(self, painter, textY):
+        for step in self.steps:
+            painter.save()
+            point = QtCore.QPoint(step.pos, textY)
+            painter.translate(point)
+            step.drawText(painter, self.palette)
+            painter.restore()
 
-    def drawStepIndicators(self, painter, stepXs, lineY):
-        for count, step in enumerate(self.steps):
-            point = QtCore.QPoint(stepXs[count], lineY)
-            step.drawIndicator(painter, point)
+    def drawStepIndicators(self, painter, lineY):
+        for step in self.steps:
+            painter.save()
+            point = QtCore.QPoint(step.pos, lineY)
+            painter.translate(point)
+            step.drawIndicator(painter, self.palette)
+            painter.restore()
 
-    def drawStepLines(self, painter, stepXs, lineY):
-        pairs = zip(self.steps[:-1], self.steps[1:])
-        for count, (step1, step2) in enumerate(pairs):
-            x1 = stepXs[count]
+    def drawStepLines(self, painter, lineY):
+        x = self.steps[self.active].pos
+        for step1, step2 in zip(self.steps[:-1], self.steps[1:]):
+            x1 = step1.pos
             x1 += step1.status.indicatorRadius
             x1 += self.indicatorPadding
-            x2 = stepXs[count + 1]
+            x2 = step2.pos
             x2 -= step2.status.indicatorRadius
             x2 -= self.indicatorPadding
-            self.drawStepLine(painter, count, x1, x2, lineY)
+            self.drawStepLine(painter, x2 < x, x1, x2, lineY)
 
-    def drawStepLine(self, painter, count, x1, x2, y):
-        if count >= self.active:
-            palette = QtGui.QGuiApplication.palette()
-            color = palette.color(QtGui.QPalette.Shadow)
+    def drawStepLine(self, painter, isComplete, x1, x2, y):
+        if isComplete:
+            color = self.palette.bold
+            pen = QtGui.QPen(color, 2, QtCore.Qt.SolidLine)
+            painter.setPen(pen)
+        else:
+            color = self.palette.base
             pen = QtGui.QPen(color, 1, QtCore.Qt.SolidLine)
             painter.setPen(pen)
         painter.drawLine(x1, y, x2, y)
