@@ -37,21 +37,18 @@ class Palette():
         """For active parts"""
         qt_palette = QtGui.QGuiApplication.palette()
         color = qt_palette.color(QtGui.QPalette.Shadow)
-        # color = QtGui.QColor('red')
         return color
 
     def base(self):
         """For inactive parts"""
         qt_palette = QtGui.QGuiApplication.palette()
         color = qt_palette.color(QtGui.QPalette.Dark)
-        # color = QtGui.QColor('blue')
         return color
 
     def weak(self):
         """For background parts"""
         qt_palette = QtGui.QGuiApplication.palette()
         color = qt_palette.color(QtGui.QPalette.Dark).lighter(140)
-        # color = QtGui.QColor('green')
         return color
 
 
@@ -109,7 +106,7 @@ class StepProgressBar(QtWidgets.QWidget):
         self.timer.timeout.connect(self.handleTimer)
         self.timerStep = 10
         self.textPadding = 20
-        self.verticalPadding = 2
+        self.verticalPadding = 4
         self.indicatorPadding = 6
         self.steps = []
         self.keys = {}

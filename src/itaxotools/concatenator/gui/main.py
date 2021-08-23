@@ -230,21 +230,10 @@ class Main(widgets.ToolDialog):
         self.body.addSpacing(4)
         # self.body.setContentsMargins(8, 4, 8, 4)
 
-        self.footer = QtWidgets.QLabel()
-        self.footer.setStyleSheet("""
-            QLabel {
-                color: palette(Shadow);
-                font-size: 12px;
-                background: palette(Window);
-                border-top: 1px solid palette(Mid);
-                padding: 6px 8px 8px 8px;
-                }
-            QLabel:disabled {
-                color: palette(Mid);
-                background: palette(Window);
-                border: 1px solid palette(Mid);
-                }
-            """)
+        self.footer = widgets.NavigationFooter()
+        self.footer.showIntermediate()
+
+        QtCore.QTimer.singleShot(0, self.footer.next.setFocus)
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(self.header, 0)
@@ -257,5 +246,15 @@ class Main(widgets.ToolDialog):
         self.setLayout(layout)
 
     def act(self):
-        """Populate dialog actions"""
-        self.action = {}
+        """Populate navigator actions"""
+        self.footer.next.clicked.connect(self.eventGenerator(event='NEXT'))
+        self.footer.back.clicked.connect(self.eventGenerator(event='BACK'))
+        self.footer.cancel.clicked.connect(self.eventGenerator(event='CANCEL'))
+        self.footer.exit.clicked.connect(self.eventGenerator(event='EXIT'))
+        self.footer.new.clicked.connect(self.eventGenerator(event='NEW'))
+
+    def eventGenerator(self, checked=False, event=None):
+        def eventFunction():
+            print(event)
+            # self.machine.postEvent(utility.NamedEvent('OPEN'))
+        return eventFunction

@@ -46,7 +46,10 @@ def palette(cls):
                 else:
                     setattr(cls, color_attribute, attr)
 
-            color_property = property(get, set)
+            getattr(cls, method).__name__ = color_method
+            doc = getattr(cls, method).__doc__
+
+            color_property = property(get, set, doc=doc)
             setattr(cls, color_attribute, None)
             setattr(cls, color_method, getattr(cls, method))
             setattr(cls, method, color_property)

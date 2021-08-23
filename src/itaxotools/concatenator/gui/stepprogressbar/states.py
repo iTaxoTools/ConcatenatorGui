@@ -65,7 +65,7 @@ class Pending(AbstractStatus):
     @classmethod
     def drawIndicator(cls, painter, palette):
         point = QtCore.QPoint(0, 0)
-        painter.setPen(QtGui.QPen(palette.base, 2, QtCore.Qt.SolidLine))
+        painter.setPen(QtGui.QPen(palette.weak, 2, QtCore.Qt.SolidLine))
         painter.drawEllipse(point, cls.indicatorRadius, cls.indicatorRadius)
 
 

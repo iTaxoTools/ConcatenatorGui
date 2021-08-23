@@ -24,8 +24,8 @@ from PySide6 import QtWidgets
 from PySide6 import QtGui
 from PySide6 import QtSvg
 
+import enum
 import re
-
 
 ##############################################################################
 # Logging
@@ -260,7 +260,7 @@ class Header(QtWidgets.QFrame):
         self.setStyleSheet("""
             Header {
                 background: palette(Light);
-                border-top: 2px solid palette(Mid);
+                border-top: 1px solid palette(Mid);
                 border-bottom: 1px solid palette(Dark);
                 }
             """)
@@ -374,16 +374,17 @@ class Header(QtWidgets.QFrame):
         layout.addSpacing(8)
         layout.addWidget(self.labelLogoTool)
         layout.addSpacing(6)
-        layout.addWidget(VLineSeparator())
+        layout.addWidget(VLineSeparator(1))
         layout.addSpacing(12)
         layout.addLayout(labels, 0)
         layout.addSpacing(12)
-        layout.addWidget(VLineSeparator())
+        layout.addWidget(VLineSeparator(1))
         layout.addSpacing(8)
         layout.addWidget(self.toolbar, 0)
         layout.addWidget(self.widget, 1)
         layout.addSpacing(8)
-        layout.addWidget(VLineSeparator())
+        layout.addWidget(VLineSeparator(1))
+        layout.addSpacing(1)
         layout.addLayout(layoutLogoProject, 0)
         # layout.addWidget(self.labelLogoProject)
         layout.addSpacing(2)
@@ -452,6 +453,92 @@ class Subheader(QtWidgets.QFrame):
                 border-color: palette(Mid);
                 }
             """)
+
+
+class NavigationFooter(QtWidgets.QFrame):
+    """A styled footer with navigation buttons"""
+
+    class Mode(enum.Enum):
+        Enabled = enum.auto()
+        Disabled = enum.auto()
+        Hidden = enum.auto()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setStyleSheet("""
+            QFrame {
+                margin-left: 6px;
+                margin-right: 6px;
+                border-style: solid;
+                border-width: 1px 0px 0px 0px;
+                border-color: palette(Mid);
+                }
+            """)
+
+        self.back = QtWidgets.QPushButton('< &Back')
+        self.next = QtWidgets.QPushButton('&Next >')
+        self.exit = QtWidgets.QPushButton('E&xit')
+        self.cancel = QtWidgets.QPushButton('&Cancel')
+        self.new = QtWidgets.QPushButton('&New')
+
+        layout = QtWidgets.QHBoxLayout()
+        layout.addWidget(self.cancel)
+        layout.addWidget(self.new)
+        layout.addStretch(1)
+        layout.addWidget(self.back)
+        layout.addSpacing(6)
+        layout.addWidget(self.next)
+        layout.addWidget(self.exit)
+        layout.setSpacing(0)
+        layout.setContentsMargins(12, 12, 12, 12)
+        self.setLayout(layout)
+
+    def setButtonMode(self, button, mode):
+        button.setVisible(mode != self.Mode.Hidden)
+        button.setEnabled(mode == self.Mode.Enabled)
+
+    def showBegin(self):
+        self.setButtonMode(self.back, self.Mode.Disabled)
+        self.setButtonMode(self.next, self.Mode.Enabled)
+        self.setButtonMode(self.exit, self.Mode.Hidden)
+        self.setButtonMode(self.cancel, self.Mode.Disabled)
+        self.setButtonMode(self.new, self.Mode.Hidden)
+
+    def showIntermediate(self):
+        self.setButtonMode(self.back, self.Mode.Enabled)
+        self.setButtonMode(self.next, self.Mode.Enabled)
+        self.setButtonMode(self.exit, self.Mode.Hidden)
+        self.setButtonMode(self.cancel, self.Mode.Disabled)
+        self.setButtonMode(self.new, self.Mode.Hidden)
+
+    def showFinal(self):
+        self.setButtonMode(self.back, self.Mode.Enabled)
+        self.setButtonMode(self.next, self.Mode.Hidden)
+        self.setButtonMode(self.exit, self.Mode.Enabled)
+        self.setButtonMode(self.cancel, self.Mode.Hidden)
+        self.setButtonMode(self.new, self.Mode.Enabled)
+
+    def showOngoing(self):
+        self.setButtonMode(self.back, self.Mode.Disabled)
+        self.setButtonMode(self.next, self.Mode.Disabled)
+        self.setButtonMode(self.exit, self.Mode.Hidden)
+        self.setButtonMode(self.cancel, self.Mode.Enabled)
+        self.setButtonMode(self.new, self.Mode.Hidden)
+
+    def showError(self):
+        self.setButtonMode(self.back, self.Mode.Enabled)
+        self.setButtonMode(self.next, self.Mode.Disabled)
+        self.setButtonMode(self.exit, self.Mode.Hidden)
+        self.setButtonMode(self.cancel, self.Mode.Disabled)
+        self.setButtonMode(self.new, self.Mode.Hidden)
+
+    def showFrozen(self):
+        self.setButtonMode(self.back, self.Mode.Disabled)
+        self.setButtonMode(self.next, self.Mode.Disabled)
+        self.setButtonMode(self.exit, self.Mode.Hidden)
+        self.setButtonMode(self.cancel, self.Mode.Disabled)
+        self.setButtonMode(self.new, self.Mode.Hidden)
+
 
 
 class Panel(QtWidgets.QWidget):
