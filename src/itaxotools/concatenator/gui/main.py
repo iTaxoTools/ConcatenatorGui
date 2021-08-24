@@ -20,12 +20,12 @@
 
 from PySide6 import QtCore
 from PySide6 import QtWidgets
-from PySide6 import QtStateMachine
 from PySide6 import QtGui
 
 import tempfile
 import pathlib
 import shutil
+import enum
 import sys
 
 from itaxotools.common import utility
@@ -33,7 +33,8 @@ from itaxotools.common import widgets
 from itaxotools.common import resources
 from itaxotools.common import io
 
-from . import stepprogressbar
+from . import step_progress_bar
+from . import step_state_machine
 
 
 try:
@@ -87,12 +88,6 @@ class Main(widgets.ToolDialog):
 
     def __setstate__(self, state):
         pass
-
-    def cog(self):
-        """Initialize state machine"""
-
-        self.machine = QtStateMachine.QStateMachine(self)
-        # self.machine.start()
 
     def skin(self):
         """Configure widget appearance"""
@@ -205,20 +200,12 @@ class Main(widgets.ToolDialog):
             'Convert between sequence file formats'
         )
 
-        self.stepProgressBar = stepprogressbar.StepProgressBar()
+        self.stepProgressBar = step_progress_bar.StepProgressBar()
         font = QtGui.QGuiApplication.font()
         font.setPointSize(9)
         font.setLetterSpacing(QtGui.QFont.AbsoluteSpacing, 1)
         font.setBold(True)
         self.stepProgressBar.font = font
-        self.stepProgressBar.addStep('input', 'Input', 1)
-        self.stepProgressBar.addStep('align', 'Alignment', 3)
-        self.stepProgressBar.addStep('codons', 'Codons', 2)
-        self.stepProgressBar.addStep('filters', 'Filters')
-        self.stepProgressBar.addStep('export', 'Export')
-        self.stepProgressBar.activateKey('codons')
-        self.stepProgressBar.setOngoing()
-        # self.stepProgressBar.setFailed()
 
         layout = QtWidgets.QHBoxLayout()
         layout.addWidget(self.stepProgressBar)
@@ -231,7 +218,6 @@ class Main(widgets.ToolDialog):
         # self.body.setContentsMargins(8, 4, 8, 4)
 
         self.footer = widgets.NavigationFooter()
-        self.footer.showIntermediate()
 
         QtCore.QTimer.singleShot(0, self.footer.next.setFocus)
 
@@ -246,15 +232,19 @@ class Main(widgets.ToolDialog):
         self.setLayout(layout)
 
     def act(self):
-        """Populate navigator actions"""
-        self.footer.next.clicked.connect(self.eventGenerator(event='NEXT'))
-        self.footer.back.clicked.connect(self.eventGenerator(event='BACK'))
-        self.footer.cancel.clicked.connect(self.eventGenerator(event='CANCEL'))
-        self.footer.exit.clicked.connect(self.eventGenerator(event='EXIT'))
-        self.footer.new.clicked.connect(self.eventGenerator(event='NEW'))
+        pass
 
-    def eventGenerator(self, checked=False, event=None):
-        def eventFunction():
-            print(event)
-            # self.machine.postEvent(utility.NamedEvent('OPEN'))
-        return eventFunction
+    def cog(self):
+        """Initialize state machine"""
+
+        self.machine = step_state_machine.StepStateMachine(
+            self, self.stepProgressBar, self.footer)
+        self.machine.addStep('about', 'About', 1, False)
+        self.machine.addStep('input', 'Input', 1, True)
+        self.machine.addStep('align', 'Alignment', 3, True)
+        self.machine.addStep('codons', 'Codons', 2, True)
+        self.machine.addStep('filters', 'Filters', 1, True)
+        self.machine.addStep('export', 'Export', 1, True)
+        self.machine.addStep('done', 'Done', 1, False)
+
+        self.machine.start()

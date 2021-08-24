@@ -493,6 +493,11 @@ class NavigationFooter(QtWidgets.QFrame):
         layout.setContentsMargins(12, 12, 12, 12)
         self.setLayout(layout)
 
+    def setButtonActions(self, dictionary):
+        for name in dictionary:
+            button = getattr(self, name)
+            button.clicked.connect(dictionary[name])
+
     def setButtonMode(self, button, mode):
         button.setVisible(mode != self.Mode.Hidden)
         button.setEnabled(mode == self.Mode.Enabled)
@@ -518,7 +523,7 @@ class NavigationFooter(QtWidgets.QFrame):
         self.setButtonMode(self.cancel, self.Mode.Hidden)
         self.setButtonMode(self.new, self.Mode.Enabled)
 
-    def showOngoing(self):
+    def showWait(self):
         self.setButtonMode(self.back, self.Mode.Disabled)
         self.setButtonMode(self.next, self.Mode.Disabled)
         self.setButtonMode(self.exit, self.Mode.Hidden)

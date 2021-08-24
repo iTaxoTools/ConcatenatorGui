@@ -69,7 +69,7 @@ class Pending(AbstractStatus):
         painter.drawEllipse(point, cls.indicatorRadius, cls.indicatorRadius)
 
 
-class Final(Pending):
+class Milestone(Pending):
 
     indicatorRadius = 4
 

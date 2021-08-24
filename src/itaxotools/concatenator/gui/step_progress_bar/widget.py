@@ -58,13 +58,15 @@ class Step():
     Holds information for each step:
     - `text` will be visible on the bar
     - `weight` affects the length of the line after the step
-    - `status` affects text and indicator style
+    - `visible` determines if the state will be displayed
     The following are used internally by StepProgressBar:
+    - `status` affects text and indicator style
     - `width` is the minimum required for the text
     - `pos` holds the step horizontal position
     """
     text: str = ''
     weight: int = 1
+    visible: bool = True
     status: states.AbstractStatus = states.Pending
     width: int = field(repr=False, default=0)
     pos: int = field(repr=False, default=0)
@@ -89,9 +91,9 @@ class StepProgressBar(QtWidgets.QWidget):
     import stepprogressbar
     stepProgressBar = stepprogressbar.StepProgressBar()
     stepProgressBar.addStep('a', 'A', 1)
-    stepProgressBar.addStep('b', 'B', 2)
-    stepProgressBar.addStep('c', 'C', 0)
-    stepProgressBar.activateKey('b')
+    stepProgressBar.addStep('b', 'B', 2, False)
+    stepProgressBar.addStep('c', 'C')
+    stepProgressBar.activateKey('c')
     stepProgressBar.setOngoing()
     """
 
@@ -128,9 +130,10 @@ class StepProgressBar(QtWidgets.QWidget):
     def updateStepWidth(self, step):
         step.width = self.metrics.horizontalAdvance(step.text)
 
-    def addStep(self, key=None, text='', weight=1):
+    def addStep(self, key=None, text='', weight=1, visible=True, step=None):
         """Steps may be added along with a key for faster reference."""
-        step = Step(text=text, weight=weight)
+        if step is None:
+            step = Step(text=text, weight=weight, visible=visible)
         self.updateStepWidth(step)
         self.steps.append(step)
         if key is not None:
@@ -142,6 +145,10 @@ class StepProgressBar(QtWidgets.QWidget):
         for string in strings:
             self.addStep(string)
 
+    def getVisibleActiveStep(self):
+        prevs = [step for step in self.steps[:self.active+1] if step.visible]
+        return prevs[-1] if prevs else None
+
     def activateKey(self, key):
         """Activates the Step identified by given key"""
         index = self.keys[key] if key is not None else -1
@@ -150,11 +157,13 @@ class StepProgressBar(QtWidgets.QWidget):
     def activateIndex(self, index):
         """Activates the Step identified by given index"""
         index = min(max(index, -1), len(self.steps))
-        self.steps[-1].status = states.Final
+        for i in range(index + 1, len(self.steps)):
+            self.steps[i].status = states.Pending
+        visibleSteps = [step for step in self.steps if step.visible]
+        visibleSteps[0].status = states.Milestone
+        visibleSteps[-1].status = states.Milestone
         for i in range(0, index):
             self.steps[i].status = states.Complete
-        for i in range(index + 1, len(self.steps) - 1):
-            self.steps[i].status = states.Pending
         self.active = index
         self.setActive()
         self.repaint()
@@ -165,11 +174,19 @@ class StepProgressBar(QtWidgets.QWidget):
     def activatePrevious(self):
         self.activateIndex(self.active - 1)
 
+    def activateFirst(self):
+        self.activateIndex(-1)
+
+    def activateLast(self):
+        self.activateIndex(len(self.steps))
+
     def setStatus(self, status=states.Active):
         index = self.active
+        if index == len(self.steps) - 1 and not self.steps[index].visible:
+            return
         if index >= 0 and index < len(self.steps):
-            self.steps[index].status = status
-        self.timer.stop()
+            if step := self.getVisibleActiveStep():
+                step.status = status
 
     def setActive(self):
         """Current step is marked as Active"""
@@ -196,18 +213,18 @@ class StepProgressBar(QtWidgets.QWidget):
         painter.end()
 
     def draw(self, painter):
-
+        visibleSteps = [step for step in self.steps if step.visible]
         width = self.size().width()
         height = self.size().height()
 
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
 
-        totalStepWeight = sum(step.weight for step in self.steps[:-1])
+        totalStepWeight = sum(step.weight for step in visibleSteps[:-1])
         extraWidth = width - self.minimumWidth()
         extraHeight = height - self.minimumHeight()
 
         cursor = 0
-        for step in self.steps:
+        for step in visibleSteps:
             cursor += self.textPadding
             cursor += step.width / 2
             step.pos = int(cursor)
@@ -227,29 +244,34 @@ class StepProgressBar(QtWidgets.QWidget):
         painter.setPen(QtCore.Qt.NoPen)
         painter.setFont(self.font)
 
-        self.drawStepTexts(painter, textY)
-        self.drawStepIndicators(painter, lineY)
-        self.drawStepLines(painter, lineY)
+        self.drawStepTexts(visibleSteps, painter, textY)
+        self.drawStepIndicators(visibleSteps, painter, lineY)
+        self.drawStepLines(visibleSteps, painter, lineY)
 
-    def drawStepTexts(self, painter, textY):
-        for step in self.steps:
+    def drawStepTexts(self, steps, painter, textY):
+        for step in steps:
             painter.save()
             point = QtCore.QPoint(step.pos, textY)
             painter.translate(point)
             step.drawText(painter, self.palette)
             painter.restore()
 
-    def drawStepIndicators(self, painter, lineY):
-        for step in self.steps:
+    def drawStepIndicators(self, steps, painter, lineY):
+        for step in steps:
             painter.save()
             point = QtCore.QPoint(step.pos, lineY)
             painter.translate(point)
             step.drawIndicator(painter, self.palette)
             painter.restore()
 
-    def drawStepLines(self, painter, lineY):
-        x = self.steps[self.active].pos
-        for step1, step2 in zip(self.steps[:-1], self.steps[1:]):
+    def drawStepLines(self, steps, painter, lineY):
+        if  self.active >= len(self.steps):
+            x = self.size().width()
+        elif step := self.getVisibleActiveStep():
+            x = step.pos
+        else:
+            x = 0
+        for step1, step2 in zip(steps[:-1], steps[1:]):
             x1 = step1.pos
             x1 += step1.status.indicatorRadius
             x1 += self.indicatorPadding
@@ -270,8 +292,9 @@ class StepProgressBar(QtWidgets.QWidget):
         painter.drawLine(x1, y, x2, y)
 
     def minimumWidth(self):
-        width = sum(step.width for step in self.steps)
-        width += self.textPadding * (len(self.steps) + 1)
+        visibleSteps = [step for step in self.steps if step.visible]
+        width = sum(step.width for step in visibleSteps)
+        width += self.textPadding * (len(visibleSteps) + 1)
         return width
 
     def minimumHeight(self):
