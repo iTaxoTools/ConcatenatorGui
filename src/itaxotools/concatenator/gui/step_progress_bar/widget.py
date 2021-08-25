@@ -165,7 +165,7 @@ class StepProgressBar(QtWidgets.QWidget):
         for i in range(0, index):
             self.steps[i].status = states.Complete
         self.active = index
-        self.setActive()
+        self.setStatus(states.Active)
         self.repaint()
 
     def activateNext(self):
@@ -177,31 +177,22 @@ class StepProgressBar(QtWidgets.QWidget):
     def activateFirst(self):
         self.activateIndex(-1)
 
-    def activateLast(self):
+    def activateFinal(self):
         self.activateIndex(len(self.steps))
 
     def setStatus(self, status=states.Active):
+        """Mark current step with given status"""
         index = self.active
         if index == len(self.steps) - 1 and not self.steps[index].visible:
             return
         if index >= 0 and index < len(self.steps):
             if step := self.getVisibleActiveStep():
                 step.status = status
-
-    def setActive(self):
-        """Current step is marked as Active"""
-        self.setStatus(states.Active)
-        self.timer.stop()
-
-    def setFailed(self):
-        """Current step is marked as Failed"""
-        self.setStatus(states.Failed)
-        self.timer.stop()
-
-    def setOngoing(self):
-        """Current step is marked as Ongoing (animated)"""
-        self.setStatus(states.Ongoing)
-        self.timer.start(self.timerStep)
+                if status == states.Ongoing:
+                    self.timer.start(self.timerStep)
+                else:
+                    self.timer.stop()
+        self.repaint()
 
     def handleTimer(self):
         self.repaint()

@@ -33,8 +33,8 @@ from itaxotools.common import widgets
 from itaxotools.common import resources
 from itaxotools.common import io
 
-from . import step_progress_bar
-from . import step_state_machine
+from . import step_progress_bar as spb
+from . import step_state_machine as ssm
 
 
 try:
@@ -56,6 +56,55 @@ def get_resource(path):
     return str(_resource_path / path)
 def get_icon(path):
     return str(_resource_path / 'icons/svg' / path)
+
+
+class StepAbout(ssm.StepState):
+    def draw(self):
+        return QtWidgets.QLabel("what this all about")
+
+
+class StepInput(ssm.StepTriState):
+
+    class StepEdit(ssm.StepSubState):
+        def draw(self):
+            return QtWidgets.QLabel('StepInputEdit')
+
+    class StepWait(ssm.StepSubState):
+        def draw(self):
+            return QtWidgets.QLabel('StepInputWait')
+
+        def onEntry(self, event):
+            super().onEntry(event)
+            event = ssm.NavigateEvent(ssm.NavigateEvent.Event.Done)
+            self.machine().postDelayedEvent(event, 800)
+
+    class StepFail(ssm.StepSubState):
+        def draw(self):
+            return QtWidgets.QLabel('StepInputFail')
+
+        def onEntry(self, event):
+            super().onEntry(event)
+            QtWidgets.QApplication.beep()
+
+
+class StepAlign(ssm.StepState):
+    pass
+
+
+class StepCodons(ssm.StepState):
+    pass
+
+
+class StepFilters(ssm.StepState):
+    pass
+
+
+class StepExport(ssm.StepState):
+    pass
+
+
+class StepDone(ssm.StepState):
+    pass
 
 
 class Main(widgets.ToolDialog):
@@ -158,8 +207,8 @@ class Main(widgets.ToolDialog):
         scheme[QtGui.QPalette.Inactive] = scheme[QtGui.QPalette.Active]
         for group in scheme:
             for role in scheme[group]:
-                palette.setColor(group, role,
-                    QtGui.QColor(color[scheme[group][role]]))
+                palette.setColor(
+                    group, role, QtGui.QColor(color[scheme[group][role]]))
         QtGui.QGuiApplication.setPalette(palette)
 
         self.colormap = {
@@ -200,7 +249,7 @@ class Main(widgets.ToolDialog):
             'Convert between sequence file formats'
         )
 
-        self.stepProgressBar = step_progress_bar.StepProgressBar()
+        self.stepProgressBar = spb.StepProgressBar()
         font = QtGui.QGuiApplication.font()
         font.setPointSize(9)
         font.setLetterSpacing(QtGui.QFont.AbsoluteSpacing, 1)
@@ -213,13 +262,9 @@ class Main(widgets.ToolDialog):
 
         self.header.widget.setLayout(layout)
 
-        self.body = QtWidgets.QHBoxLayout()
-        self.body.addSpacing(4)
-        # self.body.setContentsMargins(8, 4, 8, 4)
+        self.body = QtWidgets.QStackedLayout()
 
         self.footer = widgets.NavigationFooter()
-
-        QtCore.QTimer.singleShot(0, self.footer.next.setFocus)
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(self.header, 0)
@@ -237,14 +282,14 @@ class Main(widgets.ToolDialog):
     def cog(self):
         """Initialize state machine"""
 
-        self.machine = step_state_machine.StepStateMachine(
-            self, self.stepProgressBar, self.footer)
-        self.machine.addStep('about', 'About', 1, False)
-        self.machine.addStep('input', 'Input', 1, True)
-        self.machine.addStep('align', 'Alignment', 3, True)
-        self.machine.addStep('codons', 'Codons', 2, True)
-        self.machine.addStep('filters', 'Filters', 1, True)
-        self.machine.addStep('export', 'Export', 1, True)
-        self.machine.addStep('done', 'Done', 1, False)
+        self.machine = ssm.StepStateMachine(
+            self, self.stepProgressBar, self.footer, self.body)
+        self.machine.addStep('about', 'About', 1, False, StepAbout)
+        self.machine.addStep('input', 'Input', 1, True, StepInput)
+        self.machine.addStep('align', 'Alignment', 3, True, StepAlign)
+        self.machine.addStep('codons', 'Codons', 2, True, StepCodons)
+        self.machine.addStep('filters', 'Filters', 1, True, StepFilters)
+        self.machine.addStep('export', 'Export', 1, True, StepExport)
+        self.machine.addStep('done', 'Done', 1, False, StepDone)
 
         self.machine.start()

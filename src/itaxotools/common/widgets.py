@@ -27,6 +27,7 @@ from PySide6 import QtSvg
 import enum
 import re
 
+
 ##############################################################################
 # Logging
 
@@ -458,10 +459,37 @@ class Subheader(QtWidgets.QFrame):
 class NavigationFooter(QtWidgets.QFrame):
     """A styled footer with navigation buttons"""
 
+    _mode_methods = {}
+
     class Mode(enum.Enum):
+        First = enum.auto()
+        Middle = enum.auto()
+        Final = enum.auto()
+        Wait = enum.auto()
+        Error = enum.auto()
+        Frozen = enum.auto()
+
+    class ButtonMode(enum.Enum):
         Enabled = enum.auto()
         Disabled = enum.auto()
         Hidden = enum.auto()
+
+    def mode_method(mode):
+        """
+        Class method decorator that populates `_mode_methods` with the
+        given mode, pointing to the decorated function, for use by setMode().
+        """
+        class ModeMethod:
+            def __init__(self, method):
+                self.method = method
+
+            def __call__(self, *args, **kwargs):
+                self.method(*args, **kwargs)
+
+            def __set_name__(self, owner, name):
+                owner._mode_methods[mode] = self.method
+                setattr(owner, name, self.method)
+        return ModeMethod
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -494,56 +522,77 @@ class NavigationFooter(QtWidgets.QFrame):
         self.setLayout(layout)
 
     def setButtonActions(self, dictionary):
+        """Bind functions to buttons"""
         for name in dictionary:
             button = getattr(self, name)
             button.clicked.connect(dictionary[name])
 
+    def setMode(self, mode: Mode, backwards=False):
+        """Calls the function corresponding to given mode"""
+        if mode in self._mode_methods:
+            self._mode_methods[mode](self, backwards)
+        else:
+            raise ValueError(f'Mode {mode} has no matching method.')
+
     def setButtonMode(self, button, mode):
-        button.setVisible(mode != self.Mode.Hidden)
-        button.setEnabled(mode == self.Mode.Enabled)
+        button.setVisible(mode != self.ButtonMode.Hidden)
+        button.setEnabled(mode == self.ButtonMode.Enabled)
 
-    def showBegin(self):
-        self.setButtonMode(self.back, self.Mode.Disabled)
-        self.setButtonMode(self.next, self.Mode.Enabled)
-        self.setButtonMode(self.exit, self.Mode.Hidden)
-        self.setButtonMode(self.cancel, self.Mode.Disabled)
-        self.setButtonMode(self.new, self.Mode.Hidden)
+    @mode_method(Mode.First)
+    def setModeFirst(self, backwards=False):
+        self.setButtonMode(self.back, self.ButtonMode.Disabled)
+        self.setButtonMode(self.next, self.ButtonMode.Enabled)
+        self.setButtonMode(self.exit, self.ButtonMode.Hidden)
+        self.setButtonMode(self.cancel, self.ButtonMode.Disabled)
+        self.setButtonMode(self.new, self.ButtonMode.Hidden)
+        self.next.setFocus()
 
-    def showIntermediate(self):
-        self.setButtonMode(self.back, self.Mode.Enabled)
-        self.setButtonMode(self.next, self.Mode.Enabled)
-        self.setButtonMode(self.exit, self.Mode.Hidden)
-        self.setButtonMode(self.cancel, self.Mode.Disabled)
-        self.setButtonMode(self.new, self.Mode.Hidden)
+    @mode_method(Mode.Middle)
+    def setModeMiddle(self, backwards=False):
+        self.setButtonMode(self.back, self.ButtonMode.Enabled)
+        self.setButtonMode(self.next, self.ButtonMode.Enabled)
+        self.setButtonMode(self.exit, self.ButtonMode.Hidden)
+        self.setButtonMode(self.cancel, self.ButtonMode.Disabled)
+        self.setButtonMode(self.new, self.ButtonMode.Hidden)
+        if backwards:
+            self.back.setFocus()
+        else:
+            self.next.setFocus()
 
-    def showFinal(self):
-        self.setButtonMode(self.back, self.Mode.Enabled)
-        self.setButtonMode(self.next, self.Mode.Hidden)
-        self.setButtonMode(self.exit, self.Mode.Enabled)
-        self.setButtonMode(self.cancel, self.Mode.Hidden)
-        self.setButtonMode(self.new, self.Mode.Enabled)
+    @mode_method(Mode.Final)
+    def setModeFinal(self, backwards=False):
+        self.setButtonMode(self.back, self.ButtonMode.Enabled)
+        self.setButtonMode(self.next, self.ButtonMode.Hidden)
+        self.setButtonMode(self.exit, self.ButtonMode.Enabled)
+        self.setButtonMode(self.cancel, self.ButtonMode.Hidden)
+        self.setButtonMode(self.new, self.ButtonMode.Enabled)
+        self.exit.setFocus()
 
-    def showWait(self):
-        self.setButtonMode(self.back, self.Mode.Disabled)
-        self.setButtonMode(self.next, self.Mode.Disabled)
-        self.setButtonMode(self.exit, self.Mode.Hidden)
-        self.setButtonMode(self.cancel, self.Mode.Enabled)
-        self.setButtonMode(self.new, self.Mode.Hidden)
+    @mode_method(Mode.Wait)
+    def setModeWait(self, backwards=False):
+        self.setButtonMode(self.back, self.ButtonMode.Disabled)
+        self.setButtonMode(self.next, self.ButtonMode.Disabled)
+        self.setButtonMode(self.exit, self.ButtonMode.Hidden)
+        self.setButtonMode(self.cancel, self.ButtonMode.Enabled)
+        self.setButtonMode(self.new, self.ButtonMode.Hidden)
+        self.cancel.setFocus()
 
-    def showError(self):
-        self.setButtonMode(self.back, self.Mode.Enabled)
-        self.setButtonMode(self.next, self.Mode.Disabled)
-        self.setButtonMode(self.exit, self.Mode.Hidden)
-        self.setButtonMode(self.cancel, self.Mode.Disabled)
-        self.setButtonMode(self.new, self.Mode.Hidden)
+    @mode_method(Mode.Error)
+    def setModeError(self, backwards=False):
+        self.setButtonMode(self.back, self.ButtonMode.Enabled)
+        self.setButtonMode(self.next, self.ButtonMode.Disabled)
+        self.setButtonMode(self.exit, self.ButtonMode.Hidden)
+        self.setButtonMode(self.cancel, self.ButtonMode.Disabled)
+        self.setButtonMode(self.new, self.ButtonMode.Hidden)
+        self.back.setFocus()
 
-    def showFrozen(self):
-        self.setButtonMode(self.back, self.Mode.Disabled)
-        self.setButtonMode(self.next, self.Mode.Disabled)
-        self.setButtonMode(self.exit, self.Mode.Hidden)
-        self.setButtonMode(self.cancel, self.Mode.Disabled)
-        self.setButtonMode(self.new, self.Mode.Hidden)
-
+    @mode_method(Mode.Frozen)
+    def setModeFrozen(self, backwards=False):
+        self.setButtonMode(self.back, self.ButtonMode.Disabled)
+        self.setButtonMode(self.next, self.ButtonMode.Disabled)
+        self.setButtonMode(self.exit, self.ButtonMode.Hidden)
+        self.setButtonMode(self.cancel, self.ButtonMode.Disabled)
+        self.setButtonMode(self.new, self.ButtonMode.Hidden)
 
 
 class Panel(QtWidgets.QWidget):
