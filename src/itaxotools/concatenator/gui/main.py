@@ -73,25 +73,49 @@ class StepInput(ssm.StepTriState):
         def draw(self):
             return QtWidgets.QLabel('StepInputWait')
 
-        def onEntry(self, event):
-            super().onEntry(event)
-            event = ssm.NavigateEvent(ssm.NavigateEvent.Event.Done)
-            self.machine().postDelayedEvent(event, 800)
-
     class StepFail(ssm.StepSubState):
         def draw(self):
             return QtWidgets.QLabel('StepInputFail')
 
-        def onEntry(self, event):
-            super().onEntry(event)
-            QtWidgets.QApplication.beep()
+    def __init__(self, *ags, **kwargs):
+        super().__init__(*ags, **kwargs)
+        self.transitions['waitFail'].setTargetState(self.states['edit'])
+
+    def work(self):
+        self.data.ans = 42
+        # return True
+        # raise Exception('test')
+        # QtCore.QTimer.singleShot(1000, lambda: self.threadExit(1))
+        QtCore.QTimer.singleShot(1000, lambda: self.threadExit())
+        super().work()
+
+    def onDone(self, result):
+        msgBox = QtWidgets.QMessageBox(self.machine().parent())
+        msgBox.setWindowTitle('Done')
+        msgBox.setIcon(QtWidgets.QMessageBox.Information)
+        msgBox.setText('Success:')
+        msgBox.setInformativeText(str(self.data.ans))
+        msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        msgBox.setDefaultButton(QtWidgets.QMessageBox.Ok)
+        msgBox.exec()
 
 
-class StepAlign(ssm.StepState):
-    pass
+class StepAlign(ssm.StepTriState):
+
+    def __init__(self, *ags, **kwargs):
+        super().__init__(*ags, **kwargs)
+        self.threadTerminateTimeout = 0
+
+    def work(self):
+        a, m = 1, 5
+        while a < m:
+            print(f'working {a}/{m}')
+            QtCore.QThread.msleep(1000)
+            a += 1
+        print(f'working {a}/{m}')
 
 
-class StepCodons(ssm.StepState):
+class StepCodons(ssm.StepTriState):
     pass
 
 
@@ -293,3 +317,9 @@ class Main(widgets.ToolDialog):
         self.machine.addStep('done', 'Done', 1, False, StepDone)
 
         self.machine.start()
+
+    def onReject(self):
+        return self.machine.cancel()
+
+    def postReject(self):
+        self.machine.terminate()

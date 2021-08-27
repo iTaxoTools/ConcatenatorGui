@@ -759,7 +759,11 @@ class ToolDialog(QtWidgets.QDialog):
         msgBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
         confirm = self.msgShow(msgBox)
         if confirm == QtWidgets.QMessageBox.Yes:
+            self.postReject()
             super().reject()
+
+    def postReject(self):
+        pass
 
     def onReject(self):
         """
