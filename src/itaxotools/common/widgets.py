@@ -495,11 +495,35 @@ class NavigationFooter(QtWidgets.QFrame):
         super().__init__(*args, **kwargs)
         self.setStyleSheet("""
             QFrame {
-                margin-left: 6px;
-                margin-right: 6px;
                 border-style: solid;
                 border-width: 1px 0px 0px 0px;
-                border-color: palette(Mid);
+                border-color: Palette(Mid);
+                }
+            QPushButton {
+                border: 1px solid Palette(Mid);
+                background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                    stop: 0 Palette(Light), stop: 1 Palette(Window));
+                color: Palette(Text);
+                padding: 5px 15px;
+                min-width: 80px;
+                outline: none;
+                }
+            QPushButton:focus {
+                border: 1px solid Palette(Highlight);
+                background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 10,
+                    stop: 0 Palette(Light), stop: 1 Palette(Highlight));
+                }
+            QPushButton:hover {
+                background: Palette(Light);
+                }
+            QPushButton:pressed {
+                border: 1px solid Palette(Highlight);
+                background: Palette(Midlight);
+                }
+            QPushButton:disabled {
+                border: 1px solid qlineargradient(x1: -1, y1: 0, x2: 0, y2: 2,
+                    stop: 0 Palette(Midlight), stop: 1 Palette(Dark));
+                color: Palette(Dark)
                 }
             """)
 
@@ -514,11 +538,10 @@ class NavigationFooter(QtWidgets.QFrame):
         layout.addWidget(self.new)
         layout.addStretch(1)
         layout.addWidget(self.back)
-        layout.addSpacing(6)
         layout.addWidget(self.next)
         layout.addWidget(self.exit)
-        layout.setSpacing(0)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(12)
+        layout.setContentsMargins(16, 16, 16, 16)
         self.setLayout(layout)
 
     def setButtonActions(self, dictionary):

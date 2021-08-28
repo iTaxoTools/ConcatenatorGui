@@ -31,13 +31,13 @@ from . import step_progress_bar as spb
 
 
 class FailedError(Exception):
-    def __init__(self, code):
+    def __init__(self, code=1):
         super().__init__(f'Thread failed with code: {code}')
         self.code = code
 
 
 class CancelledError(Exception):
-    def __init__(self, code):
+    def __init__(self, code=-1):
         super().__init__(f'Thread cancelled with code: {code}')
         self.code = code
 
@@ -61,7 +61,7 @@ class WorkerThread(QtCore.QThread):
     def run(self):
         try:
             result = self.function(*self.args, **self.kwargs)
-        except (CancelledError, TerminatedError) as exception:
+        except CancelledError as exception:
             self.cancel.emit(exception)
         except Exception as exception:
             self.fail.emit(exception)
@@ -192,9 +192,12 @@ class StepTriState(StepState):
         self.data = self.DataObject()
 
     def draw(self):
-        return QtWidgets.QStackedWidget()
+        widget = QtWidgets.QStackedWidget()
+        widget.setContentsMargins(0, 0, 0, 0)
+        return widget
 
     def threadTerminate(self):
+        """Attempt to cleanly exit, then forcibly terminate (dangerous!)"""
         self.parent().waiting = False
         self.workerThread.requestInterruption()
         self.workerThread.exit(-1)
@@ -218,6 +221,8 @@ class StepTriState(StepState):
         - Return a result (forwarded to self.onDone()),
         - Raise an exception (forwarded to self.onFail() or self.onCancel()),
         - Queue self.threadExit() and call super().work().
+        For long tasks, you may check workerThread.isInterruptionRequested()
+        and raise CancelledError() if True.
         """
         code = self.thread().exec()
         if code < 0:

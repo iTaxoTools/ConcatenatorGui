@@ -160,6 +160,8 @@ class TextEditLoggerIO(io.IOBase):
 
     def write(self, text):
         self.widget.append(text)
+        sb = self.widget.verticalScrollBar()
+        sb.setValue(sb.maximum())
 
     def writeline(self, line):
         self.write(line+'\n')

@@ -28,6 +28,9 @@ import shutil
 import enum
 import sys
 
+from lorem_text import lorem
+from random import randint
+
 from itaxotools.common import utility
 from itaxotools.common import widgets
 from itaxotools.common import resources
@@ -58,24 +61,58 @@ def get_icon(path):
     return str(_resource_path / 'icons/svg' / path)
 
 
+def dummy_work(self, count, max, period):
+    while count < max:
+        self.updateProgressSignal.emit(
+            count, max, lorem.words(3), lorem.words(randint(3, 12)))
+        for i in range(0, int(period/10)):
+            QtCore.QThread.msleep(10)
+            if self.workerThread.isInterruptionRequested():
+                raise ssm.CancelledError(-1)
+        print(f'working {count}/{max}')
+        count += 1
+    print(f'working {count}/{max}')
+
+
+class StepFrame(QtWidgets.QWidget):
+    def __init__(self, text):
+        super().__init__()
+
+        self.label = QtWidgets.QLabel(text)
+        self.label.setStyleSheet("""
+            QLabel {
+                font-size: 16px;
+                letter-spacing: 1px;
+            }""")
+        self.body = QtWidgets.QWidget()
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self.label)
+        layout.addSpacing(8)
+        layout.addWidget(self.body, 1)
+        layout.setContentsMargins(0, 16, 0, 16)
+        self.setLayout(layout)
+
+
 class StepAbout(ssm.StepState):
-    def draw(self):
-        return QtWidgets.QLabel("what this all about")
+    pass
 
 
 class StepInput(ssm.StepTriState):
 
+    title = 'File Input'
+
     class StepEdit(ssm.StepSubState):
         def draw(self):
-            return QtWidgets.QLabel('StepInputEdit')
+            return StepFrame(self.parent().title)
 
     class StepWait(ssm.StepSubState):
         def draw(self):
-            return QtWidgets.QLabel('StepInputWait')
+            return StepFrame(self.parent().title)
 
     class StepFail(ssm.StepSubState):
         def draw(self):
-            return QtWidgets.QLabel('StepInputFail')
+            return StepFrame(self.parent().title)
 
     def __init__(self, *ags, **kwargs):
         super().__init__(*ags, **kwargs)
@@ -102,18 +139,75 @@ class StepInput(ssm.StepTriState):
 
 class StepAlign(ssm.StepTriState):
 
+    title = 'Sequence Alignment'
+    updateProgressSignal = QtCore.Signal(int, int, str, str)
+
+    class StepWait(ssm.StepSubState):
+        def draw(self):
+            widget = StepFrame(self.parent().title)
+
+            progtext = QtWidgets.QLabel('No task')
+            progtext.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+            progbar = QtWidgets.QProgressBar()
+            progbar.setTextVisible(False)
+            progbar.setStyleSheet("""
+                QProgressBar {
+                    background: Palette(Light);
+                    border: 1px solid Palette(Mid);
+                    border-radius: 0px;
+                    text-align: center;
+                }
+                QProgressBar::chunk {
+                    background-color: Palette(Highlight);
+                    width: 1px;
+                }""")
+            logger = widgets.TextEditLogger()
+            logger.setFont(QtGui.QFontDatabase.systemFont(
+                QtGui.QFontDatabase.FixedFont))
+            logger.document().setDocumentMargin(10)
+            logio = io.TextEditLoggerIO(logger)
+            for i in range(1, 50):
+                logio.writeline(lorem.words(randint(3, 12)))
+
+            layout = QtWidgets.QVBoxLayout()
+            layout.addWidget(progtext)
+            layout.addSpacing(6)
+            layout.addWidget(progbar)
+            layout.addSpacing(12)
+            layout.addWidget(logger, 1)
+            layout.setSpacing(0)
+            layout.setContentsMargins(16, 0, 16, 0)
+            widget.body.setLayout(layout)
+
+            self.parent().logio = logio
+            self.parent().progtext = progtext
+            self.parent().progbar = progbar
+
+            return widget
+
     def __init__(self, *ags, **kwargs):
         super().__init__(*ags, **kwargs)
-        self.threadTerminateTimeout = 0
+        self.updateProgressSignal.connect(self.updateProgress)
+
+    def updateProgress(self, x, m, w, t):
+        self.progtext.setText(f'Sequence {x}/{m}: {w}')
+        self.progbar.setMaximum(m)
+        self.progbar.setValue(x)
+        self.logio.writeline(t)
 
     def work(self):
-        a, m = 1, 5
-        while a < m:
-            print(f'working {a}/{m}')
-            QtCore.QThread.msleep(1000)
-            a += 1
-        print(f'working {a}/{m}')
+        dummy_work(self, 42, 500, 10)
 
+    def filterCancel(self):
+        msgBox = QtWidgets.QMessageBox(self.machine().parent())
+        msgBox.setWindowTitle('Cancel')
+        msgBox.setIcon(QtWidgets.QMessageBox.Question)
+        msgBox.setText('Cancel current task?')
+        msgBox.setStandardButtons(
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+        msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
+        res = msgBox.exec()
+        return res == QtWidgets.QMessageBox.Yes
 
 class StepCodons(ssm.StepTriState):
     pass
@@ -270,7 +364,7 @@ class Main(widgets.ToolDialog):
             'by V. Kharchev and S. Patmanidis'
             )
         self.header.description = (
-            'Convert between sequence file formats'
+            'Sequence alignment file manipulation'
         )
 
         self.stepProgressBar = spb.StepProgressBar()
@@ -283,19 +377,18 @@ class Main(widgets.ToolDialog):
         layout = QtWidgets.QHBoxLayout()
         layout.addWidget(self.stepProgressBar)
         layout.setContentsMargins(0, 8, 0, 8)
-
         self.header.widget.setLayout(layout)
 
         self.body = QtWidgets.QStackedLayout()
-
         self.footer = widgets.NavigationFooter()
 
-        layout = QtWidgets.QVBoxLayout(self)
-        layout.addWidget(self.header, 0)
-        layout.addSpacing(8)
-        layout.addLayout(self.body, 1)
-        layout.addSpacing(8)
-        layout.addWidget(self.footer, 0)
+        layout = QtWidgets.QGridLayout()
+        layout.addWidget(self.header, 0, 0, 1, 3)
+        layout.addLayout(self.body, 1, 1)
+        layout.addWidget(self.footer, 2, 1)
+        layout.setRowStretch(1, 1)
+        layout.setColumnMinimumWidth(0, 16)
+        layout.setColumnMinimumWidth(2, 16)
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
@@ -315,6 +408,8 @@ class Main(widgets.ToolDialog):
         self.machine.addStep('filters', 'Filters', 1, True, StepFilters)
         self.machine.addStep('export', 'Export', 1, True, StepExport)
         self.machine.addStep('done', 'Done', 1, False, StepDone)
+
+        # self.machine.setInitialState(self.machine.states['align'])
 
         self.machine.start()
 
