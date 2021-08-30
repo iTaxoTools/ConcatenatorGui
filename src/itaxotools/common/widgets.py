@@ -45,6 +45,8 @@ class TextEditLogger(QtWidgets.QPlainTextEdit):
         """Using signals ensures thread safety"""
         self.moveCursor(QtGui.QTextCursor.End)
         self.insertPlainText(text)
+        sb = self.verticalScrollBar()
+        sb.setValue(sb.maximum())
         self.moveCursor(QtGui.QTextCursor.End)
 
     def append(self, text):
@@ -247,9 +249,8 @@ class Header(QtWidgets.QFrame):
         """ """
         super().__init__()
 
-        self._title = None
-        self._description = None
-        self._citation = None
+        self.dictTool = {'title': '', 'citation': '', 'description': ''}
+        self.dictTask = {'title': '', 'description': ''}
         self._logoTool = None
 
         self.logoSize = 64
@@ -269,9 +270,11 @@ class Header(QtWidgets.QFrame):
             QtWidgets.QSizePolicy.Policy.Minimum,
             QtWidgets.QSizePolicy.Policy.Maximum)
 
-        self.labelTitle = QtWidgets.QLabel('TITLE')
-        self.labelTitle.setAlignment(QtCore.Qt.AlignBottom)
-        self.labelTitle.setStyleSheet("""
+        self.labels = QtWidgets.QWidget()
+
+        self.labelTool = QtWidgets.QLabel('TOOL')
+        self.labelTool.setAlignment(QtCore.Qt.AlignBottom)
+        self.labelTool.setStyleSheet("""
             color: palette(Text);
             font-size: 14px;
             letter-spacing: 1px;
@@ -287,6 +290,15 @@ class Header(QtWidgets.QFrame):
             font-style: italic;
             """)
 
+        self.labelTask = QtWidgets.QLabel('TASK')
+        self.labelTask.setAlignment(QtCore.Qt.AlignBottom)
+        self.labelTask.setStyleSheet("""
+            color: palette(Shadow);
+            font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            """)
+
         self.labelDescription = QtWidgets.QLabel('DESCRIPTION')
         self.labelDescription.setAlignment(QtCore.Qt.AlignTop)
         self.labelDescription.setStyleSheet("""
@@ -295,18 +307,20 @@ class Header(QtWidgets.QFrame):
             letter-spacing: 1px;
             """)
 
-        labels = QtWidgets.QGridLayout()
-        labels.setRowStretch(0, 2)
-        labels.addWidget(self.labelTitle, 1, 0)
-        labels.addWidget(self.labelCitation, 1, 1)
-        labels.addWidget(self.labelDescription, 2, 0, 1, 3)
-        labels.setRowStretch(3, 2)
-        labels.setColumnStretch(2, 1)
-        labels.setHorizontalSpacing(4)
-        labels.setVerticalSpacing(4)
-        labels.setContentsMargins(0, 0, 0, 4)
-        labels.setRowMinimumHeight(0, 6)
-        labels.setRowMinimumHeight(3, 6)
+        layout = QtWidgets.QGridLayout()
+        layout.setRowStretch(0, 2)
+        layout.addWidget(self.labelTool, 1, 0)
+        layout.addWidget(self.labelCitation, 1, 1)
+        layout.addWidget(self.labelTask, 2, 0)
+        layout.addWidget(self.labelDescription, 3, 0, 1, 4)
+        layout.setRowStretch(4, 2)
+        layout.setColumnStretch(2, 1)
+        layout.setHorizontalSpacing(4)
+        layout.setVerticalSpacing(4)
+        layout.setContentsMargins(0, 0, 0, 4)
+        layout.setRowMinimumHeight(0, 6)
+        layout.setRowMinimumHeight(4, 6)
+        self.labels.setLayout(layout)
 
         self.labelLogoTool = QtWidgets.QLabel()
         self.labelLogoTool.setAlignment(QtCore.Qt.AlignCenter)
@@ -377,7 +391,7 @@ class Header(QtWidgets.QFrame):
         layout.addSpacing(6)
         layout.addWidget(VLineSeparator(1))
         layout.addSpacing(12)
-        layout.addLayout(labels, 0)
+        layout.addWidget(self.labels, 0)
         layout.addSpacing(12)
         layout.addWidget(VLineSeparator(1))
         layout.addSpacing(8)
@@ -394,32 +408,45 @@ class Header(QtWidgets.QFrame):
 
         self.setLayout(layout)
 
-    @property
-    def title(self):
-        return self._title
+    def setTool(self, title, citation, description):
+        self.showTool(title, citation, description)
+        self.updateLabelWidth()
 
-    @title.setter
-    def title(self, title):
-        self.labelTitle.setText(title)
-        self._title = title
+    def showTool(self, title=None, citation=None, description=None):
+        self.dictTool = {
+            'title': (self.dictTool['title']
+                      if title is None
+                      else title),
+            'citation': (self.dictTool['citation']
+                         if citation is None
+                         else citation),
+            'description': (self.dictTool['description']
+                            if description is None
+                            else ' ' + description)}
+        self.labelTool.setText(self.dictTool['title'])
+        self.labelCitation.setText(self.dictTool['citation'])
+        self.labelDescription.setText(self.dictTool['description'])
+        self.labelTask.setVisible(False)
+        self.labelTool.setVisible(True)
+        self.labelCitation.setVisible(True)
 
-    @property
-    def description(self):
-        return self._description
+    def showTask(self, title=None, description=None):
+        self.dictTask = {
+            'title': (self.dictTask['title']
+                      if title is None
+                      else title),
+            'description': (self.dictTask['description']
+                            if description is None
+                            else ' ' + description)}
+        self.labelTask.setText(self.dictTask['title'])
+        self.labelDescription.setText(self.dictTask['description'])
+        self.labelTool.setVisible(False)
+        self.labelCitation.setVisible(False)
+        self.labelTask.setVisible(True)
 
-    @description.setter
-    def description(self, description):
-        self.labelDescription.setText(description)
-        self._description = description
-
-    @property
-    def citation(self):
-        return self._citation
-
-    @citation.setter
-    def citation(self, citation):
-        self.labelCitation.setText(citation)
-        self._citation = citation
+    def updateLabelWidth(self):
+        width = max(self.labels.minimumWidth(), self.labels.sizeHint().width())
+        self.labels.setMinimumWidth(width)
 
     @property
     def logoTool(self):
@@ -508,21 +535,32 @@ class NavigationFooter(QtWidgets.QFrame):
                 min-width: 80px;
                 outline: none;
                 }
-            QPushButton:focus {
+            QPushButton:hover {
+                border: 1px solid qlineargradient(x1: -1, y1: 0, x2: 0, y2: 2,
+                    stop: 0 Palette(Midlight), stop: 1 Palette(Mid));
+                background: Palette(Light);
+                }
+            QPushButton:focus:hover {
+                border: 1px solid Palette(Highlight);
+                background: Palette(Light);
+                }
+            QPushButton:focus:!hover {
                 border: 1px solid Palette(Highlight);
                 background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 10,
                     stop: 0 Palette(Light), stop: 1 Palette(Highlight));
                 }
-            QPushButton:hover {
-                background: Palette(Light);
+            QPushButton:focus:pressed {
+                border: 1px solid Palette(Highlight);
+                background: Palette(Midlight);
                 }
             QPushButton:pressed {
                 border: 1px solid Palette(Highlight);
                 background: Palette(Midlight);
                 }
             QPushButton:disabled {
-                border: 1px solid qlineargradient(x1: -1, y1: 0, x2: 0, y2: 2,
+                border: 1px solid qlineargradient(x1: 0, y1: -1, x2: 0, y2: 2,
                     stop: 0 Palette(Midlight), stop: 1 Palette(Dark));
+                background: Palette(Midlight);
                 color: Palette(Dark)
                 }
             """)
@@ -540,7 +578,7 @@ class NavigationFooter(QtWidgets.QFrame):
         layout.addWidget(self.back)
         layout.addWidget(self.next)
         layout.addWidget(self.exit)
-        layout.setSpacing(12)
+        layout.setSpacing(8)
         layout.setContentsMargins(16, 16, 16, 16)
         self.setLayout(layout)
 

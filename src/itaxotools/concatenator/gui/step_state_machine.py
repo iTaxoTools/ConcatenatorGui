@@ -114,15 +114,22 @@ class NavigateTransition(QtStateMachine.QAbstractTransition):
 
 
 class StepSubState(QtStateMachine.QState):
+
+    title = None
+    description = None
+
     def __init__(self, parent, stack, navMode, progStatus):
         super().__init__(parent)
         self.stack = stack
         self.navMode = navMode
         self.progStatus = progStatus
         self.stepProgressBar = parent.stepProgressBar
-        self.navigationFooter = parent.navigationFooter
+        self.header = parent.header
+        self.footer = parent.footer
         self.widget = self.draw()
         self.stack.addWidget(self.widget)
+        self.header.showTask(self.title, self.description)
+        self.header.updateLabelWidth()
 
     def draw(self):
         return QtWidgets.QWidget()
@@ -132,7 +139,11 @@ class StepSubState(QtStateMachine.QState):
         if isinstance(event, NavigateEvent):
             backwards = event.event == NavigateEvent.Event.Back
         self.stack.setCurrentWidget(self.widget)
-        self.navigationFooter.setMode(self.navMode, backwards)
+        if self.title is None and self.description is None:
+            self.header.showTool()
+        else:
+            self.header.showTask(self.title, self.description)
+        self.footer.setMode(self.navMode, backwards)
         self.stepProgressBar.setStatus(self.progStatus)
 
 
@@ -178,6 +189,8 @@ class StepTriState(StepState):
     StepWait = StepSubState
     StepFail = StepSubState
 
+    updateSignal = QtCore.Signal(object)
+
     class DataObject(object):
         pass
 
@@ -189,6 +202,7 @@ class StepTriState(StepState):
         self.workerThread.fail.connect(self._onFail)
         self.workerThread.cancel.connect(self.onCancel)
         self.threadTerminateTimeout = 1000
+        self.updateSignal.connect(self.updateProgress)
         self.data = self.DataObject()
 
     def draw(self):
@@ -214,9 +228,18 @@ class StepTriState(StepState):
         """
         self.workerThread.exit(code)
 
+    def threadCheck(self):
+        """
+        Call this from within a worker thread to check if the thread
+        should exit by user request. If so, CancelledError is raised,
+        which should then be handled by WorkerThread.run().
+        """
+        if self.workerThread.isInterruptionRequested():
+            raise CancelledError(-1)
+
     def work(self):
         """
-        This is executed with StepWait.onEntry on a new QThread.
+        Virtual. Executed by StepWait.onEntry on a new QThread.
         Overload to assign a meaningful task. This should either:
         - Return a result (forwarded to self.onDone()),
         - Raise an exception (forwarded to self.onFail() or self.onCancel()),
@@ -229,6 +252,10 @@ class StepTriState(StepState):
             raise CancelledError(code)
         if code > 0:
             raise FailedError(code)
+
+    def updateProgress(self, obj):
+        """Virtual. Called when worker thread uses updateSignal.emit(obj)"""
+        pass
 
     def _onDone(self, result):
         self.onDone(result)
@@ -334,18 +361,20 @@ class StepStateMachine(QtStateMachine.QStateMachine):
     def __init__(self,
                  parent: QtWidgets.QWidget,
                  stepProgressBar: spb.StepProgressBar,
-                 navigationFooter: widgets.NavigationFooter,
+                 header: widgets.Header,
+                 footer: widgets.NavigationFooter,
                  stack: QtWidgets.QStackedLayout
                  ):
         super().__init__(parent)
         self.stepProgressBar = stepProgressBar
-        self.navigationFooter = navigationFooter
+        self.header = header
+        self.footer = footer
         self.stack = stack
         self.waiting = False
         self.states = {}
         self.steps = []
 
-        self.navigationFooter.setButtonActions({
+        self.footer.setButtonActions({
             'next': self.eventGenerator(action=NavigateEvent.Event.Next),
             'back': self.eventGenerator(action=NavigateEvent.Event.Back),
             'exit': self.eventGenerator(action=NavigateEvent.Event.Exit),

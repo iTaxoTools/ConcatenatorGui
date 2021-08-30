@@ -56,8 +56,8 @@ def redirect(module=sys, stream='stdout', dest=None, mode='w'):
 
 class PipeIO(io.IOBase):
     """File-like object that writes to a pipe connection"""
-    #? There are possibly better ways to do this
-    #? Todo- implement read
+    # ? There are possibly better ways to do this
+    # ? Todo- implement read
     def __init__(self, connection, mode):
         super().__init__()
         self._pid = os.getpid()
@@ -160,8 +160,6 @@ class TextEditLoggerIO(io.IOBase):
 
     def write(self, text):
         self.widget.append(text)
-        sb = self.widget.verticalScrollBar()
-        sb.setValue(sb.maximum())
 
     def writeline(self, line):
         self.write(line+'\n')

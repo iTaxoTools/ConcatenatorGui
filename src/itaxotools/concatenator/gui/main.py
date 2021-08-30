@@ -61,37 +61,21 @@ def get_icon(path):
     return str(_resource_path / 'icons/svg' / path)
 
 
-def dummy_work(self, count, max, period):
-    while count < max:
-        self.updateProgressSignal.emit(
-            count, max, lorem.words(3), lorem.words(randint(3, 12)))
-        for i in range(0, int(period/10)):
-            QtCore.QThread.msleep(10)
-            if self.workerThread.isInterruptionRequested():
-                raise ssm.CancelledError(-1)
-        print(f'working {count}/{max}')
-        count += 1
-    print(f'working {count}/{max}')
-
-
-class StepFrame(QtWidgets.QWidget):
-    def __init__(self, text):
-        super().__init__()
-
-        self.label = QtWidgets.QLabel(text)
-        self.label.setStyleSheet("""
-            QLabel {
-                font-size: 16px;
-                letter-spacing: 1px;
-            }""")
-        self.body = QtWidgets.QWidget()
-
-        layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(self.label)
-        layout.addSpacing(8)
-        layout.addWidget(self.body, 1)
-        layout.setContentsMargins(0, 16, 0, 16)
-        self.setLayout(layout)
+def dummy_work(self, count, max, lines, period):
+    with io.redirect(sys, 'stdout', self.logio):
+        print('')
+        while True:
+            text = lorem.words(3)
+            print(f'\nStep {count}/{max} {text}')
+            for i in range(1, lines):
+                print(lorem.words(randint(3, 12)))
+            self.updateSignal.emit((count, max, text))
+            if count >= max:
+                break
+            for i in range(0, int(period/10)):
+                QtCore.QThread.msleep(10)
+                self.threadCheck()
+            count += 1
 
 
 class StepAbout(ssm.StepState):
@@ -99,24 +83,32 @@ class StepAbout(ssm.StepState):
 
 
 class StepInput(ssm.StepTriState):
-
     title = 'File Input'
 
     class StepEdit(ssm.StepSubState):
+        description = 'Edit'
+
         def draw(self):
-            return StepFrame(self.parent().title)
+            text = f'{self.parent().title}: {self.description}'
+            return QtWidgets.QLabel(text)
 
     class StepWait(ssm.StepSubState):
+        description = 'Wait'
+
         def draw(self):
-            return StepFrame(self.parent().title)
+            text = f'{self.parent().title}: {self.description}'
+            return QtWidgets.QLabel(text)
 
     class StepFail(ssm.StepSubState):
+        description = 'Fail'
+
         def draw(self):
-            return StepFrame(self.parent().title)
+            text = f'{self.parent().title}: {self.description}'
+            return QtWidgets.QLabel(text)
 
     def __init__(self, *ags, **kwargs):
         super().__init__(*ags, **kwargs)
-        self.transitions['waitFail'].setTargetState(self.states['edit'])
+        # self.transitions['waitFail'].setTargetState(self.states['edit'])
 
     def work(self):
         self.data.ans = 42
@@ -138,13 +130,19 @@ class StepInput(ssm.StepTriState):
 
 
 class StepAlign(ssm.StepTriState):
-
     title = 'Sequence Alignment'
-    updateProgressSignal = QtCore.Signal(int, int, str, str)
+
+    class StepEdit(ssm.StepSubState):
+        description = 'Options, options'
+
+    class StepFail(ssm.StepSubState):
+        description = 'Task failed'
 
     class StepWait(ssm.StepSubState):
+        description = 'Please wait...'
+
         def draw(self):
-            widget = StepFrame(self.parent().title)
+            widget = QtWidgets.QWidget()
 
             progtext = QtWidgets.QLabel('No task')
             progtext.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
@@ -166,37 +164,38 @@ class StepAlign(ssm.StepTriState):
                 QtGui.QFontDatabase.FixedFont))
             logger.document().setDocumentMargin(10)
             logio = io.TextEditLoggerIO(logger)
-            for i in range(1, 50):
-                logio.writeline(lorem.words(randint(3, 12)))
 
             layout = QtWidgets.QVBoxLayout()
             layout.addWidget(progtext)
             layout.addSpacing(6)
             layout.addWidget(progbar)
-            layout.addSpacing(12)
+            layout.addSpacing(16)
             layout.addWidget(logger, 1)
             layout.setSpacing(0)
             layout.setContentsMargins(16, 0, 16, 0)
-            widget.body.setLayout(layout)
+            widget.setLayout(layout)
 
             self.parent().logio = logio
+            self.parent().logger = logger
             self.parent().progtext = progtext
             self.parent().progbar = progbar
 
             return widget
 
-    def __init__(self, *ags, **kwargs):
-        super().__init__(*ags, **kwargs)
-        self.updateProgressSignal.connect(self.updateProgress)
+        def onEntry(self, event):
+            super().onEntry(event)
+            self.parent().logger.clear()
+            for i in range(1, 50):
+                self.parent().logio.writeline(lorem.words(randint(3, 12)))
 
-    def updateProgress(self, x, m, w, t):
+    def updateProgress(self, tuple):
+        x, m, w = tuple
         self.progtext.setText(f'Sequence {x}/{m}: {w}')
         self.progbar.setMaximum(m)
         self.progbar.setValue(x)
-        self.logio.writeline(t)
 
     def work(self):
-        dummy_work(self, 42, 500, 10)
+        dummy_work(self, 42, 200, 10, 10)
 
     def filterCancel(self):
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
@@ -208,6 +207,7 @@ class StepAlign(ssm.StepTriState):
         msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
         res = msgBox.exec()
         return res == QtWidgets.QMessageBox.Yes
+
 
 class StepCodons(ssm.StepTriState):
     pass
@@ -359,13 +359,11 @@ class Main(widgets.ToolDialog):
             size=QtCore.QSize(48, 48), colormap=self.colormap_icon)
         self.header.logoProject = QtGui.QPixmap(
             get_resource('logos/png/itaxotools-micrologo.png'))
-        self.header.title = 'Concatenator'
-        self.header.citation = (
-            'by V. Kharchev and S. Patmanidis'
-            )
-        self.header.description = (
-            'Sequence alignment file manipulation'
-        )
+
+        self.header.setTool(
+            title='Concatenator',
+            citation='by V. Kharchev and S. Patmanidis',
+            description='Sequence alignment file manipulation')
 
         self.stepProgressBar = spb.StepProgressBar()
         font = QtGui.QGuiApplication.font()
@@ -383,12 +381,16 @@ class Main(widgets.ToolDialog):
         self.footer = widgets.NavigationFooter()
 
         layout = QtWidgets.QGridLayout()
-        layout.addWidget(self.header, 0, 0, 1, 3)
-        layout.addLayout(self.body, 1, 1)
-        layout.addWidget(self.footer, 2, 1)
-        layout.setRowStretch(1, 1)
-        layout.setColumnMinimumWidth(0, 16)
-        layout.setColumnMinimumWidth(2, 16)
+        layout.addWidget(self.header, 0, 0, 1, 5)
+        layout.addLayout(self.body, 2, 2)
+        layout.addWidget(self.footer, 4, 1, 1, 3)
+        layout.setRowStretch(2, 1)
+        layout.setColumnMinimumWidth(0, 8)
+        layout.setColumnMinimumWidth(4, 8)
+        layout.setColumnMinimumWidth(1, 16)
+        layout.setColumnMinimumWidth(3, 16)
+        layout.setRowMinimumHeight(1, 24)
+        layout.setRowMinimumHeight(3, 24)
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
@@ -400,7 +402,7 @@ class Main(widgets.ToolDialog):
         """Initialize state machine"""
 
         self.machine = ssm.StepStateMachine(
-            self, self.stepProgressBar, self.footer, self.body)
+            self, self.stepProgressBar, self.header, self.footer, self.body)
         self.machine.addStep('about', 'About', 1, False, StepAbout)
         self.machine.addStep('input', 'Input', 1, True, StepInput)
         self.machine.addStep('align', 'Alignment', 3, True, StepAlign)
