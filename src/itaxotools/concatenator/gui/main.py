@@ -20,6 +20,7 @@
 
 from PySide6 import QtCore
 from PySide6 import QtWidgets
+from PySide6 import QtStateMachine
 from PySide6 import QtGui
 
 import tempfile
@@ -75,7 +76,7 @@ def dummy_work(self, count, max, lines, period):
                 break
             for i in range(0, int(period/10)):
                 QtCore.QThread.msleep(10)
-                self.threadCheck()
+                self.worker.check()
             count += 1
 
 
@@ -138,8 +139,61 @@ class StepAbout(ssm.StepState):
 
 
 class StepInput(ssm.StepState):
+
     title = 'Select Input Files'
     description = 'Add and inspect sequence files'
+
+    signalAdd = QtCore.Signal()
+    signalDone = QtCore.Signal()
+    signalRefresh = QtCore.Signal()
+
+    class StepInputIdle(QtStateMachine.QState):
+        def onEntry(self, event):
+            parent = self.parent()
+            parent.frame.setEnabled(True)
+            parent.overlay.setVisible(False)
+            parent.footer.setMode(parent.footer.Mode.Middle)
+            parent.footer.next.setEnabled(bool(parent.data.files))
+            parent.stepProgressBar.setStatus(spb.states.Active)
+
+    class StepInputBusy(QtStateMachine.QState):
+        def onEntry(self, event):
+            parent = self.parent()
+            parent.frame.setEnabled(False)
+            parent.overlay.setVisible(True)
+            parent.footer.setMode(parent.footer.Mode.Wait)
+            parent.stepProgressBar.setStatus(spb.states.Ongoing)
+
+            parent.worker.start()
+
+        def onExit(self, event):
+            parent = self.parent()
+            parent.worker.terminate()
+
+    class DataObject(object):
+        pass
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.data = self.DataObject()
+        self.data.files = []
+        self.machine().installWorker(self)
+
+    def onDone(self, result):
+        self.data.files.append(1)
+        self.signalDone.emit()
+
+    def onFail(self, exception):
+        self.signalDone.emit()
+
+    def onCancel(self, exception):
+        self.signalDone.emit()
+
+    def work(self):
+        time = randint(500, 3000)
+        for i in range(0, int(time/10)):
+            QtCore.QThread.msleep(10)
+            self.worker.check()
 
     def draw(self):
         widget = QtWidgets.QWidget()
@@ -151,14 +205,31 @@ class StepInput(ssm.StepState):
                 )
         label = QtWidgets.QLabel(text)
 
-        frame = widgets.Frame()
+        frame = self.draw_frame()
+        overlay = self.draw_overlay()
 
-        add = widgets.PushButton('&Add')
-        remove = widgets.PushButton('&Remove')
+        self.frame.setEnabled(False)
+        self.spin.start()
 
-        text = QtWidgets.QLineEdit()
-        search = widgets.PushButton('&Search')
+        # effect = QtWidgets.QGraphicsOpacityEffect(self)
+        # effect.setOpacity(0.7)
+        # overlay.setGraphicsEffect(effect)
 
+        stack = QtWidgets.QStackedLayout()
+        stack.setStackingMode(QtWidgets.QStackedLayout.StackAll)
+        stack.addWidget(frame)
+        stack.addWidget(overlay)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(label)
+        layout.addLayout(stack, 1)
+        layout.setSpacing(24)
+        layout.setContentsMargins(0, 0, 0, 0)
+        widget.setLayout(layout)
+
+        return widget
+
+    def draw_summary(self):
         summary = widgets.Frame()
         summary.setStyleSheet("""
             Frame {
@@ -171,7 +242,7 @@ class StepInput(ssm.StepState):
 
         title = QtWidgets.QLabel('Summary')
         title.setAlignment(QtCore.Qt.AlignCenter)
-        title.setStyleSheet("QLabel { font-size: 14px; }")
+        # title.setStyleSheet("QLabel { font-size: 14px; }")
 
         line = widgets.HLineSeparator(1)
 
@@ -196,10 +267,31 @@ class StepInput(ssm.StepState):
         sums.addWidget(sets, 3, 2)
         sums.addWidget(_samples, 4, 1)
         sums.addWidget(samples, 4, 2)
-        sums.setColumnMinimumWidth(0, 4)
-        sums.setColumnMinimumWidth(3, 4)
-        sums.setContentsMargins(4, 8, 4, 8)
+        sums.setColumnMinimumWidth(0, 6)
+        sums.setColumnMinimumWidth(3, 6)
+        sums.setSpacing(6)
+        sums.setContentsMargins(2, 6, 2, 6)
         summary.setLayout(sums)
+
+        self.files = files
+        self.sets = sets
+        self.samples = samples
+
+        return summary
+
+    def draw_frame(self):
+        frame = widgets.Frame()
+
+        add = widgets.PushButton('&Add')
+        add.clicked.connect(self.handleAdd)
+        remove = widgets.PushButton('&Remove')
+        remove.clicked.connect(self.handleRemove)
+
+        text = QtWidgets.QLineEdit()
+        search = widgets.PushButton('&Search')
+        search.clicked.connect(self.handleSearch)
+
+        summary = self.draw_summary()
 
         controls = QtWidgets.QVBoxLayout()
         controls.addWidget(add)
@@ -222,6 +314,13 @@ class StepInput(ssm.StepState):
         layout.setContentsMargins(16, 16, 16, 16)
         frame.setLayout(layout)
 
+        self.view = view
+        self.frame = frame
+        self.remove = remove
+
+        return frame
+
+    def draw_overlay(self):
         overlay = widgets.Frame()
         overlay.setStyleSheet("""
             Frame {
@@ -241,14 +340,13 @@ class StepInput(ssm.StepState):
             QtWidgets.QSizePolicy.Policy.Maximum,
             QtWidgets.QSizePolicy.Policy.Maximum)
 
-        wait = QtWidgets.QLabel('Processing file, please wait...')
+        wait = QtWidgets.QLabel('Loading files, please wait...')
         wait.setStyleSheet("""
             color: palette(Text);
             font-size: 12px;
             letter-spacing: 1px;
             """)
         spin = SpinningCircle()
-        spin.start()
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(wait)
@@ -265,27 +363,52 @@ class StepInput(ssm.StepState):
         layout.setRowStretch(2, 1)
         overlay.setLayout(layout)
 
-        frame.setEnabled(False)
+        self.overlay = overlay
+        self.spin = spin
 
-        # effect = QtWidgets.QGraphicsOpacityEffect(self)
-        # effect.setOpacity(0.7)
-        # overlay.setGraphicsEffect(effect)
+        return overlay
 
-        stack = QtWidgets.QStackedLayout()
-        stack.setStackingMode(QtWidgets.QStackedLayout.StackAll)
-        stack.addWidget(frame)
-        stack.addWidget(overlay)
+    def cog(self):
+        super().cog()
 
-        layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(label)
-        layout.addLayout(stack, 1)
-        layout.setSpacing(24)
-        layout.setContentsMargins(0, 0, 0, 0)
-        widget.setLayout(layout)
+        self.states = dict()
+        self.states['idle'] = self.StepInputIdle(self)
+        self.states['busy'] = self.StepInputBusy(self)
+        self.setInitialState(self.states['idle'])
 
-        self.view = view
+        transition = QtStateMachine.QSignalTransition(self.signalAdd)
+        transition.setTargetState(self.states['busy'])
+        self.states['idle'].addTransition(transition)
+        self.transitions['add'] = transition
 
-        return widget
+        transition = QtStateMachine.QSignalTransition(self.signalRefresh)
+        transition.setTargetState(self.states['idle'])
+        self.states['idle'].addTransition(transition)
+        self.transitions['refresh'] = transition
+
+        transition = QtStateMachine.QSignalTransition(self.signalDone)
+        transition.setTargetState(self.states['idle'])
+        self.states['busy'].addTransition(transition)
+        self.transitions['done'] = transition
+
+        transition = ssm.NavigateTransition(ssm.NavigateEvent.Event.Cancel)
+        transition.setTargetState(self.states['idle'])
+        self.states['busy'].addTransition(transition)
+        self.transitions['cancel'] = transition
+
+    def handleAdd(self, checked=False):
+        self.signalAdd.emit()
+
+    def handleRemove(self, checked=False):
+        self.data.files = []
+        self.signalRefresh.emit()
+
+    def handleSearch(self, checked=False):
+        pass
+
+
+class StepFilter(ssm.StepState):
+    pass
 
 
 class StepAlign(ssm.StepTriState):
@@ -369,10 +492,6 @@ class StepAlign(ssm.StepTriState):
 
 
 class StepCodons(ssm.StepTriState):
-    pass
-
-
-class StepFilters(ssm.StepState):
     pass
 
 
@@ -564,9 +683,9 @@ class Main(widgets.ToolDialog):
             self, self.stepProgressBar, self.header, self.footer, self.body)
         self.machine.addStep('about', 'About', 1, False, StepAbout)
         self.machine.addStep('input', 'Input', 1, True, StepInput)
-        self.machine.addStep('align', 'Alignment', 3, True, StepAlign)
-        self.machine.addStep('codons', 'Codons', 2, True, StepCodons)
-        self.machine.addStep('filters', 'Filters', 1, True, StepFilters)
+        self.machine.addStep('filter', 'Filter', 1, True, StepFilter)
+        self.machine.addStep('align', 'Alignment', 1, True, StepAlign)
+        self.machine.addStep('codons', 'Codons', 1, True, StepCodons)
         self.machine.addStep('export', 'Export', 1, True, StepExport)
         self.machine.addStep('done', 'Done', 1, False, StepDone)
 

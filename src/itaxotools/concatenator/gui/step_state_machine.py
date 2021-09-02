@@ -57,6 +57,7 @@ class WorkerThread(QtCore.QThread):
         self.function = function
         self.args = args
         self.kwargs = kwargs
+        self.timeout = 1000
 
     def run(self):
         try:
@@ -67,6 +68,35 @@ class WorkerThread(QtCore.QThread):
             self.fail.emit(exception)
         else:
             self.done.emit(result)
+
+    def check(self):
+        """
+        Call this from within a worker thread to check if the thread
+        should exit by user request. If so, CancelledError is raised,
+        which should then be handled by WorkerThread.run().
+        """
+        if self.isInterruptionRequested():
+            raise CancelledError(-1)
+
+    def exit(self, code: int = 0):
+        """
+        Call this from within a worker thread to indicate the work is done.
+        Argument `code` determines transition behaviour: zero for success,
+        a positive value for failure, a negative value on interruption.
+        """
+        super().exit(code)
+
+    def terminate(self):
+        """
+        Attempt to cleanly exit, then forcibly terminate
+        after a short timeout (dangerous!)
+        """
+        self.requestInterruption()
+        self.exit(-1)
+        if not self.wait(self.timeout):
+            super().terminate()
+            self.wait()
+            self.cancel.emit(TerminatedError())
 
 
 class NavigateEvent(QtCore.QEvent):
@@ -196,12 +226,7 @@ class StepTriState(StepState):
 
     def __init__(self, name, parent, stack):
         super().__init__(name, parent, stack)
-        parent.signalTerminate.connect(self.threadTerminate)
-        self.workerThread = WorkerThread(self.work)
-        self.workerThread.done.connect(self._onDone)
-        self.workerThread.fail.connect(self._onFail)
-        self.workerThread.cancel.connect(self.onCancel)
-        self.threadTerminateTimeout = 1000
+        parent.installWorker(self)
         self.updateSignal.connect(self.updateProgress)
         self.data = self.DataObject()
 
@@ -210,44 +235,17 @@ class StepTriState(StepState):
         widget.setContentsMargins(0, 0, 0, 0)
         return widget
 
-    def threadTerminate(self):
-        """Attempt to cleanly exit, then forcibly terminate (dangerous!)"""
-        self.parent().waiting = False
-        self.workerThread.requestInterruption()
-        self.workerThread.exit(-1)
-        if not self.workerThread.wait(self.threadTerminateTimeout):
-            self.workerThread.terminate()
-            self.workerThread.wait()
-            self.onCancel(TerminatedError())
-
-    def threadExit(self, code: int = 0):
-        """
-        Call this from within a worker thread to indicate the work is done.
-        Argument `code` determines transition behaviour: zero for success,
-        a positive value for failure, a negative value on interruption.
-        """
-        self.workerThread.exit(code)
-
-    def threadCheck(self):
-        """
-        Call this from within a worker thread to check if the thread
-        should exit by user request. If so, CancelledError is raised,
-        which should then be handled by WorkerThread.run().
-        """
-        if self.workerThread.isInterruptionRequested():
-            raise CancelledError(-1)
-
     def work(self):
         """
         Virtual. Executed by StepWait.onEntry on a new QThread.
         Overload to assign a meaningful task. This should either:
         - Return a result (forwarded to self.onDone()),
         - Raise an exception (forwarded to self.onFail() or self.onCancel()),
-        - Queue self.threadExit() and call super().work().
-        For long tasks, you may check workerThread.isInterruptionRequested()
-        and raise CancelledError() if True.
+        - Queue self.worker.exit() and call super().work().
+        For long tasks, you may use self.worker.check() at regular
+        intervals to cleanly interrupt execution at user request.
         """
-        code = self.thread().exec()
+        code = self.worker.exec()
         if code < 0:
             raise CancelledError(code)
         if code > 0:
@@ -295,13 +293,11 @@ class StepTriState(StepState):
 
         class _StepWait(self.StepWait):
             def onEntry(self, event):
-                tristate.parent().waiting = True
-                tristate.workerThread.start()
+                tristate.worker.start()
                 super().onEntry(event)
 
             def onExit(self, event):
-                tristate.parent().waiting = False
-                tristate.threadTerminate()
+                tristate.worker.terminate()
                 super().onExit(event)
         return _StepWait
 
@@ -354,7 +350,7 @@ class StepTriState(StepState):
 
 
 class StepStateMachine(QtStateMachine.QStateMachine):
-    """Provides convenience functionality for StepStates"""
+    """Provides extra functionality for StepStates"""
 
     signalTerminate = QtCore.Signal()
 
@@ -370,9 +366,9 @@ class StepStateMachine(QtStateMachine.QStateMachine):
         self.header = header
         self.footer = footer
         self.stack = stack
-        self.waiting = False
         self.states = {}
         self.steps = []
+        self.waiting = False
 
         self.footer.setButtonActions({
             'next': self.eventGenerator(action=NavigateEvent.Event.Next),
@@ -381,6 +377,27 @@ class StepStateMachine(QtStateMachine.QStateMachine):
             'cancel': self.eventGenerator(action=NavigateEvent.Event.Cancel),
             'new': self.eventGenerator(action=NavigateEvent.Event.New),
         })
+
+    @QtCore.Slot()
+    def _setWaiting(self):
+        self.waiting = True
+
+    @QtCore.Slot()
+    def _unsetWaiting(self):
+        self.waiting = False
+
+    def installWorker(self, state):
+        """Add a WorkerThread to target state and configure signals"""
+        state.worker = WorkerThread(state.work)
+        onDone = getattr(state, '_onDone', state.onDone)
+        onFail = getattr(state, '_onFail', state.onFail)
+        onCancel = getattr(state, '_onCancel', state.onCancel)
+        state.worker.done.connect(onDone)
+        state.worker.fail.connect(onFail)
+        state.worker.cancel.connect(onCancel)
+        state.worker.started.connect(self._setWaiting)
+        state.worker.finished.connect(self._unsetWaiting)
+        self.signalTerminate.connect(state.worker.terminate)
 
     def eventGenerator(self, checked=False, action=None):
         # This will be called by QPushButton.clicked,
