@@ -169,12 +169,38 @@ class VectorIcon(QtGui.QIcon):
 ##############################################################################
 # Helpful widgets
 
+class Frame(QtWidgets.QFrame):
+    """A slightly darker than the background frame"""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setFrameStyle(QtWidgets.QFrame.StyledPanel)
+        self.setStyleSheet("""
+            Frame {
+                background: rgba(0, 0, 0, 4);
+                border: 1px solid rgba(0, 0, 0, 24);
+            }""")
+
+
 class VLineSeparator(QtWidgets.QFrame):
     """Vertical line separator"""
     def __init__(self, width=2):
         super().__init__()
         self.setFixedWidth(width)
         self.setFrameShape(QtWidgets.QFrame.VLine)
+        self.setFrameShadow(QtWidgets.QFrame.Plain)
+        self.setStyleSheet("""
+            background: palette(Mid);
+            border: none;
+            margin: 4px;
+            """)
+
+
+class HLineSeparator(QtWidgets.QFrame):
+    """Vertical line separator"""
+    def __init__(self, height=2):
+        super().__init__()
+        self.setFixedHeight(height)
+        self.setFrameShape(QtWidgets.QFrame.HLine)
         self.setFrameShadow(QtWidgets.QFrame.Plain)
         self.setStyleSheet("""
             background: palette(Mid);
@@ -239,6 +265,50 @@ class ScalingImage(QtWidgets.QLabel):
 
 ##############################################################################
 # Taxotool Layout
+
+class PushButton(QtWidgets.QPushButton):
+    """A larger button with square borders"""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setStyleSheet("""
+            QPushButton {
+                border: 1px solid Palette(Mid);
+                background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                    stop: 0 Palette(Light), stop: 1 Palette(Window));
+                color: Palette(Text);
+                padding: 5px 15px;
+                min-width: 80px;
+                outline: none;
+                }
+            QPushButton:hover {
+                border: 1px solid qlineargradient(x1: -1, y1: 0, x2: 0, y2: 2,
+                    stop: 0 Palette(Midlight), stop: 1 Palette(Mid));
+                background: Palette(Light);
+                }
+            QPushButton:focus:hover {
+                border: 1px solid Palette(Highlight);
+                background: Palette(Light);
+                }
+            QPushButton:focus:!hover {
+                border: 1px solid Palette(Highlight);
+                background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 10,
+                    stop: 0 Palette(Light), stop: 1 Palette(Highlight));
+                }
+            QPushButton:focus:pressed {
+                border: 1px solid Palette(Highlight);
+                background: Palette(Midlight);
+                }
+            QPushButton:pressed {
+                border: 1px solid Palette(Highlight);
+                background: Palette(Midlight);
+                }
+            QPushButton:disabled {
+                border: 1px solid qlineargradient(x1: 0, y1: -1, x2: 0, y2: 2,
+                    stop: 0 Palette(Midlight), stop: 1 Palette(Dark));
+                background: Palette(Midlight);
+                color: Palette(Dark)
+        }""")
+
 
 class Header(QtWidgets.QFrame):
     """
@@ -526,50 +596,13 @@ class NavigationFooter(QtWidgets.QFrame):
                 border-width: 1px 0px 0px 0px;
                 border-color: Palette(Mid);
                 }
-            QPushButton {
-                border: 1px solid Palette(Mid);
-                background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                    stop: 0 Palette(Light), stop: 1 Palette(Window));
-                color: Palette(Text);
-                padding: 5px 15px;
-                min-width: 80px;
-                outline: none;
-                }
-            QPushButton:hover {
-                border: 1px solid qlineargradient(x1: -1, y1: 0, x2: 0, y2: 2,
-                    stop: 0 Palette(Midlight), stop: 1 Palette(Mid));
-                background: Palette(Light);
-                }
-            QPushButton:focus:hover {
-                border: 1px solid Palette(Highlight);
-                background: Palette(Light);
-                }
-            QPushButton:focus:!hover {
-                border: 1px solid Palette(Highlight);
-                background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 10,
-                    stop: 0 Palette(Light), stop: 1 Palette(Highlight));
-                }
-            QPushButton:focus:pressed {
-                border: 1px solid Palette(Highlight);
-                background: Palette(Midlight);
-                }
-            QPushButton:pressed {
-                border: 1px solid Palette(Highlight);
-                background: Palette(Midlight);
-                }
-            QPushButton:disabled {
-                border: 1px solid qlineargradient(x1: 0, y1: -1, x2: 0, y2: 2,
-                    stop: 0 Palette(Midlight), stop: 1 Palette(Dark));
-                background: Palette(Midlight);
-                color: Palette(Dark)
-                }
             """)
 
-        self.back = QtWidgets.QPushButton('< &Back')
-        self.next = QtWidgets.QPushButton('&Next >')
-        self.exit = QtWidgets.QPushButton('E&xit')
-        self.cancel = QtWidgets.QPushButton('&Cancel')
-        self.new = QtWidgets.QPushButton('&New')
+        self.back = PushButton('< &Back')
+        self.next = PushButton('&Next >')
+        self.exit = PushButton('E&xit')
+        self.cancel = PushButton('&Cancel')
+        self.new = PushButton('&New')
 
         layout = QtWidgets.QHBoxLayout()
         layout.addWidget(self.cancel)

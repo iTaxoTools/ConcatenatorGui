@@ -30,6 +30,7 @@ import sys
 
 from lorem_text import lorem
 from random import randint
+from time import time_ns
 
 from itaxotools.common import utility
 from itaxotools.common import widgets
@@ -78,55 +79,213 @@ def dummy_work(self, count, max, lines, period):
             count += 1
 
 
+class SpinningCircle(QtWidgets.QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.timer = QtCore.QTimer(self)
+        self.timer.timeout.connect(self.handleTimer)
+        self.timerStep = 10
+        self.radius = 8
+        self.period = 2
+        self.span = 120
+        self.width = 2
+
+    def start(self):
+        self.timer.start(self.timerStep)
+
+    def stop(self):
+        self.timer.stop()
+
+    def handleTimer(self):
+        self.repaint()
+
+    def sizeHint(self):
+        diameter = (self.radius + self.width) * 2
+        return QtCore.QSize(diameter, diameter)
+
+    def paintEvent(self, event):
+        painter = QtGui.QPainter()
+        painter.begin(self)
+
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        painter.setBrush(QtCore.Qt.NoBrush)
+
+        x = self.size().width()/2
+        y = self.size().height()/2
+        painter.translate(QtCore.QPoint(x, y))
+
+        palette = QtGui.QGuiApplication.palette()
+        weak = palette.color(QtGui.QPalette.Mid)
+        bold = palette.color(QtGui.QPalette.Shadow)
+
+        rad = self.radius
+        rect = QtCore.QRect(-rad, -rad, 2 * rad, 2 * rad)
+
+        painter.setPen(QtGui.QPen(weak, self.width, QtCore.Qt.SolidLine))
+        painter.drawEllipse(rect)
+
+        period_ns = int(self.period * 10**9)
+        ns = time_ns() % period_ns
+        degrees = - 360 * ns / period_ns
+        painter.setPen(QtGui.QPen(bold, self.width, QtCore.Qt.SolidLine))
+        painter.drawArc(rect, degrees * 16, self.span * 16)
+
+        painter.end()
+
+
 class StepAbout(ssm.StepState):
     pass
 
 
-class StepInput(ssm.StepTriState):
-    title = 'File Input'
+class StepInput(ssm.StepState):
+    title = 'Select Input Files'
+    description = 'Add and inspect sequence files'
 
-    class StepEdit(ssm.StepSubState):
-        description = 'Edit'
+    def draw(self):
+        widget = QtWidgets.QWidget()
 
-        def draw(self):
-            text = f'{self.parent().title}: {self.description}'
-            return QtWidgets.QLabel(text)
+        text = ('Quisque tortor est, porttitor sed viverra ut, '
+                'pharetra at nunc. Aenean vel congue dui. '
+                'Vivamus auctor, quam se. \n'
+                'Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
+                )
+        label = QtWidgets.QLabel(text)
 
-    class StepWait(ssm.StepSubState):
-        description = 'Wait'
+        frame = widgets.Frame()
 
-        def draw(self):
-            text = f'{self.parent().title}: {self.description}'
-            return QtWidgets.QLabel(text)
+        add = widgets.PushButton('&Add')
+        remove = widgets.PushButton('&Remove')
 
-    class StepFail(ssm.StepSubState):
-        description = 'Fail'
+        text = QtWidgets.QLineEdit()
+        search = widgets.PushButton('&Search')
 
-        def draw(self):
-            text = f'{self.parent().title}: {self.description}'
-            return QtWidgets.QLabel(text)
+        summary = widgets.Frame()
+        summary.setStyleSheet("""
+            Frame {
+                background: qlineargradient(x1: 0, y1: -2, x2: 0, y2: 3,
+                    stop: 0 Palette(Light), stop: 1 Palette(Window));
+                border: 1px solid Palette(Mid);
+            }
+            QLabel { font-size: 12px; }
+            """)
 
-    def __init__(self, *ags, **kwargs):
-        super().__init__(*ags, **kwargs)
-        # self.transitions['waitFail'].setTargetState(self.states['edit'])
+        title = QtWidgets.QLabel('Summary')
+        title.setAlignment(QtCore.Qt.AlignCenter)
+        title.setStyleSheet("QLabel { font-size: 14px; }")
 
-    def work(self):
-        self.data.ans = 42
-        # return True
-        # raise Exception('test')
-        # QtCore.QTimer.singleShot(1000, lambda: self.threadExit(1))
-        QtCore.QTimer.singleShot(1000, lambda: self.threadExit())
-        super().work()
+        line = widgets.HLineSeparator(1)
 
-    def onDone(self, result):
-        msgBox = QtWidgets.QMessageBox(self.machine().parent())
-        msgBox.setWindowTitle('Done')
-        msgBox.setIcon(QtWidgets.QMessageBox.Information)
-        msgBox.setText('Success:')
-        msgBox.setInformativeText(str(self.data.ans))
-        msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
-        msgBox.setDefaultButton(QtWidgets.QMessageBox.Ok)
-        msgBox.exec()
+        _files = QtWidgets.QLabel('Files:')
+        _sets = QtWidgets.QLabel('Sets:')
+        _samples = QtWidgets.QLabel('Samples:')
+
+        files = QtWidgets.QLabel('4')
+        sets = QtWidgets.QLabel('65')
+        samples = QtWidgets.QLabel('141003')
+
+        files.setAlignment(QtCore.Qt.AlignRight)
+        sets.setAlignment(QtCore.Qt.AlignRight)
+        samples.setAlignment(QtCore.Qt.AlignRight)
+
+        sums = QtWidgets.QGridLayout()
+        sums.addWidget(title, 0, 1, 1, 2)
+        sums.addWidget(line, 1, 0, 1, 4)
+        sums.addWidget(_files, 2, 1)
+        sums.addWidget(files, 2, 2)
+        sums.addWidget(_sets, 3, 1)
+        sums.addWidget(sets, 3, 2)
+        sums.addWidget(_samples, 4, 1)
+        sums.addWidget(samples, 4, 2)
+        sums.setColumnMinimumWidth(0, 4)
+        sums.setColumnMinimumWidth(3, 4)
+        sums.setContentsMargins(4, 8, 4, 8)
+        summary.setLayout(sums)
+
+        controls = QtWidgets.QVBoxLayout()
+        controls.addWidget(add)
+        controls.addWidget(remove)
+        controls.addSpacing(16)
+        controls.addWidget(text)
+        controls.addWidget(search)
+        controls.addSpacing(16)
+        controls.addWidget(summary)
+        controls.addStretch(1)
+        controls.setSpacing(8)
+        controls.setContentsMargins(0, 0, 0, 0)
+
+        view = QtWidgets.QTreeView()
+
+        layout = QtWidgets.QHBoxLayout()
+        layout.addLayout(controls)
+        layout.addWidget(view, 1)
+        layout.setSpacing(16)
+        layout.setContentsMargins(16, 16, 16, 16)
+        frame.setLayout(layout)
+
+        overlay = widgets.Frame()
+        overlay.setStyleSheet("""
+            Frame {
+                background: qlineargradient(x1: 0, y1: -20, x2: 0, y2: 10,
+                    stop: 0 transparent, stop: 1 Palette(Window));
+                border: 1px solid Palette(Midlight);
+            }""")
+
+        banner = widgets.Frame()
+        banner.setStyleSheet("""
+            Frame {
+                background: qlineargradient(x1: 0, y1: -20, x2: 0, y2: 10,
+                    stop: 0 Palette(Light), stop: 1 Palette(Midlight));
+                border: 1px solid Palette(Mid);
+            }""")
+        banner.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Maximum,
+            QtWidgets.QSizePolicy.Policy.Maximum)
+
+        wait = QtWidgets.QLabel('Processing file, please wait...')
+        wait.setStyleSheet("""
+            color: palette(Text);
+            font-size: 12px;
+            letter-spacing: 1px;
+            """)
+        spin = SpinningCircle()
+        spin.start()
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(wait)
+        layout.addWidget(spin)
+        layout.setSpacing(16)
+        layout.setContentsMargins(48, 24, 48, 24)
+        banner.setLayout(layout)
+
+        layout = QtWidgets.QGridLayout()
+        layout.addWidget(banner, 1, 1)
+        layout.setColumnStretch(0, 1)
+        layout.setColumnStretch(2, 1)
+        layout.setRowStretch(0, 1)
+        layout.setRowStretch(2, 1)
+        overlay.setLayout(layout)
+
+        frame.setEnabled(False)
+
+        # effect = QtWidgets.QGraphicsOpacityEffect(self)
+        # effect.setOpacity(0.7)
+        # overlay.setGraphicsEffect(effect)
+
+        stack = QtWidgets.QStackedLayout()
+        stack.setStackingMode(QtWidgets.QStackedLayout.StackAll)
+        stack.addWidget(frame)
+        stack.addWidget(overlay)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(label)
+        layout.addLayout(stack, 1)
+        layout.setSpacing(24)
+        layout.setContentsMargins(0, 0, 0, 0)
+        widget.setLayout(layout)
+
+        self.view = view
+
+        return widget
 
 
 class StepAlign(ssm.StepTriState):
@@ -172,7 +331,7 @@ class StepAlign(ssm.StepTriState):
             layout.addSpacing(16)
             layout.addWidget(logger, 1)
             layout.setSpacing(0)
-            layout.setContentsMargins(16, 0, 16, 0)
+            layout.setContentsMargins(0, 0, 0, 0)
             widget.setLayout(layout)
 
             self.parent().logio = logio
@@ -387,8 +546,8 @@ class Main(widgets.ToolDialog):
         layout.setRowStretch(2, 1)
         layout.setColumnMinimumWidth(0, 8)
         layout.setColumnMinimumWidth(4, 8)
-        layout.setColumnMinimumWidth(1, 16)
-        layout.setColumnMinimumWidth(3, 16)
+        layout.setColumnMinimumWidth(1, 32)
+        layout.setColumnMinimumWidth(3, 32)
         layout.setRowMinimumHeight(1, 24)
         layout.setRowMinimumHeight(3, 24)
         layout.setSpacing(0)
