@@ -142,7 +142,9 @@ class InfoLabel(QtWidgets.QLabel):
 
     def setValue(self, value):
         self.value = value
-        self.setText(f'{self.prefix}: {self.value}')
+        if isinstance(value, int):
+            value = f'{value:,}'
+        self.setText(f'{self.prefix}: {value}')
 
 class StepAbout(ssm.StepState):
     pass
@@ -196,6 +198,63 @@ class StepInput(ssm.StepState):
             filenames = [url.toLocalFile() for url in urls]
             self.state.handleAdd(filenames=filenames)
 
+    class FileItem(QtWidgets.QTreeWidgetItem):
+        map = {
+            'name': 0,
+            'format': 1,
+            'samples': 2,
+            'nucleotides': 3,
+            'uniform': 4,
+            'missing': 5,
+            }
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.file = None
+            for col in range(1, 6):
+                self.setTextAlignment(col, QtCore.Qt.AlignRight)
+            self.name = lorem.words(randint(2, 6)).replace(' ', '_')
+            self.format = ['Fasta', 'Phylip', 'Nexus'][randint(0,2)]
+            self.samples = randint(6,300)
+            self.nucleotides = randint(200, 3000000)
+            self.uniform = ['Yes', 'No'][randint(0,1)]
+            self.missing = f'{randint(0,99)}%'
+
+        def __setattr__(self, attr, value):
+            super().__setattr__(attr, value)
+            if attr in self.map:
+                if isinstance(value, int):
+                    value = f'{value:,}'
+                self.setText(self.map[attr], str(value))
+
+    class SetItem(QtWidgets.QTreeWidgetItem):
+        map = {
+            'name': 0,
+            'format': 1,
+            'samples': 2,
+            'nucleotides': 3,
+            'uniform': 4,
+            'missing': 5,
+            }
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            for col in range(1, 6):
+                self.setTextAlignment(col, QtCore.Qt.AlignRight)
+            self.name = lorem.words(randint(2, 6)).replace(' ', '_')
+            self.format = '-'
+            self.samples = randint(6,300)
+            self.nucleotides = randint(200, 3000000)
+            self.uniform = ['Yes', 'No'][randint(0,1)]
+            self.missing = f'{randint(0,99)}%'
+
+        def __setattr__(self, attr, value):
+            super().__setattr__(attr, value)
+            if attr in self.map:
+                if isinstance(value, int):
+                    value = f'{value:,}'
+                self.setText(self.map[attr], str(value))
+
     class DataObject(object):
         pass
 
@@ -203,10 +262,36 @@ class StepInput(ssm.StepState):
         super().__init__(*args, **kwargs)
         self.data = self.DataObject()
         self.data.files = []
+        self.data.files_pending = []
         self.machine().installWorker(self)
 
     def onDone(self, result):
-        self.data.files.append(1)
+        total_nucleotides = 0
+        total_samples = 0
+        total_sets = 0
+        while self.data.files_pending:
+            file = self.data.files_pending.pop()
+            self.data.files.append(file)
+            item = self.FileItem(self.view)
+            item.file = file
+            item.name = file.name
+            for i in range(1, randint(1, 99)):
+                self.SetItem(item)
+            nucleotides = 0
+            samples = item.samples
+            for i in range(0, item.childCount()):
+                nucleotides += item.child(i).nucleotides
+                samples = max(samples, item.child(i).samples)
+                total_sets += 1
+            item.nucleotides = nucleotides
+            item.samples = samples
+            total_nucleotides += nucleotides
+            total_samples += samples
+
+        self.files.setValue(len(self.data.files))
+        self.nucleotides.setValue(total_nucleotides)
+        self.samples.setValue(total_samples)
+        self.sets.setValue(total_sets)
         self.signalDone.emit()
 
     def onFail(self, exception):
@@ -280,9 +365,9 @@ class StepInput(ssm.StepState):
     def draw_frame(self):
         frame = self.InputFrame(self)
 
-        add = widgets.PushButton('&Add')
+        add = widgets.PushButton('&Add Files')
         add.clicked.connect(self.handleAdd)
-        remove = widgets.PushButton('&Remove')
+        remove = widgets.PushButton('&Remove Files')
         remove.clicked.connect(self.handleRemove)
 
         action = QtGui.QAction('Search', self)
@@ -304,7 +389,20 @@ class StepInput(ssm.StepState):
         controls.setSpacing(8)
         controls.setContentsMargins(0, 0, 0, 0)
 
-        view = QtWidgets.QTreeView()
+        view = QtWidgets.QTreeWidget()
+        view.itemSelectionChanged.connect(self.handleItemSelectionChanged)
+        view.setSelectionMode(QtWidgets.QTreeWidget.ExtendedSelection)
+        view.setIndentation(12)
+        view.setAlternatingRowColors(True)
+        view.setSortingEnabled(True)
+        view.setColumnCount(6)
+        view.setHeaderLabels([
+            ' Name', ' Format', ' Samples',
+            ' Nucleotides', ' Uniform', ' Missing'])
+
+        headerItem = view.headerItem()
+        for col in range(1, 6):
+            headerItem.setTextAlignment(col, QtCore.Qt.AlignRight)
 
         summary = self.draw_summary()
 
@@ -408,16 +506,30 @@ class StepInput(ssm.StepState):
                 'All Files (*)')
         if not filenames:
             return
-        print(filenames)
+        paths = [pathlib.Path(filename) for filename in filenames]
+        self.data.files_pending.extend(paths)
         self.signalAdd.emit()
 
     def handleRemove(self, checked=False):
-        self.data.files = []
+        items = [item for item in self.view.selectedItems()
+                      if isinstance(item, self.FileItem)]
+        for item in items:
+            self.data.files.remove(item.file)
+            index = self.view.indexOfTopLevelItem(item)
+            self.view.takeTopLevelItem(index)
         self.signalRefresh.emit()
 
     def handleSearch(self, checked=False):
         print('search')
 
+    def handleItemSelectionChanged(self):
+        items = self.view.selectedItems()
+        enabled = False
+        for item in items:
+            if isinstance(item, self.FileItem):
+                enabled = True
+                break
+        self.remove.setEnabled(enabled)
 
 class StepFilter(ssm.StepState):
     pass
@@ -635,7 +747,7 @@ class Main(widgets.ToolDialog):
             '#f88': color['pink'],
             }
         self.colormap_icon_light = {
-            '#000': color['iron'],
+            '#000': color['gray'],
             '#ff0000': color['red'],
             '#ffa500': color['pink'],
             }
