@@ -91,11 +91,18 @@ class SearchWidget(QtWidgets.QLineEdit):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setPlaceholderText('Search')
         self.setStyleSheet(
             """
             SearchWidget {
-                min-width: 200px;
-                padding-left: 2px;
+                padding: 4px;
+                padding-left: 4px;
+                border: 1px solid Palette(Mid);
+                border-radius: 0;
+                min-width: 160px;
+                }
+            SearchWidget:focus {
+                border: 1px solid Palette(Highlight);
                 }
             """)
 

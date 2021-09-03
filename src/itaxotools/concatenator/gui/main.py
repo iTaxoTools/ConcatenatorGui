@@ -134,6 +134,16 @@ class SpinningCircle(QtWidgets.QWidget):
         painter.end()
 
 
+class InfoLabel(QtWidgets.QLabel):
+    def __init__(self, text):
+        super().__init__()
+        self.prefix = text
+        self.setValue('-')
+
+    def setValue(self, value):
+        self.value = value
+        self.setText(f'{self.prefix}: {self.value}')
+
 class StepAbout(ssm.StepState):
     pass
 
@@ -169,6 +179,22 @@ class StepInput(ssm.StepState):
         def onExit(self, event):
             parent = self.parent()
             parent.worker.terminate()
+
+    class InputFrame(widgets.Frame):
+        def __init__(self, state, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.state = state
+            self.setAcceptDrops(True)
+
+        def dragEnterEvent(self, event):
+            if event.mimeData().hasUrls():
+                event.setDropAction(QtCore.Qt.DropAction.LinkAction)
+                event.accept()
+
+        def dropEvent(self, event):
+            urls = event.mimeData().urls()
+            filenames = [url.toLocalFile() for url in urls]
+            self.state.handleAdd(filenames=filenames)
 
     class DataObject(object):
         pass
@@ -230,93 +256,70 @@ class StepInput(ssm.StepState):
         return widget
 
     def draw_summary(self):
-        summary = widgets.Frame()
-        summary.setStyleSheet("""
-            Frame {
-                background: qlineargradient(x1: 0, y1: -2, x2: 0, y2: 3,
-                    stop: 0 Palette(Light), stop: 1 Palette(Window));
-                border: 1px solid Palette(Mid);
-            }
-            QLabel { font-size: 12px; }
-            """)
+        files = InfoLabel('Input Files')
+        sets = InfoLabel('Character Sets')
+        samples = InfoLabel('Unique Samples')
+        nucleotides = InfoLabel('Nucleotides')
 
-        title = QtWidgets.QLabel('Summary')
-        title.setAlignment(QtCore.Qt.AlignCenter)
-        # title.setStyleSheet("QLabel { font-size: 14px; }")
-
-        line = widgets.HLineSeparator(1)
-
-        _files = QtWidgets.QLabel('Files:')
-        _sets = QtWidgets.QLabel('Sets:')
-        _samples = QtWidgets.QLabel('Samples:')
-
-        files = QtWidgets.QLabel('4')
-        sets = QtWidgets.QLabel('65')
-        samples = QtWidgets.QLabel('141003')
-
-        files.setAlignment(QtCore.Qt.AlignRight)
-        sets.setAlignment(QtCore.Qt.AlignRight)
-        samples.setAlignment(QtCore.Qt.AlignRight)
-
-        sums = QtWidgets.QGridLayout()
-        sums.addWidget(title, 0, 1, 1, 2)
-        sums.addWidget(line, 1, 0, 1, 4)
-        sums.addWidget(_files, 2, 1)
-        sums.addWidget(files, 2, 2)
-        sums.addWidget(_sets, 3, 1)
-        sums.addWidget(sets, 3, 2)
-        sums.addWidget(_samples, 4, 1)
-        sums.addWidget(samples, 4, 2)
-        sums.setColumnMinimumWidth(0, 6)
-        sums.setColumnMinimumWidth(3, 6)
-        sums.setSpacing(6)
-        sums.setContentsMargins(2, 6, 2, 6)
-        summary.setLayout(sums)
+        summary = QtWidgets.QHBoxLayout()
+        summary.addWidget(files)
+        summary.addWidget(sets)
+        summary.addWidget(samples)
+        summary.addWidget(nucleotides)
+        summary.addStretch(1)
+        summary.setSpacing(24)
+        summary.setContentsMargins(4, 0, 4, 0)
 
         self.files = files
         self.sets = sets
         self.samples = samples
+        self.nucleotides = nucleotides
 
         return summary
 
     def draw_frame(self):
-        frame = widgets.Frame()
+        frame = self.InputFrame(self)
 
         add = widgets.PushButton('&Add')
         add.clicked.connect(self.handleAdd)
         remove = widgets.PushButton('&Remove')
         remove.clicked.connect(self.handleRemove)
 
-        text = QtWidgets.QLineEdit()
-        search = widgets.PushButton('&Search')
-        search.clicked.connect(self.handleSearch)
+        action = QtGui.QAction('Search', self)
+        pixmap = widgets.VectorPixmap(get_icon('search.svg'),
+            colormap=self.machine().parent().colormap_icon_light)
+        action.setIcon(pixmap)
+        action.setShortcut(QtGui.QKeySequence.FindNext)
+        action.setStatusTip('Search')
+        action.triggered.connect(self.handleSearch)
 
-        summary = self.draw_summary()
+        search = widgets.SearchWidget()
+        search.setSearchAction(action)
 
-        controls = QtWidgets.QVBoxLayout()
+        controls = QtWidgets.QHBoxLayout()
         controls.addWidget(add)
         controls.addWidget(remove)
-        controls.addSpacing(16)
-        controls.addWidget(text)
-        controls.addWidget(search)
-        controls.addSpacing(16)
-        controls.addWidget(summary)
         controls.addStretch(1)
+        controls.addWidget(search)
         controls.setSpacing(8)
         controls.setContentsMargins(0, 0, 0, 0)
 
         view = QtWidgets.QTreeView()
 
-        layout = QtWidgets.QHBoxLayout()
+        summary = self.draw_summary()
+
+        layout = QtWidgets.QVBoxLayout()
         layout.addLayout(controls)
         layout.addWidget(view, 1)
-        layout.setSpacing(16)
-        layout.setContentsMargins(16, 16, 16, 16)
+        layout.addLayout(summary)
+        layout.setSpacing(8)
+        layout.setContentsMargins(16, 16, 16, 8)
         frame.setLayout(layout)
 
         self.view = view
         self.frame = frame
         self.remove = remove
+        self.search = search
 
         return frame
 
@@ -396,7 +399,16 @@ class StepInput(ssm.StepState):
         self.states['busy'].addTransition(transition)
         self.transitions['cancel'] = transition
 
-    def handleAdd(self, checked=False):
+    def handleAdd(self, checked=False, filenames=[]):
+        if not filenames:
+            (filenames, _) = QtWidgets.QFileDialog.getOpenFileNames(
+                self.machine().parent(),
+                self.machine().parent().title + ' - Open File',
+                QtCore.QDir.currentPath(),
+                'All Files (*)')
+        if not filenames:
+            return
+        print(filenames)
         self.signalAdd.emit()
 
     def handleRemove(self, checked=False):
@@ -404,7 +416,7 @@ class StepInput(ssm.StepState):
         self.signalRefresh.emit()
 
     def handleSearch(self, checked=False):
-        pass
+        print('search')
 
 
 class StepFilter(ssm.StepState):
@@ -557,7 +569,7 @@ class Main(widgets.ToolDialog):
                 QtGui.QPalette.WindowText: 'black',
                 QtGui.QPalette.Base: 'white',
                 QtGui.QPalette.AlternateBase: 'light',
-                QtGui.QPalette.PlaceholderText: 'brown',
+                QtGui.QPalette.PlaceholderText: 'gray',
                 QtGui.QPalette.Text: 'black',
                 QtGui.QPalette.Button: 'light',
                 QtGui.QPalette.ButtonText: 'black',
@@ -581,7 +593,7 @@ class Main(widgets.ToolDialog):
                 QtGui.QPalette.WindowText: 'iron',
                 QtGui.QPalette.Base: 'white',
                 QtGui.QPalette.AlternateBase: 'light',
-                QtGui.QPalette.PlaceholderText: 'green',
+                QtGui.QPalette.PlaceholderText: 'beige',
                 QtGui.QPalette.Text: 'iron',
                 QtGui.QPalette.Button: 'light',
                 QtGui.QPalette.ButtonText: 'gray',
@@ -684,7 +696,7 @@ class Main(widgets.ToolDialog):
         self.machine.addStep('about', 'About', 1, False, StepAbout)
         self.machine.addStep('input', 'Input', 1, True, StepInput)
         self.machine.addStep('filter', 'Filter', 1, True, StepFilter)
-        self.machine.addStep('align', 'Alignment', 1, True, StepAlign)
+        self.machine.addStep('align', 'Align', 1, True, StepAlign)
         self.machine.addStep('codons', 'Codons', 1, True, StepCodons)
         self.machine.addStep('export', 'Export', 1, True, StepExport)
         self.machine.addStep('done', 'Done', 1, False, StepDone)
