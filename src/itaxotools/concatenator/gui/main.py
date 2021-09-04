@@ -28,6 +28,7 @@ import pathlib
 import shutil
 import enum
 import sys
+import re
 
 from lorem_text import lorem
 from random import randint
@@ -146,6 +147,46 @@ class InfoLabel(QtWidgets.QLabel):
             value = f'{value:,}'
         self.setText(f'{self.prefix}: {value}')
 
+
+class TreeWidget(QtWidgets.QTreeWidget):
+
+    def check_item(self, item):
+        if not isinstance(item, QtWidgets.QTreeWidgetItem):
+            raise ValueError(f'Invalid item type.')
+        if item.treeWidget() is not self:
+            raise ValueError(f'Item does not belong to tree.')
+
+    def get_next_item(self, item):
+        self.check_item(item)
+        if item.childCount() > 0:
+            return item.child(0)
+        parent = item.parent()
+        while parent:
+            index = parent.indexOfChild(item) + 1
+            count = parent.childCount()
+            if index < count:
+                return parent.child(index)
+            item = parent
+            parent = item.parent()
+        index = self.indexOfTopLevelItem(item) + 1
+        count = self.topLevelItemCount()
+        if index >= count:
+            index = 0
+        return self.topLevelItem(index)
+
+    def iterate(self, start, end=None):
+        if end is None:
+            end = start
+        self.check_item(start)
+        self.check_item(end)
+        yield start
+        next_item = self.get_next_item(start)
+        while next_item is not end:
+            yield next_item
+            next_item = self.get_next_item(next_item)
+        yield end
+
+
 class StepAbout(ssm.StepState):
     pass
 
@@ -167,6 +208,7 @@ class StepInput(ssm.StepState):
             parent.footer.setMode(parent.footer.Mode.Middle)
             parent.footer.next.setEnabled(bool(parent.data.files))
             parent.stepProgressBar.setStatus(spb.states.Active)
+            parent.refresh_summary()
 
     class StepInputBusy(QtStateMachine.QState):
         def onEntry(self, event):
@@ -271,6 +313,8 @@ class StepInput(ssm.StepState):
         total_sets = 0
         while self.data.files_pending:
             file = self.data.files_pending.pop()
+            if file in self.data.files:
+                continue
             self.data.files.append(file)
             item = self.FileItem(self.view)
             item.file = file
@@ -287,11 +331,11 @@ class StepInput(ssm.StepState):
             item.samples = samples
             total_nucleotides += nucleotides
             total_samples += samples
-
-        self.files.setValue(len(self.data.files))
         self.nucleotides.setValue(total_nucleotides)
         self.samples.setValue(total_samples)
         self.sets.setValue(total_sets)
+
+        self.refresh_summary()
         self.signalDone.emit()
 
     def onFail(self, exception):
@@ -301,7 +345,7 @@ class StepInput(ssm.StepState):
         self.signalDone.emit()
 
     def work(self):
-        time = randint(500, 3000)
+        time = randint(500, 2000)
         for i in range(0, int(time/10)):
             QtCore.QThread.msleep(10)
             self.worker.check()
@@ -369,6 +413,7 @@ class StepInput(ssm.StepState):
         add.clicked.connect(self.handleAdd)
         remove = widgets.PushButton('&Remove Files')
         remove.clicked.connect(self.handleRemove)
+        remove.setEnabled(False)
 
         action = QtGui.QAction('Search', self)
         pixmap = widgets.VectorPixmap(get_icon('search.svg'),
@@ -389,7 +434,7 @@ class StepInput(ssm.StepState):
         controls.setSpacing(8)
         controls.setContentsMargins(0, 0, 0, 0)
 
-        view = QtWidgets.QTreeWidget()
+        view = TreeWidget()
         view.itemSelectionChanged.connect(self.handleItemSelectionChanged)
         view.setSelectionMode(QtWidgets.QTreeWidget.ExtendedSelection)
         view.setIndentation(12)
@@ -497,6 +542,9 @@ class StepInput(ssm.StepState):
         self.states['busy'].addTransition(transition)
         self.transitions['cancel'] = transition
 
+    def refresh_summary(self):
+        self.files.setValue(len(self.data.files))
+
     def handleAdd(self, checked=False, filenames=[]):
         if not filenames:
             (filenames, _) = QtWidgets.QFileDialog.getOpenFileNames(
@@ -516,11 +564,34 @@ class StepInput(ssm.StepState):
         for item in items:
             self.data.files.remove(item.file)
             index = self.view.indexOfTopLevelItem(item)
-            self.view.takeTopLevelItem(index)
+            if not index < 0:
+                self.view.takeTopLevelItem(index)
         self.signalRefresh.emit()
 
     def handleSearch(self, checked=False):
-        print('search')
+        found = None
+        what = self.search.text()
+        if not what:
+            return
+
+        current = self.view.currentItem()
+        if current:
+            next_item = self.view.get_next_item(current)
+        else:
+            current = self.view.topLevelItem(0)
+            if not current:
+                return
+            next_item = current
+
+        for item in self.view.iterate(next_item, current):
+            text = item.text(0)
+            if re.search(what, text, re.IGNORECASE):
+                found = item
+                break
+
+        if found:
+            self.view.setCurrentItem(found)
+            self.view.scrollToItem(found)
 
     def handleItemSelectionChanged(self):
         items = self.view.selectedItems()
