@@ -148,6 +148,28 @@ class InfoLabel(QtWidgets.QLabel):
         self.setText(f'{self.prefix}: {value}')
 
 
+class WidgetItem():
+    map = {}
+    unmap = {v: k for k, v in map.items()}
+
+    def __setattr__(self, attr, value):
+        super().__setattr__(attr, value)
+        if attr in self.map:
+            if isinstance(value, int):
+                value = f'{value:,}'
+            elif isinstance(value, float):
+                value *= 100
+                value = f'{value:.2f}%'
+            self.setText(self.map[attr], str(value))
+            self.setToolTip(self.map[attr], str(value))
+
+    def __lt__(self, other):
+        col = self.treeWidget().sortColumn()
+        this = getattr(self, self.unmap[col])
+        that = getattr(other, self.unmap[col])
+        return this < that
+
+
 class HeaderView(QtWidgets.QHeaderView):
 
     indicator_polygon = QtGui.QPolygon([
@@ -347,7 +369,7 @@ class StepInput(ssm.StepState):
             filenames = [url.toLocalFile() for url in urls]
             self.state.handleAdd(filenames=filenames)
 
-    class FileItem(QtWidgets.QTreeWidgetItem):
+    class FileItem(WidgetItem, QtWidgets.QTreeWidgetItem):
         map = {
             'name': 0,
             'format': 1,
@@ -356,6 +378,7 @@ class StepInput(ssm.StepState):
             'uniform': 4,
             'missing': 5,
             }
+        unmap = {v: k for k, v in map.items()}
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -373,15 +396,7 @@ class StepInput(ssm.StepState):
             self.uniform = ['Yes', 'No'][randint(0, 1)]
             self.missing = f'{randint(0, 99)}%'
 
-        def __setattr__(self, attr, value):
-            super().__setattr__(attr, value)
-            if attr in self.map:
-                if isinstance(value, int):
-                    value = f'{value:,}'
-                self.setText(self.map[attr], str(value))
-                self.setToolTip(self.map[attr], str(value))
-
-    class SetItem(QtWidgets.QTreeWidgetItem):
+    class SetItem(WidgetItem, QtWidgets.QTreeWidgetItem):
         map = {
             'name': 0,
             'format': 1,
@@ -390,6 +405,7 @@ class StepInput(ssm.StepState):
             'uniform': 4,
             'missing': 5,
             }
+        unmap = {v: k for k, v in map.items()}
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -401,15 +417,7 @@ class StepInput(ssm.StepState):
             self.samples = randint(6, 300)
             self.nucleotides = randint(200, 3000000)
             self.uniform = ['Yes', 'No'][randint(0, 1)]
-            self.missing = f'{randint(0, 99)}%'
-
-        def __setattr__(self, attr, value):
-            super().__setattr__(attr, value)
-            if attr in self.map:
-                if isinstance(value, int):
-                    value = f'{value:,}'
-                self.setText(self.map[attr], str(value))
-                self.setToolTip(self.map[attr], str(value))
+            self.missing = randint(0, 99) / 100
 
     class DataObject(object):
         pass
