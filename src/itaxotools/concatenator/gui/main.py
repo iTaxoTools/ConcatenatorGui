@@ -148,13 +148,107 @@ class InfoLabel(QtWidgets.QLabel):
         self.setText(f'{self.prefix}: {value}')
 
 
+class HeaderView(QtWidgets.QHeaderView):
+
+    indicator_polygon = QtGui.QPolygon([
+        QtCore.QPoint(-4, -1),
+        QtCore.QPoint(0, 3),
+        QtCore.QPoint(4, -1)])
+
+    def paintSection(self, painter, rect, index):
+
+        option = QtWidgets.QStyleOptionHeader()
+        self.initStyleOptionForIndex(option, index)
+        soh = QtWidgets.QStyleOptionHeader
+
+        palette = QtGui.QGuiApplication.palette()
+        dark = palette.color(QtGui.QPalette.Dark)
+        window = palette.color(QtGui.QPalette.Window)
+        light = palette.color(QtGui.QPalette.Light)
+        midlight = palette.color(QtGui.QPalette.Midlight)
+        mid = palette.color(QtGui.QPalette.Mid)
+        black = palette.color(QtGui.QPalette.Text)
+
+        top = rect.center() + QtCore.QPoint(0, - 2*rect.height())
+        bot = rect.center() + QtCore.QPoint(0, rect.height())
+        gradient = QtGui.QLinearGradient(top, bot)
+        gradient.setColorAt(0, light)
+        gradient.setColorAt(1, window)
+        painter.fillRect(rect, gradient)
+
+        painter.setPen(QtGui.QPen(midlight, 1, QtCore.Qt.SolidLine))
+        painter.drawLine(rect.topRight(), rect.bottomRight())
+
+        painter.setPen(QtGui.QPen(mid, 1, QtCore.Qt.SolidLine))
+        painter.drawLine(rect.bottomLeft(), rect.bottomRight())
+
+        margin = QtCore.QMargins(0, 0, 0, 0)
+        if option.textAlignment & QtCore.Qt.AlignRight:
+            margin -= QtCore.QMargins(20, 0, 8, 0)
+        else:
+            margin -= QtCore.QMargins(8, 0, 20, 0)
+        if option.position == soh.Beginning:
+            margin += QtCore.QMargins(4, 0, 0, 0)
+
+        painter.setPen(QtGui.QPen(black, 1, QtCore.Qt.SolidLine))
+        painter.drawText(rect + margin, option.textAlignment, option.text)
+
+        if option.sortIndicator == soh.SortIndicator.None_:
+            return
+
+        painter.save()
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        painter.translate(0, rect.center().y())
+        if option.textAlignment & QtCore.Qt.AlignRight:
+            painter.translate(rect.left() + 10, 0)
+        else:
+            painter.translate(rect.right() - 10, 0)
+        if option.sortIndicator == soh.SortIndicator.SortDown:
+            painter.scale(1, -1)
+        painter.setBrush(QtCore.Qt.NoBrush)
+        painter.setPen(QtGui.QPen(dark, 1.4, QtCore.Qt.SolidLine))
+        painter.drawPolyline(self.indicator_polygon)
+        painter.restore()
+
+    def sectionSizeHint(self, column):
+        option = QtWidgets.QStyleOptionHeader()
+        self.initStyleOptionForIndex(option, column)
+        m = self.fontMetrics().horizontalAdvance(option.text)
+        return m + 30
+
+
 class TreeWidget(QtWidgets.QTreeWidget):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setHeader(HeaderView(QtCore.Qt.Horizontal, self))
+        self.setUniformRowHeights(True)
+        self.header().setSectionsMovable(True)
+        self.header().setStretchLastSection(False)
+        self.header().setCascadingSectionResizes(True)
+        self.header().setMinimumSectionSize(20)
+        # self.header().setSectionResizeMode(QtWidgets.QHeaderView.Fixed)
+        self.header().setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
+
+        self.setStyleSheet("""
+            QHeaderView::section {
+                padding: 2px 8px 2px 20px;
+                }
+            QTreeView::item {
+                border: 0px;
+                padding: 2px 4px;
+                }
+            QTreeView::item:selected {
+                background: Palette(Highlight);
+                color: Palette(Light);
+                }
+            """)
 
     def check_item(self, item):
         if not isinstance(item, QtWidgets.QTreeWidgetItem):
-            raise ValueError(f'Invalid item type.')
+            raise ValueError('Invalid item type.')
         if item.treeWidget() is not self:
-            raise ValueError(f'Item does not belong to tree.')
+            raise ValueError('Item does not belong to tree.')
 
     def get_next_item(self, item):
         self.check_item(item)
@@ -186,6 +280,19 @@ class TreeWidget(QtWidgets.QTreeWidget):
             next_item = self.get_next_item(next_item)
         yield end
 
+    def resizeColumnToContents(self, column):
+        if column < 0 or column >= self.header().count():
+            return
+        contents = self.sizeHintForColumn(column)
+        header = 0
+        if not self.header().isHidden():
+            header = self.header().sectionSizeHint(column)
+        self.header().resizeSection(column, max(contents, header))
+
+    def resizeColumnsToContents(self):
+        for column in range(1, self.header().count()):
+            self.resizeColumnToContents(column)
+
 
 class StepAbout(ssm.StepState):
     pass
@@ -208,7 +315,7 @@ class StepInput(ssm.StepState):
             parent.footer.setMode(parent.footer.Mode.Middle)
             parent.footer.next.setEnabled(bool(parent.data.files))
             parent.stepProgressBar.setStatus(spb.states.Active)
-            parent.refresh_summary()
+            parent.refresh_contents()
 
     class StepInputBusy(QtStateMachine.QState):
         def onEntry(self, event):
@@ -253,14 +360,18 @@ class StepInput(ssm.StepState):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.file = None
+            alignment = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
             for col in range(1, 6):
-                self.setTextAlignment(col, QtCore.Qt.AlignRight)
+                self.setTextAlignment(col, alignment)
+            font = self.font(0)
+            font.setBold(True)
+            self.setFont(0, font)
             self.name = lorem.words(randint(2, 6)).replace(' ', '_')
-            self.format = ['Fasta', 'Phylip', 'Nexus'][randint(0,2)]
-            self.samples = randint(6,300)
+            self.format = ['Fasta', 'Phylip', 'Nexus'][randint(0, 2)]
+            self.samples = randint(6, 300)
             self.nucleotides = randint(200, 3000000)
-            self.uniform = ['Yes', 'No'][randint(0,1)]
-            self.missing = f'{randint(0,99)}%'
+            self.uniform = ['Yes', 'No'][randint(0, 1)]
+            self.missing = f'{randint(0, 99)}%'
 
         def __setattr__(self, attr, value):
             super().__setattr__(attr, value)
@@ -268,6 +379,7 @@ class StepInput(ssm.StepState):
                 if isinstance(value, int):
                     value = f'{value:,}'
                 self.setText(self.map[attr], str(value))
+                self.setToolTip(self.map[attr], str(value))
 
     class SetItem(QtWidgets.QTreeWidgetItem):
         map = {
@@ -281,14 +393,15 @@ class StepInput(ssm.StepState):
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
+            alignment = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
             for col in range(1, 6):
-                self.setTextAlignment(col, QtCore.Qt.AlignRight)
+                self.setTextAlignment(col, alignment)
             self.name = lorem.words(randint(2, 6)).replace(' ', '_')
             self.format = '-'
-            self.samples = randint(6,300)
+            self.samples = randint(6, 300)
             self.nucleotides = randint(200, 3000000)
-            self.uniform = ['Yes', 'No'][randint(0,1)]
-            self.missing = f'{randint(0,99)}%'
+            self.uniform = ['Yes', 'No'][randint(0, 1)]
+            self.missing = f'{randint(0, 99)}%'
 
         def __setattr__(self, attr, value):
             super().__setattr__(attr, value)
@@ -296,6 +409,7 @@ class StepInput(ssm.StepState):
                 if isinstance(value, int):
                     value = f'{value:,}'
                 self.setText(self.map[attr], str(value))
+                self.setToolTip(self.map[attr], str(value))
 
     class DataObject(object):
         pass
@@ -335,7 +449,6 @@ class StepInput(ssm.StepState):
         self.samples.setValue(total_samples)
         self.sets.setValue(total_sets)
 
-        self.refresh_summary()
         self.signalDone.emit()
 
     def onFail(self, exception):
@@ -390,6 +503,9 @@ class StepInput(ssm.StepState):
         samples = InfoLabel('Unique Samples')
         nucleotides = InfoLabel('Nucleotides')
 
+        for item in [files, sets, samples, nucleotides]:
+            item.setToolTip(lorem.words(randint(5, 15)))
+
         summary = QtWidgets.QHBoxLayout()
         summary.addWidget(files)
         summary.addWidget(sets)
@@ -416,7 +532,8 @@ class StepInput(ssm.StepState):
         remove.setEnabled(False)
 
         action = QtGui.QAction('Search', self)
-        pixmap = widgets.VectorPixmap(get_icon('search.svg'),
+        pixmap = widgets.VectorPixmap(
+            get_icon('search.svg'),
             colormap=self.machine().parent().colormap_icon_light)
         action.setIcon(pixmap)
         action.setShortcut(QtGui.QKeySequence.FindNext)
@@ -435,8 +552,10 @@ class StepInput(ssm.StepState):
         controls.setContentsMargins(0, 0, 0, 0)
 
         view = TreeWidget()
+        view.setAllColumnsShowFocus(True)
         view.itemSelectionChanged.connect(self.handleItemSelectionChanged)
         view.setSelectionMode(QtWidgets.QTreeWidget.ExtendedSelection)
+        view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         view.setIndentation(12)
         view.setAlternatingRowColors(True)
         view.setSortingEnabled(True)
@@ -446,8 +565,13 @@ class StepInput(ssm.StepState):
             ' Nucleotides', ' Uniform', ' Missing'])
 
         headerItem = view.headerItem()
+        alignment = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter
+        headerItem.setTextAlignment(0, alignment)
+        alignment = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
+        headerItem.setToolTip(0, lorem.words(13))
         for col in range(1, 6):
-            headerItem.setTextAlignment(col, QtCore.Qt.AlignRight)
+            headerItem.setTextAlignment(col, alignment)
+            headerItem.setToolTip(col, lorem.words(randint(5, 15)))
 
         summary = self.draw_summary()
 
@@ -455,8 +579,8 @@ class StepInput(ssm.StepState):
         layout.addLayout(controls)
         layout.addWidget(view, 1)
         layout.addLayout(summary)
-        layout.setSpacing(8)
-        layout.setContentsMargins(16, 16, 16, 8)
+        layout.setSpacing(12)
+        layout.setContentsMargins(16, 16, 16, 12)
         frame.setLayout(layout)
 
         self.view = view
@@ -542,8 +666,9 @@ class StepInput(ssm.StepState):
         self.states['busy'].addTransition(transition)
         self.transitions['cancel'] = transition
 
-    def refresh_summary(self):
+    def refresh_contents(self):
         self.files.setValue(len(self.data.files))
+        self.view.resizeColumnsToContents()
 
     def handleAdd(self, checked=False, filenames=[]):
         if not filenames:
@@ -601,6 +726,7 @@ class StepInput(ssm.StepState):
                 enabled = True
                 break
         self.remove.setEnabled(enabled)
+
 
 class StepFilter(ssm.StepState):
     pass
