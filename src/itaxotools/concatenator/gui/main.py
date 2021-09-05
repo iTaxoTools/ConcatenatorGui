@@ -16,56 +16,30 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 # -----------------------------------------------------------------------------
 
-"""Long module description"""
+"""Main dialog window"""
 
 from PySide6 import QtCore
 from PySide6 import QtWidgets
-from PySide6 import QtStateMachine
 from PySide6 import QtGui
-
-import tempfile
-import pathlib
-import shutil
-import enum
-import sys
-import re
 
 from lorem_text import lorem
 from random import randint
-from time import time_ns
 
-from itaxotools.common import utility
-from itaxotools.common import widgets
-from itaxotools.common import resources
-from itaxotools.common import io
+import sys
+
+from itaxotools import common
+import itaxotools.common.widgets
+import itaxotools.common.resources # noqa
+import itaxotools.common.io # noqa
 
 from . import step_progress_bar as spb
 from . import step_state_machine as ssm
 
-
-try:
-    import importlib.resources
-    _resource_path = importlib.resources.files(resources)
-    _package_path = importlib.resources.files(__package__)
-except Exception:
-    if hasattr(sys, '_MEIPASS'):
-        _resource_path = (pathlib.Path(sys._MEIPASS) /
-            'itaxotools' / 'common' / 'resources')
-        _package_path = (pathlib.Path(sys._MEIPASS) /
-            'itaxotools' / 'fasttreepy' / 'gui')
-    else:
-        import os
-        _resource_path = pathlib.Path(os.path.dirname(resources.__file__))
-        _package_path = pathlib.Path(os.path.dirname(__file__))
-
-def get_resource(path):
-    return str(_resource_path / path)
-def get_icon(path):
-    return str(_resource_path / 'icons/svg' / path)
+from .steps.input import StepInput
 
 
 def dummy_work(self, count, max, lines, period):
-    with io.redirect(sys, 'stdout', self.logio):
+    with common.io.redirect(sys, 'stdout', self.logio):
         print('')
         while True:
             text = lorem.words(3)
@@ -81,659 +55,8 @@ def dummy_work(self, count, max, lines, period):
             count += 1
 
 
-class SpinningCircle(QtWidgets.QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.timer = QtCore.QTimer(self)
-        self.timer.timeout.connect(self.handleTimer)
-        self.timerStep = 10
-        self.radius = 8
-        self.period = 2
-        self.span = 120
-        self.width = 2
-
-    def start(self):
-        self.timer.start(self.timerStep)
-
-    def stop(self):
-        self.timer.stop()
-
-    def handleTimer(self):
-        self.repaint()
-
-    def sizeHint(self):
-        diameter = (self.radius + self.width) * 2
-        return QtCore.QSize(diameter, diameter)
-
-    def paintEvent(self, event):
-        painter = QtGui.QPainter()
-        painter.begin(self)
-
-        painter.setRenderHint(QtGui.QPainter.Antialiasing)
-        painter.setBrush(QtCore.Qt.NoBrush)
-
-        x = self.size().width()/2
-        y = self.size().height()/2
-        painter.translate(QtCore.QPoint(x, y))
-
-        palette = QtGui.QGuiApplication.palette()
-        weak = palette.color(QtGui.QPalette.Mid)
-        bold = palette.color(QtGui.QPalette.Shadow)
-
-        rad = self.radius
-        rect = QtCore.QRect(-rad, -rad, 2 * rad, 2 * rad)
-
-        painter.setPen(QtGui.QPen(weak, self.width, QtCore.Qt.SolidLine))
-        painter.drawEllipse(rect)
-
-        period_ns = int(self.period * 10**9)
-        ns = time_ns() % period_ns
-        degrees = - 360 * ns / period_ns
-        painter.setPen(QtGui.QPen(bold, self.width, QtCore.Qt.SolidLine))
-        painter.drawArc(rect, degrees * 16, self.span * 16)
-
-        painter.end()
-
-
-class InfoLabel(QtWidgets.QLabel):
-    def __init__(self, text):
-        super().__init__()
-        self.prefix = text
-        self.setValue('-')
-
-    def setValue(self, value):
-        self.value = value
-        if isinstance(value, int):
-            value = f'{value:,}'
-        self.setText(f'{self.prefix}: {value}')
-
-
-class WidgetItem():
-    map = {}
-    unmap = {v: k for k, v in map.items()}
-
-    def __setattr__(self, attr, value):
-        super().__setattr__(attr, value)
-        if attr in self.map:
-            if isinstance(value, int):
-                value = f'{value:,}'
-            elif isinstance(value, float):
-                value *= 100
-                value = f'{value:.2f}%'
-            self.setText(self.map[attr], str(value))
-            self.setToolTip(self.map[attr], str(value))
-
-    def __lt__(self, other):
-        col = self.treeWidget().sortColumn()
-        this = getattr(self, self.unmap[col])
-        that = getattr(other, self.unmap[col])
-        return this < that
-
-
-class HeaderView(QtWidgets.QHeaderView):
-
-    indicator_polygon = QtGui.QPolygon([
-        QtCore.QPoint(-4, -1),
-        QtCore.QPoint(0, 3),
-        QtCore.QPoint(4, -1)])
-
-    def paintSection(self, painter, rect, index):
-
-        option = QtWidgets.QStyleOptionHeader()
-        self.initStyleOptionForIndex(option, index)
-        soh = QtWidgets.QStyleOptionHeader
-
-        palette = QtGui.QGuiApplication.palette()
-        dark = palette.color(QtGui.QPalette.Dark)
-        window = palette.color(QtGui.QPalette.Window)
-        light = palette.color(QtGui.QPalette.Light)
-        midlight = palette.color(QtGui.QPalette.Midlight)
-        mid = palette.color(QtGui.QPalette.Mid)
-        black = palette.color(QtGui.QPalette.Text)
-
-        top = rect.center() + QtCore.QPoint(0, - 2*rect.height())
-        bot = rect.center() + QtCore.QPoint(0, rect.height())
-        gradient = QtGui.QLinearGradient(top, bot)
-        gradient.setColorAt(0, light)
-        gradient.setColorAt(1, window)
-        painter.fillRect(rect, gradient)
-
-        painter.setPen(QtGui.QPen(midlight, 1, QtCore.Qt.SolidLine))
-        painter.drawLine(rect.topRight(), rect.bottomRight())
-
-        painter.setPen(QtGui.QPen(mid, 1, QtCore.Qt.SolidLine))
-        painter.drawLine(rect.bottomLeft(), rect.bottomRight())
-
-        margin = QtCore.QMargins(0, 0, 0, 0)
-        if option.textAlignment & QtCore.Qt.AlignRight:
-            margin -= QtCore.QMargins(20, 0, 8, 0)
-        else:
-            margin -= QtCore.QMargins(8, 0, 20, 0)
-        if option.position == soh.Beginning:
-            margin += QtCore.QMargins(4, 0, 0, 0)
-
-        painter.setPen(QtGui.QPen(black, 1, QtCore.Qt.SolidLine))
-        painter.drawText(rect + margin, option.textAlignment, option.text)
-
-        if option.sortIndicator == soh.SortIndicator.None_:
-            return
-
-        painter.save()
-        painter.setRenderHint(QtGui.QPainter.Antialiasing)
-        painter.translate(0, rect.center().y())
-        if option.textAlignment & QtCore.Qt.AlignRight:
-            painter.translate(rect.left() + 10, 0)
-        else:
-            painter.translate(rect.right() - 10, 0)
-        if option.sortIndicator == soh.SortIndicator.SortDown:
-            painter.scale(1, -1)
-        painter.setBrush(QtCore.Qt.NoBrush)
-        painter.setPen(QtGui.QPen(dark, 1.4, QtCore.Qt.SolidLine))
-        painter.drawPolyline(self.indicator_polygon)
-        painter.restore()
-
-    def sectionSizeHint(self, column):
-        option = QtWidgets.QStyleOptionHeader()
-        self.initStyleOptionForIndex(option, column)
-        m = self.fontMetrics().horizontalAdvance(option.text)
-        return m + 30
-
-
-class TreeWidget(QtWidgets.QTreeWidget):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setHeader(HeaderView(QtCore.Qt.Horizontal, self))
-        self.setUniformRowHeights(True)
-        self.header().setSectionsMovable(True)
-        self.header().setStretchLastSection(False)
-        self.header().setCascadingSectionResizes(True)
-        self.header().setMinimumSectionSize(20)
-        # self.header().setSectionResizeMode(QtWidgets.QHeaderView.Fixed)
-        self.header().setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
-
-        self.setStyleSheet("""
-            QHeaderView::section {
-                padding: 2px 8px 2px 20px;
-                }
-            QTreeView::item {
-                border: 0px;
-                padding: 2px 4px;
-                }
-            QTreeView::item:selected {
-                background: Palette(Highlight);
-                color: Palette(Light);
-                }
-            """)
-
-    def check_item(self, item):
-        if not isinstance(item, QtWidgets.QTreeWidgetItem):
-            raise ValueError('Invalid item type.')
-        if item.treeWidget() is not self:
-            raise ValueError('Item does not belong to tree.')
-
-    def get_next_item(self, item):
-        self.check_item(item)
-        if item.childCount() > 0:
-            return item.child(0)
-        parent = item.parent()
-        while parent:
-            index = parent.indexOfChild(item) + 1
-            count = parent.childCount()
-            if index < count:
-                return parent.child(index)
-            item = parent
-            parent = item.parent()
-        index = self.indexOfTopLevelItem(item) + 1
-        count = self.topLevelItemCount()
-        if index >= count:
-            index = 0
-        return self.topLevelItem(index)
-
-    def iterate(self, start, end=None):
-        if end is None:
-            end = start
-        self.check_item(start)
-        self.check_item(end)
-        yield start
-        next_item = self.get_next_item(start)
-        while next_item is not end:
-            yield next_item
-            next_item = self.get_next_item(next_item)
-        yield end
-
-    def resizeColumnToContents(self, column):
-        if column < 0 or column >= self.header().count():
-            return
-        contents = self.sizeHintForColumn(column)
-        header = 0
-        if not self.header().isHidden():
-            header = self.header().sectionSizeHint(column)
-        self.header().resizeSection(column, max(contents, header))
-
-    def resizeColumnsToContents(self):
-        for column in range(1, self.header().count()):
-            self.resizeColumnToContents(column)
-
-
 class StepAbout(ssm.StepState):
     pass
-
-
-class StepInput(ssm.StepState):
-
-    title = 'Select Input Files'
-    description = 'Add and inspect sequence files'
-
-    signalAdd = QtCore.Signal()
-    signalDone = QtCore.Signal()
-    signalRefresh = QtCore.Signal()
-
-    class StepInputIdle(QtStateMachine.QState):
-        def onEntry(self, event):
-            parent = self.parent()
-            parent.frame.setEnabled(True)
-            parent.overlay.setVisible(False)
-            parent.footer.setMode(parent.footer.Mode.Middle)
-            parent.footer.next.setEnabled(bool(parent.data.files))
-            parent.stepProgressBar.setStatus(spb.states.Active)
-            parent.refresh_contents()
-
-    class StepInputBusy(QtStateMachine.QState):
-        def onEntry(self, event):
-            parent = self.parent()
-            parent.frame.setEnabled(False)
-            parent.overlay.setVisible(True)
-            parent.footer.setMode(parent.footer.Mode.Wait)
-            parent.stepProgressBar.setStatus(spb.states.Ongoing)
-
-            parent.worker.start()
-
-        def onExit(self, event):
-            parent = self.parent()
-            parent.worker.terminate()
-
-    class InputFrame(widgets.Frame):
-        def __init__(self, state, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.state = state
-            self.setAcceptDrops(True)
-
-        def dragEnterEvent(self, event):
-            if event.mimeData().hasUrls():
-                event.setDropAction(QtCore.Qt.DropAction.LinkAction)
-                event.accept()
-
-        def dropEvent(self, event):
-            urls = event.mimeData().urls()
-            filenames = [url.toLocalFile() for url in urls]
-            self.state.handleAdd(filenames=filenames)
-
-    class FileItem(WidgetItem, QtWidgets.QTreeWidgetItem):
-        map = {
-            'name': 0,
-            'format': 1,
-            'samples': 2,
-            'nucleotides': 3,
-            'uniform': 4,
-            'missing': 5,
-            }
-        unmap = {v: k for k, v in map.items()}
-
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.file = None
-            alignment = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
-            for col in range(1, 6):
-                self.setTextAlignment(col, alignment)
-            font = self.font(0)
-            font.setBold(True)
-            self.setFont(0, font)
-            self.name = lorem.words(randint(2, 6)).replace(' ', '_')
-            self.format = ['Fasta', 'Phylip', 'Nexus'][randint(0, 2)]
-            self.samples = randint(6, 300)
-            self.nucleotides = randint(200, 3000000)
-            self.uniform = ['Yes', 'No'][randint(0, 1)]
-            self.missing = f'{randint(0, 99)}%'
-
-    class SetItem(WidgetItem, QtWidgets.QTreeWidgetItem):
-        map = {
-            'name': 0,
-            'format': 1,
-            'samples': 2,
-            'nucleotides': 3,
-            'uniform': 4,
-            'missing': 5,
-            }
-        unmap = {v: k for k, v in map.items()}
-
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            alignment = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
-            for col in range(1, 6):
-                self.setTextAlignment(col, alignment)
-            self.name = lorem.words(randint(2, 6)).replace(' ', '_')
-            self.format = '-'
-            self.samples = randint(6, 300)
-            self.nucleotides = randint(200, 3000000)
-            self.uniform = ['Yes', 'No'][randint(0, 1)]
-            self.missing = randint(0, 99) / 100
-
-    class DataObject(object):
-        pass
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.data = self.DataObject()
-        self.data.files = []
-        self.data.files_pending = []
-        self.machine().installWorker(self)
-
-    def onDone(self, result):
-        total_nucleotides = 0
-        total_samples = 0
-        total_sets = 0
-        while self.data.files_pending:
-            file = self.data.files_pending.pop()
-            if file in self.data.files:
-                continue
-            self.data.files.append(file)
-            item = self.FileItem(self.view)
-            item.file = file
-            item.name = file.name
-            for i in range(1, randint(1, 99)):
-                self.SetItem(item)
-            nucleotides = 0
-            samples = item.samples
-            for i in range(0, item.childCount()):
-                nucleotides += item.child(i).nucleotides
-                samples = max(samples, item.child(i).samples)
-                total_sets += 1
-            item.nucleotides = nucleotides
-            item.samples = samples
-            total_nucleotides += nucleotides
-            total_samples += samples
-        self.nucleotides.setValue(total_nucleotides)
-        self.samples.setValue(total_samples)
-        self.sets.setValue(total_sets)
-
-        self.signalDone.emit()
-
-    def onFail(self, exception):
-        self.signalDone.emit()
-
-    def onCancel(self, exception):
-        self.signalDone.emit()
-
-    def work(self):
-        time = randint(500, 2000)
-        for i in range(0, int(time/10)):
-            QtCore.QThread.msleep(10)
-            self.worker.check()
-
-    def draw(self):
-        widget = QtWidgets.QWidget()
-
-        text = ('Quisque tortor est, porttitor sed viverra ut, '
-                'pharetra at nunc. Aenean vel congue dui. '
-                'Vivamus auctor, quam se. \n'
-                'Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
-                )
-        label = QtWidgets.QLabel(text)
-
-        frame = self.draw_frame()
-        overlay = self.draw_overlay()
-
-        self.frame.setEnabled(False)
-        self.spin.start()
-
-        # effect = QtWidgets.QGraphicsOpacityEffect(self)
-        # effect.setOpacity(0.7)
-        # overlay.setGraphicsEffect(effect)
-
-        stack = QtWidgets.QStackedLayout()
-        stack.setStackingMode(QtWidgets.QStackedLayout.StackAll)
-        stack.addWidget(frame)
-        stack.addWidget(overlay)
-
-        layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(label)
-        layout.addLayout(stack, 1)
-        layout.setSpacing(24)
-        layout.setContentsMargins(0, 0, 0, 0)
-        widget.setLayout(layout)
-
-        return widget
-
-    def draw_summary(self):
-        files = InfoLabel('Input Files')
-        sets = InfoLabel('Character Sets')
-        samples = InfoLabel('Unique Samples')
-        nucleotides = InfoLabel('Nucleotides')
-
-        for item in [files, sets, samples, nucleotides]:
-            item.setToolTip(lorem.words(randint(5, 15)))
-
-        summary = QtWidgets.QHBoxLayout()
-        summary.addWidget(files)
-        summary.addWidget(sets)
-        summary.addWidget(samples)
-        summary.addWidget(nucleotides)
-        summary.addStretch(1)
-        summary.setSpacing(24)
-        summary.setContentsMargins(4, 0, 4, 0)
-
-        self.files = files
-        self.sets = sets
-        self.samples = samples
-        self.nucleotides = nucleotides
-
-        return summary
-
-    def draw_frame(self):
-        frame = self.InputFrame(self)
-
-        add = widgets.PushButton('&Add Files')
-        add.clicked.connect(self.handleAdd)
-        remove = widgets.PushButton('&Remove Files')
-        remove.clicked.connect(self.handleRemove)
-        remove.setEnabled(False)
-
-        action = QtGui.QAction('Search', self)
-        pixmap = widgets.VectorPixmap(
-            get_icon('search.svg'),
-            colormap=self.machine().parent().colormap_icon_light)
-        action.setIcon(pixmap)
-        action.setShortcut(QtGui.QKeySequence.FindNext)
-        action.setStatusTip('Search')
-        action.triggered.connect(self.handleSearch)
-
-        search = widgets.SearchWidget()
-        search.setSearchAction(action)
-
-        controls = QtWidgets.QHBoxLayout()
-        controls.addWidget(add)
-        controls.addWidget(remove)
-        controls.addStretch(1)
-        controls.addWidget(search)
-        controls.setSpacing(8)
-        controls.setContentsMargins(0, 0, 0, 0)
-
-        view = TreeWidget()
-        view.setAllColumnsShowFocus(True)
-        view.itemSelectionChanged.connect(self.handleItemSelectionChanged)
-        view.setSelectionMode(QtWidgets.QTreeWidget.ExtendedSelection)
-        view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
-        view.setIndentation(12)
-        view.setAlternatingRowColors(True)
-        view.setSortingEnabled(True)
-        view.setColumnCount(6)
-        view.setHeaderLabels([
-            ' Name', ' Format', ' Samples',
-            ' Nucleotides', ' Uniform', ' Missing'])
-
-        headerItem = view.headerItem()
-        alignment = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter
-        headerItem.setTextAlignment(0, alignment)
-        alignment = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
-        headerItem.setToolTip(0, lorem.words(13))
-        for col in range(1, 6):
-            headerItem.setTextAlignment(col, alignment)
-            headerItem.setToolTip(col, lorem.words(randint(5, 15)))
-
-        summary = self.draw_summary()
-
-        layout = QtWidgets.QVBoxLayout()
-        layout.addLayout(controls)
-        layout.addWidget(view, 1)
-        layout.addLayout(summary)
-        layout.setSpacing(12)
-        layout.setContentsMargins(16, 16, 16, 12)
-        frame.setLayout(layout)
-
-        self.view = view
-        self.frame = frame
-        self.remove = remove
-        self.search = search
-
-        return frame
-
-    def draw_overlay(self):
-        overlay = widgets.Frame()
-        overlay.setStyleSheet("""
-            Frame {
-                background: qlineargradient(x1: 0, y1: -20, x2: 0, y2: 10,
-                    stop: 0 transparent, stop: 1 Palette(Window));
-                border: 1px solid Palette(Midlight);
-            }""")
-
-        banner = widgets.Frame()
-        banner.setStyleSheet("""
-            Frame {
-                background: qlineargradient(x1: 0, y1: -20, x2: 0, y2: 10,
-                    stop: 0 Palette(Light), stop: 1 Palette(Midlight));
-                border: 1px solid Palette(Mid);
-            }""")
-        banner.setSizePolicy(
-            QtWidgets.QSizePolicy.Policy.Maximum,
-            QtWidgets.QSizePolicy.Policy.Maximum)
-
-        wait = QtWidgets.QLabel('Loading files, please wait...')
-        wait.setStyleSheet("""
-            color: palette(Text);
-            font-size: 12px;
-            letter-spacing: 1px;
-            """)
-        spin = SpinningCircle()
-
-        layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(wait)
-        layout.addWidget(spin)
-        layout.setSpacing(16)
-        layout.setContentsMargins(48, 24, 48, 24)
-        banner.setLayout(layout)
-
-        layout = QtWidgets.QGridLayout()
-        layout.addWidget(banner, 1, 1)
-        layout.setColumnStretch(0, 1)
-        layout.setColumnStretch(2, 1)
-        layout.setRowStretch(0, 1)
-        layout.setRowStretch(2, 1)
-        overlay.setLayout(layout)
-
-        self.overlay = overlay
-        self.spin = spin
-
-        return overlay
-
-    def cog(self):
-        super().cog()
-
-        self.states = dict()
-        self.states['idle'] = self.StepInputIdle(self)
-        self.states['busy'] = self.StepInputBusy(self)
-        self.setInitialState(self.states['idle'])
-
-        transition = QtStateMachine.QSignalTransition(self.signalAdd)
-        transition.setTargetState(self.states['busy'])
-        self.states['idle'].addTransition(transition)
-        self.transitions['add'] = transition
-
-        transition = QtStateMachine.QSignalTransition(self.signalRefresh)
-        transition.setTargetState(self.states['idle'])
-        self.states['idle'].addTransition(transition)
-        self.transitions['refresh'] = transition
-
-        transition = QtStateMachine.QSignalTransition(self.signalDone)
-        transition.setTargetState(self.states['idle'])
-        self.states['busy'].addTransition(transition)
-        self.transitions['done'] = transition
-
-        transition = ssm.NavigateTransition(ssm.NavigateEvent.Event.Cancel)
-        transition.setTargetState(self.states['idle'])
-        self.states['busy'].addTransition(transition)
-        self.transitions['cancel'] = transition
-
-    def refresh_contents(self):
-        self.files.setValue(len(self.data.files))
-        self.view.resizeColumnsToContents()
-
-    def handleAdd(self, checked=False, filenames=[]):
-        if not filenames:
-            (filenames, _) = QtWidgets.QFileDialog.getOpenFileNames(
-                self.machine().parent(),
-                self.machine().parent().title + ' - Open File',
-                QtCore.QDir.currentPath(),
-                'All Files (*)')
-        if not filenames:
-            return
-        paths = [pathlib.Path(filename) for filename in filenames]
-        self.data.files_pending.extend(paths)
-        self.signalAdd.emit()
-
-    def handleRemove(self, checked=False):
-        items = [item for item in self.view.selectedItems()
-                      if isinstance(item, self.FileItem)]
-        for item in items:
-            self.data.files.remove(item.file)
-            index = self.view.indexOfTopLevelItem(item)
-            if not index < 0:
-                self.view.takeTopLevelItem(index)
-        self.signalRefresh.emit()
-
-    def handleSearch(self, checked=False):
-        found = None
-        what = self.search.text()
-        if not what:
-            return
-
-        current = self.view.currentItem()
-        if current:
-            next_item = self.view.get_next_item(current)
-        else:
-            current = self.view.topLevelItem(0)
-            if not current:
-                return
-            next_item = current
-
-        for item in self.view.iterate(next_item, current):
-            text = item.text(0)
-            if re.search(what, text, re.IGNORECASE):
-                found = item
-                break
-
-        if found:
-            self.view.setCurrentItem(found)
-            self.view.scrollToItem(found)
-
-    def handleItemSelectionChanged(self):
-        items = self.view.selectedItems()
-        enabled = False
-        for item in items:
-            if isinstance(item, self.FileItem):
-                enabled = True
-                break
-        self.remove.setEnabled(enabled)
 
 
 class StepFilter(ssm.StepState):
@@ -770,11 +93,11 @@ class StepAlign(ssm.StepTriState):
                     background-color: Palette(Highlight);
                     width: 1px;
                 }""")
-            logger = widgets.TextEditLogger()
+            logger = common.widgets.TextEditLogger()
             logger.setFont(QtGui.QFontDatabase.systemFont(
                 QtGui.QFontDatabase.FixedFont))
             logger.document().setDocumentMargin(10)
-            logio = io.TextEditLoggerIO(logger)
+            logio = common.io.TextEditLoggerIO(logger)
 
             layout = QtWidgets.QVBoxLayout()
             layout.addWidget(progtext)
@@ -832,7 +155,7 @@ class StepDone(ssm.StepState):
     pass
 
 
-class Main(widgets.ToolDialog):
+class Main(common.widgets.ToolDialog):
     """Main window, handles everything"""
 
     def __init__(self, parent=None, init=None):
@@ -842,7 +165,7 @@ class Main(widgets.ToolDialog):
         self._temp = None
         self.temp = None
 
-        icon = QtGui.QIcon(get_resource('logos/ico/concatenator.ico'))
+        icon = QtGui.QIcon(common.resources.get('logos/ico/concatenator.ico'))
         self.setWindowIcon(icon)
         self.setWindowTitle(self.title)
         self.resize(840, 540)
@@ -937,11 +260,11 @@ class Main(widgets.ToolDialog):
         QtGui.QGuiApplication.setPalette(palette)
 
         self.colormap = {
-            widgets.VectorIcon.Normal: {
+            common.widgets.VectorIcon.Normal: {
                 '#000': color['black'],
                 '#f00': color['red'],
                 },
-            widgets.VectorIcon.Disabled: {
+            common.widgets.VectorIcon.Disabled: {
                 '#000': color['gray'],
                 '#f00': color['orange'],
                 },
@@ -960,12 +283,12 @@ class Main(widgets.ToolDialog):
     def draw(self):
         """Draw all widgets"""
 
-        self.header = widgets.Header()
-        self.header.logoTool = widgets.VectorPixmap(
-            get_resource('logos/svg/concatenator.svg'),
+        self.header = common.widgets.Header()
+        self.header.logoTool = common.widgets.VectorPixmap(
+            common.resources.get('logos/svg/concatenator.svg'),
             size=QtCore.QSize(48, 48), colormap=self.colormap_icon)
         self.header.logoProject = QtGui.QPixmap(
-            get_resource('logos/png/itaxotools-micrologo.png'))
+            common.resources.get('logos/png/itaxotools-micrologo.png'))
 
         self.header.setTool(
             title='Concatenator',
@@ -985,7 +308,7 @@ class Main(widgets.ToolDialog):
         self.header.widget.setLayout(layout)
 
         self.body = QtWidgets.QStackedLayout()
-        self.footer = widgets.NavigationFooter()
+        self.footer = common.widgets.NavigationFooter()
 
         layout = QtWidgets.QGridLayout()
         layout.addWidget(self.header, 0, 0, 1, 5)
