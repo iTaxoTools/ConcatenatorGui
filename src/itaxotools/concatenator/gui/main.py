@@ -288,7 +288,7 @@ class Main(common.widgets.ToolDialog):
             common.resources.get('logos/svg/concatenator.svg'),
             size=QtCore.QSize(48, 48), colormap=self.colormap_icon)
         self.header.logoProject = QtGui.QPixmap(
-            common.resources.get('logos/png/itaxotools-micrologo.png'))
+            common.resources.get('logos/png/itaxotools-logo-64px.png'))
 
         self.header.setTool(
             title='Concatenator',

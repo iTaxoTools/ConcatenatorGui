@@ -403,9 +403,6 @@ class Header(QtWidgets.QFrame):
         self.labelLogoTool.setAlignment(QtCore.Qt.AlignCenter)
 
         self.labelLogoProject = ScalingImage()
-        layoutLogoProject = QtWidgets.QHBoxLayout()
-        layoutLogoProject.addWidget(self.labelLogoProject)
-        layoutLogoProject.setContentsMargins(2, 4, 2, 4)
 
         self.toolbar = QtWidgets.QToolBar()
         self.toolbar.setIconSize(QtCore.QSize(32, 32))
@@ -474,12 +471,7 @@ class Header(QtWidgets.QFrame):
         layout.addSpacing(8)
         layout.addWidget(self.toolbar, 0)
         layout.addWidget(self.widget, 1)
-        layout.addSpacing(8)
-        layout.addWidget(VLineSeparator(1))
-        layout.addSpacing(1)
-        layout.addLayout(layoutLogoProject, 0)
-        # layout.addWidget(self.labelLogoProject)
-        layout.addSpacing(2)
+        layout.addWidget(self.labelLogoProject)
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
 
