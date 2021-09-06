@@ -286,7 +286,7 @@ class Main(common.widgets.ToolDialog):
         self.header = common.widgets.Header()
         self.header.logoTool = common.widgets.VectorPixmap(
             common.resources.get('logos/svg/concatenator.svg'),
-            size=QtCore.QSize(48, 48), colormap=self.colormap_icon)
+            colormap=self.colormap_icon)
         self.header.logoProject = QtGui.QPixmap(
             common.resources.get('logos/png/itaxotools-logo-64px.png'))
 
@@ -303,8 +303,9 @@ class Main(common.widgets.ToolDialog):
         self.stepProgressBar.font = font
 
         layout = QtWidgets.QHBoxLayout()
-        layout.addWidget(self.stepProgressBar)
-        layout.setContentsMargins(0, 8, 0, 8)
+        layout.addStretch(1)
+        layout.addWidget(self.stepProgressBar, 1)
+        layout.setContentsMargins(0, 6, 0, 4)
         self.header.widget.setLayout(layout)
 
         self.body = QtWidgets.QStackedLayout()
