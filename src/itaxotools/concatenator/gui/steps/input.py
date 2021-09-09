@@ -21,10 +21,8 @@
 from PySide6 import QtCore
 from PySide6 import QtWidgets
 from PySide6 import QtStateMachine
-from PySide6 import QtGui
 
 import pathlib
-import re
 
 from lorem_text import lorem
 from random import randint
@@ -56,11 +54,12 @@ class StepInputBusy(QtStateMachine.QState):
         parent.overlay.setVisible(True)
         parent.footer.setMode(parent.footer.Mode.Wait)
         parent.stepProgressBar.setStatus(spb.states.Ongoing)
-
+        parent.spin.start()
         parent.worker.start()
 
     def onExit(self, event):
         parent = self.parent()
+        parent.spin.stop()
         parent.worker.terminate()
 
 
@@ -206,9 +205,6 @@ class StepInput(ssm.StepState):
         frame = self.draw_frame()
         overlay = self.draw_overlay()
 
-        self.frame.setEnabled(False)
-        self.spin.start()
-
         # effect = QtWidgets.QGraphicsOpacityEffect(self)
         # effect.setOpacity(0.7)
         # overlay.setGraphicsEffect(effect)
@@ -253,6 +249,19 @@ class StepInput(ssm.StepState):
         return summary
 
     def draw_frame(self):
+        view = widgets.TreeWidget()
+        view.itemSelectionChanged.connect(self.handleItemSelectionChanged)
+        view.setIndentation(12)
+        view.setColumnCount(6)
+        view.setHeaderLabels([
+            ' Name', ' Format', ' Samples',
+            ' Nucleotides', ' Uniform', ' Missing'])
+
+        headerItem = view.headerItem()
+        headerItem.setToolTip(0, lorem.words(13))
+        for col in range(1, 6):
+            headerItem.setToolTip(col, lorem.words(randint(5, 15)))
+
         frame = InputFrame(self)
 
         add = common.widgets.PushButton('&Add Files')
@@ -261,17 +270,7 @@ class StepInput(ssm.StepState):
         remove.clicked.connect(self.handleRemove)
         remove.setEnabled(False)
 
-        action = QtGui.QAction('Search', self)
-        pixmap = common.widgets.VectorPixmap(
-            common.resources.get_icon('search.svg'),
-            colormap=self.machine().parent().colormap_icon_light)
-        action.setIcon(pixmap)
-        action.setShortcut(QtGui.QKeySequence.FindNext)
-        action.setStatusTip('Search')
-        action.triggered.connect(self.handleSearch)
-
-        search = common.widgets.SearchWidget()
-        search.setSearchAction(action)
+        search = widgets.ViewSearchWidget(self, view)
 
         controls = QtWidgets.QHBoxLayout()
         controls.addWidget(add)
@@ -280,28 +279,6 @@ class StepInput(ssm.StepState):
         controls.addWidget(search)
         controls.setSpacing(8)
         controls.setContentsMargins(0, 0, 0, 0)
-
-        view = widgets.TreeWidget()
-        view.setAllColumnsShowFocus(True)
-        view.itemSelectionChanged.connect(self.handleItemSelectionChanged)
-        view.setSelectionMode(QtWidgets.QTreeWidget.ExtendedSelection)
-        view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
-        view.setIndentation(12)
-        view.setAlternatingRowColors(True)
-        view.setSortingEnabled(True)
-        view.setColumnCount(6)
-        view.setHeaderLabels([
-            ' Name', ' Format', ' Samples',
-            ' Nucleotides', ' Uniform', ' Missing'])
-
-        headerItem = view.headerItem()
-        alignment = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter
-        headerItem.setTextAlignment(0, alignment)
-        alignment = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
-        headerItem.setToolTip(0, lorem.words(13))
-        for col in range(1, 6):
-            headerItem.setTextAlignment(col, alignment)
-            headerItem.setToolTip(col, lorem.words(randint(5, 15)))
 
         summary = self.draw_summary()
 
@@ -422,31 +399,6 @@ class StepInput(ssm.StepState):
             if not index < 0:
                 self.view.takeTopLevelItem(index)
         self.signalRefresh.emit()
-
-    def handleSearch(self, checked=False):
-        found = None
-        what = self.search.text()
-        if not what:
-            return
-
-        current = self.view.currentItem()
-        if current:
-            next_item = self.view.get_next_item(current)
-        else:
-            current = self.view.topLevelItem(0)
-            if not current:
-                return
-            next_item = current
-
-        for item in self.view.iterate(next_item, current):
-            text = item.text(0)
-            if re.search(what, text, re.IGNORECASE):
-                found = item
-                break
-
-        if found:
-            self.view.setCurrentItem(found)
-            self.view.scrollToItem(found)
 
     def handleItemSelectionChanged(self):
         items = self.view.selectedItems()

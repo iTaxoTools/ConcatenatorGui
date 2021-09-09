@@ -36,6 +36,7 @@ from . import step_progress_bar as spb
 from . import step_state_machine as ssm
 
 from .steps.input import StepInput
+from .steps.filter import StepFilter
 
 
 def dummy_work(self, count, max, lines, period):
@@ -56,10 +57,6 @@ def dummy_work(self, count, max, lines, period):
 
 
 class StepAbout(ssm.StepState):
-    pass
-
-
-class StepFilter(ssm.StepState):
     pass
 
 
@@ -286,9 +283,10 @@ class Main(common.widgets.ToolDialog):
         self.header = common.widgets.Header()
         self.header.logoTool = common.widgets.VectorPixmap(
             common.resources.get('logos/svg/concatenator.svg'),
-            colormap=self.colormap_icon)
+            size=QtCore.QSize(44, 44), colormap=self.colormap_icon)
         self.header.logoProject = QtGui.QPixmap(
             common.resources.get('logos/png/itaxotools-logo-64px.png'))
+        self.header.setMinimumHeight(66)
 
         self.header.setTool(
             title='Concatenator',
@@ -342,7 +340,7 @@ class Main(common.widgets.ToolDialog):
         self.machine.addStep('export', 'Export', 1, True, StepExport)
         self.machine.addStep('done', 'Done', 1, False, StepDone)
 
-        # self.machine.setInitialState(self.machine.states['align'])
+        self.machine.setInitialState(self.machine.states['filter'])
 
         self.machine.start()
 

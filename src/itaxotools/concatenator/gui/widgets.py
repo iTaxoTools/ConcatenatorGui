@@ -24,6 +24,12 @@ from PySide6 import QtGui
 
 from time import time_ns
 
+import re
+
+from itaxotools import common
+import itaxotools.common.widgets
+import itaxotools.common.resources # noqa
+
 
 class SpinningCircle(QtWidgets.QWidget):
     def __init__(self, parent=None):
@@ -200,11 +206,15 @@ class TreeWidget(QtWidgets.QTreeWidget):
         self.setUniformRowHeights(True)
         self.header().setSectionsMovable(True)
         self.header().setStretchLastSection(False)
-        self.header().setCascadingSectionResizes(True)
+        self.header().setCascadingSectionResizes(False)
         self.header().setMinimumSectionSize(20)
-        # self.header().setSectionResizeMode(QtWidgets.QHeaderView.Fixed)
+        self.header().setSectionResizeMode(QtWidgets.QHeaderView.Fixed)
         self.header().setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
-
+        self.setSelectionMode(QtWidgets.QTreeWidget.ExtendedSelection)
+        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        self.setAllColumnsShowFocus(True)
+        self.setAlternatingRowColors(True)
+        self.setSortingEnabled(True)
         self.setStyleSheet("""
             QTreeView { border: 1px solid Palette(Mid); }
             QHeaderView::section {
@@ -212,13 +222,23 @@ class TreeWidget(QtWidgets.QTreeWidget):
                 }
             QTreeView::item {
                 border: 0px;
-                padding: 2px 4px;
+                padding: 2px 6px;
                 }
             QTreeView::item:selected {
                 background: Palette(Highlight);
                 color: Palette(Light);
                 }
             """)
+
+    def setColumnCount(self, columns):
+        super().setColumnCount(columns)
+        headerItem = self.headerItem()
+        alignment = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter
+        headerItem.setTextAlignment(0, alignment)
+        alignment = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
+        for col in range(1, 6):
+            headerItem.setTextAlignment(col, alignment)
+        self.sortByColumn(0, QtCore.Qt.AscendingOrder)
 
     def check_item(self, item):
         if not isinstance(item, QtWidgets.QTreeWidgetItem):
@@ -268,3 +288,46 @@ class TreeWidget(QtWidgets.QTreeWidget):
     def resizeColumnsToContents(self):
         for column in range(1, self.header().count()):
             self.resizeColumnToContents(column)
+
+
+class ViewSearchWidget(common.widgets.SearchWidget):
+
+    def __init__(self, state, view, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.view = view
+        self.state = state
+
+        action = QtGui.QAction('Search', self)
+        pixmap = common.widgets.VectorPixmap(
+            common.resources.get_icon('search.svg'),
+            colormap=state.machine().parent().colormap_icon_light)
+        action.setIcon(pixmap)
+        action.setShortcut(QtGui.QKeySequence.FindNext)
+        action.setStatusTip('Search')
+        action.triggered.connect(self.handleSearch)
+        self.setSearchAction(action)
+
+    def handleSearch(self, checked=False):
+        found = None
+        what = self.text()
+        if not what:
+            return
+
+        current = self.view.currentItem()
+        if current:
+            next_item = self.view.get_next_item(current)
+        else:
+            current = self.view.topLevelItem(0)
+            if not current:
+                return
+            next_item = current
+
+        for item in self.view.iterate(next_item, current):
+            text = item.text(0)
+            if re.search(what, text, re.IGNORECASE):
+                found = item
+                break
+
+        if found:
+            self.view.setCurrentItem(found)
+            self.view.scrollToItem(found)
