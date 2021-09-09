@@ -20,6 +20,7 @@
 
 from PySide6 import QtCore
 from PySide6 import QtWidgets
+from PySide6 import QtGui
 
 from lorem_text import lorem
 from random import randint
@@ -30,6 +31,14 @@ import itaxotools.common.resources # noqa
 
 from .. import widgets
 from .. import step_state_machine as ssm
+
+
+class ItemDelegate(QtWidgets.QStyledItemDelegate):
+    def createEditor(self, parent, option, index):
+        if index.column() == 0:
+            return super().createEditor(parent, option, index)
+        else:
+            return None
 
 
 class FilterItem(widgets.WidgetItem):
@@ -44,19 +53,67 @@ class FilterItem(widgets.WidgetItem):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setFlags(QtCore.Qt.ItemIsSelectable |
+                      QtCore.Qt.ItemIsEnabled |
+                      QtCore.Qt.ItemIsEditable |
+                      QtCore.Qt.ItemNeverHasChildren)
         self.file = None
         alignment = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
-        for col in range(1, 6):
+        for col in range(2, 6):
             self.setTextAlignment(col, alignment)
-        # font = self.font(0)
-        # font.setBold(True)
-        # self.setFont(0, font)
         self.name = lorem.words(randint(2, 6)).replace(' ', '_')
+        self.name_original = self.name
         self.filter = '-'
         self.samples = randint(6, 300)
         self.nucleotides = randint(200, 3000000)
         self.uniform = ['Yes', 'No'][randint(0, 1)]
         self.missing = randint(0, 9999) / 10000
+
+    def setData(self, column, role, value):
+        super().setData(column, role, value)
+        if role != QtCore.Qt.ItemDataRole.EditRole:
+            return
+        if column > 0:
+            raise RuntimeError(f'Cannot edit FilterItem column: {column}')
+        if value != self.name:
+            self.rename(value)
+
+    def rename(self, value):
+        if self.filter == 'Delete':
+            self.treeWidget().signalSummaryUpdate.emit('deleted', -1)
+        if self.name == self.name_original:
+            self.treeWidget().signalSummaryUpdate.emit('renamed', 1)
+        self.name = value
+        self.filter = 'Rename'
+        self.setBold(True)
+        self.treeWidget().resizeColumnToContents(1)
+
+    def delete(self):
+        if self.filter != 'Delete':
+            self.treeWidget().signalSummaryUpdate.emit('deleted', 1)
+        self.filter = 'Delete'
+        self.setBold(True)
+        self.treeWidget().resizeColumnToContents(1)
+
+    def revert(self):
+        if self.filter == 'Delete':
+            self.treeWidget().signalSummaryUpdate.emit('deleted', -1)
+        if self.name != self.name_original:
+            self.treeWidget().signalSummaryUpdate.emit('renamed', -1)
+        self.name = self.name_original
+        self.filter = '-'
+        self.setBold(False)
+        self.treeWidget().resizeColumnToContents(1)
+
+    def setBold(self, value):
+        font = self.font(0)
+        font.setBold(value)
+        self.setFont(0, font)
+        self.setFont(1, font)
+
+
+class TreeWidget(widgets.TreeWidget):
+    signalSummaryUpdate = QtCore.Signal(str, int)
 
 
 class DataObject(object):
@@ -66,7 +123,7 @@ class DataObject(object):
 class StepFilter(ssm.StepState):
 
     title = 'Filter Character Sets'
-    description = 'Rename and remove character sets'
+    description = 'Rename and delete character sets'
 
     signalAdd = QtCore.Signal()
     signalDone = QtCore.Signal()
@@ -113,17 +170,17 @@ class StepFilter(ssm.StepState):
 
     def draw_summary(self):
         sets = widgets.InfoLabel('Total Sets')
-        renamed = widgets.InfoLabel('Renamed')
-        removed = widgets.InfoLabel('Removed')
+        renamed = widgets.InfoLabel('Renamed', 0)
+        deleted = widgets.InfoLabel('Deleted', 0)
         samples = widgets.InfoLabel('Unique Samples')
 
-        for item in [sets, renamed, removed, samples]:
+        for item in [sets, renamed, deleted, samples]:
             item.setToolTip(lorem.words(randint(5, 15)))
 
         summary = QtWidgets.QHBoxLayout()
         summary.addWidget(sets)
         summary.addWidget(renamed)
-        summary.addWidget(removed)
+        summary.addWidget(deleted)
         summary.addWidget(samples)
         summary.addStretch(1)
         summary.setSpacing(24)
@@ -131,39 +188,47 @@ class StepFilter(ssm.StepState):
 
         self.sets = sets
         self.renamed = renamed
-        self.removed = removed
+        self.deleted = deleted
         self.samples = samples
 
         return summary
 
     def draw_frame(self):
-        view = widgets.TreeWidget()
+        view = TreeWidget()
+        view.setItemDelegate(ItemDelegate())
         view.itemSelectionChanged.connect(self.handleItemSelectionChanged)
+        view.signalSummaryUpdate.connect(self.handleSummaryUpdate)
         view.setIndentation(0)
         view.setColumnCount(6)
         view.setHeaderLabels([
-            ' Name', ' Filter', ' Samples',
+            ' Name', ' Action', ' Samples',
             ' Nucleotides', ' Uniform', ' Missing'])
 
         headerItem = view.headerItem()
         headerItem.setToolTip(0, lorem.words(13))
         for col in range(1, 6):
             headerItem.setToolTip(col, lorem.words(randint(5, 15)))
+        alignment = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter
+        headerItem.setTextAlignment(1, alignment)
 
         frame = common.widgets.Frame()
 
         rename = common.widgets.PushButton('Rename')
         rename.clicked.connect(self.handleRename)
-        remove = common.widgets.PushButton('Remove')
-        remove.clicked.connect(self.handleRemove)
+        delete = common.widgets.PushButton('Delete')
+        delete.clicked.connect(self.handleDelete)
         revert = common.widgets.PushButton('Revert')
         revert.clicked.connect(self.handleRevert)
+
+        QtGui.QShortcut(QtGui.QKeySequence('F2'), view, self.handleRename)
+        QtGui.QShortcut(QtGui.QKeySequence.Delete, view, self.handleDelete)
+        QtGui.QShortcut(QtGui.QKeySequence.Undo, view, self.handleRevert)
 
         search = widgets.ViewSearchWidget(self, view)
 
         controls = QtWidgets.QHBoxLayout()
         controls.addWidget(rename)
-        controls.addWidget(remove)
+        controls.addWidget(delete)
         controls.addWidget(revert)
         controls.addStretch(1)
         controls.addWidget(search)
@@ -182,23 +247,31 @@ class StepFilter(ssm.StepState):
 
         self.view = view
         self.frame = frame
-        self.remove = remove
+        self.delete = delete
         self.search = search
 
         return frame
 
     def refresh_contents(self):
-        self.files.setValue(len(self.data.files))
+        # self.files.setValue(len(self.data.files))
         self.view.resizeColumnsToContents()
+        self.view.resizeColumnToContents(1, extra=60)
 
     def handleRename(self, checked=False):
-        pass
+        index = self.view.currentIndex().siblingAtColumn(0)
+        self.view.edit(index)
 
-    def handleRemove(self, checked=False):
-        pass
+    def handleDelete(self, checked=False):
+        for item in self.view.selectedItems():
+            item.delete()
 
     def handleRevert(self, checked=False):
-        pass
+        for item in self.view.selectedItems():
+            item.revert()
+
+    def handleSummaryUpdate(self, field, change):
+        item = getattr(self, field)
+        item.setValue(item.value + change)
 
     def handleItemSelectionChanged(self):
         pass

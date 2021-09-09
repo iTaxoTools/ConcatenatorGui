@@ -86,10 +86,10 @@ class SpinningCircle(QtWidgets.QWidget):
 
 
 class InfoLabel(QtWidgets.QLabel):
-    def __init__(self, text):
+    def __init__(self, text, value='-'):
         super().__init__()
         self.prefix = text
-        self.setValue('-')
+        self.setValue(value)
 
     def setValue(self, value):
         self.value = value
@@ -167,9 +167,9 @@ class HeaderView(QtWidgets.QHeaderView):
         if option.textAlignment & QtCore.Qt.AlignRight:
             margin -= QtCore.QMargins(20, 0, 8, 0)
         else:
-            margin -= QtCore.QMargins(8, 0, 20, 0)
-        if option.position == soh.Beginning:
-            margin += QtCore.QMargins(4, 0, 0, 0)
+            margin -= QtCore.QMargins(4, 0, 20, 0)
+        # if option.position == soh.Beginning:
+        # margin += QtCore.QMargins(4, 0, 0, 0)
 
         painter.setPen(QtGui.QPen(black, 1, QtCore.Qt.SolidLine))
         painter.drawText(rect + margin, option.textAlignment, option.text)
@@ -218,7 +218,7 @@ class TreeWidget(QtWidgets.QTreeWidget):
         self.setStyleSheet("""
             QTreeView { border: 1px solid Palette(Mid); }
             QHeaderView::section {
-                padding: 2px 8px 2px 20px;
+                padding: 2px;
                 }
             QTreeView::item {
                 border: 0px;

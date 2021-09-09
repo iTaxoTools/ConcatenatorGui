@@ -92,6 +92,8 @@ class FileItem(widgets.WidgetItem):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setFlags(QtCore.Qt.ItemIsSelectable |
+                      QtCore.Qt.ItemIsEnabled)
         self.file = None
         alignment = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
         for col in range(1, 6):
@@ -119,6 +121,9 @@ class SetItem(widgets.WidgetItem):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setFlags(QtCore.Qt.ItemIsSelectable |
+                      QtCore.Qt.ItemIsEnabled |
+                      QtCore.Qt.ItemNeverHasChildren)
         alignment = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
         for col in range(1, 6):
             self.setTextAlignment(col, alignment)
