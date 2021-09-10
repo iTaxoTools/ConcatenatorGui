@@ -22,11 +22,6 @@ from PySide6 import QtCore
 from PySide6 import QtWidgets
 from PySide6 import QtGui
 
-from lorem_text import lorem
-from random import randint
-
-import sys
-
 from itaxotools import common
 import itaxotools.common.widgets
 import itaxotools.common.resources # noqa
@@ -37,107 +32,11 @@ from . import step_state_machine as ssm
 
 from .steps.input import StepInput
 from .steps.filter import StepFilter
-
-
-def dummy_work(self, count, max, lines, period):
-    with common.io.redirect(sys, 'stdout', self.logio):
-        print('')
-        while True:
-            text = lorem.words(3)
-            print(f'\nStep {count}/{max} {text}')
-            for i in range(1, lines):
-                print(lorem.words(randint(3, 12)))
-            self.updateSignal.emit((count, max, text))
-            if count >= max:
-                break
-            for i in range(0, int(period/10)):
-                QtCore.QThread.msleep(10)
-                self.worker.check()
-            count += 1
+from .steps.align import StepAlignOptions, StepAlignSets
 
 
 class StepAbout(ssm.StepState):
     pass
-
-
-class StepAlign(ssm.StepTriState):
-    title = 'Sequence Alignment'
-
-    class StepEdit(ssm.StepSubState):
-        description = 'Options, options'
-
-    class StepFail(ssm.StepSubState):
-        description = 'Task failed'
-
-    class StepWait(ssm.StepSubState):
-        description = 'Please wait...'
-
-        def draw(self):
-            widget = QtWidgets.QWidget()
-
-            progtext = QtWidgets.QLabel('No task')
-            progtext.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
-            progbar = QtWidgets.QProgressBar()
-            progbar.setTextVisible(False)
-            progbar.setStyleSheet("""
-                QProgressBar {
-                    background: Palette(Light);
-                    border: 1px solid Palette(Mid);
-                    border-radius: 0px;
-                    text-align: center;
-                }
-                QProgressBar::chunk {
-                    background-color: Palette(Highlight);
-                    width: 1px;
-                }""")
-            logger = common.widgets.TextEditLogger()
-            logger.setFont(QtGui.QFontDatabase.systemFont(
-                QtGui.QFontDatabase.FixedFont))
-            logger.document().setDocumentMargin(10)
-            logio = common.io.TextEditLoggerIO(logger)
-
-            layout = QtWidgets.QVBoxLayout()
-            layout.addWidget(progtext)
-            layout.addSpacing(6)
-            layout.addWidget(progbar)
-            layout.addSpacing(16)
-            layout.addWidget(logger, 1)
-            layout.setSpacing(0)
-            layout.setContentsMargins(0, 0, 0, 0)
-            widget.setLayout(layout)
-
-            self.parent().logio = logio
-            self.parent().logger = logger
-            self.parent().progtext = progtext
-            self.parent().progbar = progbar
-
-            return widget
-
-        def onEntry(self, event):
-            super().onEntry(event)
-            self.parent().logger.clear()
-            for i in range(1, 50):
-                self.parent().logio.writeline(lorem.words(randint(3, 12)))
-
-    def updateProgress(self, tuple):
-        x, m, w = tuple
-        self.progtext.setText(f'Sequence {x}/{m}: {w}')
-        self.progbar.setMaximum(m)
-        self.progbar.setValue(x)
-
-    def work(self):
-        dummy_work(self, 42, 200, 10, 10)
-
-    def filterCancel(self):
-        msgBox = QtWidgets.QMessageBox(self.machine().parent())
-        msgBox.setWindowTitle('Cancel')
-        msgBox.setIcon(QtWidgets.QMessageBox.Question)
-        msgBox.setText('Cancel current task?')
-        msgBox.setStandardButtons(
-            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-        msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
-        res = msgBox.exec()
-        return res == QtWidgets.QMessageBox.Yes
 
 
 class StepCodons(ssm.StepTriState):
@@ -330,18 +229,20 @@ class Main(common.widgets.ToolDialog):
     def cog(self):
         """Initialize state machine"""
 
-        self.machine = ssm.StepStateMachine(
+        m = ssm.StepStateMachine(
             self, self.stepProgressBar, self.header, self.footer, self.body)
-        self.machine.addStep('about', 'About', 1, False, StepAbout)
-        self.machine.addStep('input', 'Input', 1, True, StepInput)
-        self.machine.addStep('filter', 'Filter', 1, True, StepFilter)
-        self.machine.addStep('align', 'Align', 1, True, StepAlign)
-        self.machine.addStep('codons', 'Codons', 1, True, StepCodons)
-        self.machine.addStep('export', 'Export', 1, True, StepExport)
-        self.machine.addStep('done', 'Done', 1, False, StepDone)
+        m.addStep('about', 'About', 1, False, StepAbout)
+        m.addStep('input', 'Input', 1, True, StepInput)
+        m.addStep('filter', 'Filter', 1, True, StepFilter)
+        m.addStep('align_options', 'Align', 1, True, StepAlignOptions)
+        m.addStep('align_sets', '', 1, False, StepAlignSets)
+        m.addStep('codons', 'Codons', 1, True, StepCodons)
+        m.addStep('export', 'Export', 1, True, StepExport)
+        m.addStep('done', 'Done', 1, False, StepDone)
 
-        self.machine.setInitialState(self.machine.states['filter'])
+        m.setInitialState(m.states['filter'])
 
+        self.machine = m
         self.machine.start()
 
     def onReject(self):

@@ -101,12 +101,15 @@ class InfoLabel(QtWidgets.QLabel):
 class _WidgetItem_meta(type(QtWidgets.QTreeWidgetItem)):
     def __init__(cls, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if hasattr(cls, 'map') and isinstance(cls.map, dict):
+        if hasattr(cls, 'fields') and isinstance(cls.fields, list):
+            cls.map = {v: i for i, v in enumerate(cls.fields)}
             cls.unmap = {v: k for k, v in cls.map.items()}
 
 
 class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
+    fields = []
     map = {}
+    unmap = {}
 
     def __setattr__(self, attr, value):
         super().__setattr__(attr, value)
@@ -117,7 +120,9 @@ class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
                 value *= 100
                 value = f'{value:.2f}%'
             self.setText(self.map[attr], str(value))
-            self.setToolTip(self.map[attr], str(value))
+            if self.map[attr] == 0:
+                for k in self.unmap.keys():
+                    self.setToolTip(self.map[attr], str(value))
 
     def __lt__(self, other):
         col = self.treeWidget().sortColumn()
@@ -296,14 +301,15 @@ class ViewSearchWidget(common.widgets.SearchWidget):
         super().__init__(*args, **kwargs)
         self.view = view
         self.state = state
+        self.setToolTip('Find next: F3')
 
-        action = QtGui.QAction('Search', self)
+        action = QtGui.QAction('Find next: F3', self)
         pixmap = common.widgets.VectorPixmap(
             common.resources.get_icon('search.svg'),
             colormap=state.machine().parent().colormap_icon_light)
         action.setIcon(pixmap)
         action.setShortcut(QtGui.QKeySequence.FindNext)
-        action.setStatusTip('Search')
+        action.setStatusTip('Find next: F3')
         action.triggered.connect(self.handleSearch)
         self.setSearchAction(action)
 

@@ -81,14 +81,14 @@ class InputFrame(common.widgets.Frame):
 
 
 class FileItem(widgets.WidgetItem):
-    map = {
-        'name': 0,
-        'format': 1,
-        'samples': 2,
-        'nucleotides': 3,
-        'uniform': 4,
-        'missing': 5,
-        }
+    fields = [
+        'name',
+        'format',
+        'samples',
+        'nucleotides',
+        'uniform',
+        'missing',
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -110,14 +110,14 @@ class FileItem(widgets.WidgetItem):
 
 
 class SetItem(widgets.WidgetItem):
-    map = {
-        'name': 0,
-        'format': 1,
-        'samples': 2,
-        'nucleotides': 3,
-        'uniform': 4,
-        'missing': 5,
-        }
+    fields = [
+        'name',
+        'format',
+        'samples',
+        'nucleotides',
+        'uniform',
+        'missing',
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -269,8 +269,7 @@ class StepInput(ssm.StepState):
 
         frame = InputFrame(self)
 
-        add = common.widgets.PushButton('&Add Files')
-        add.clicked.connect(self.handleAdd)
+        add = common.widgets.PushButton('&Add Files', onclick=self.handleAdd)
         remove = common.widgets.PushButton('&Remove Files')
         remove.clicked.connect(self.handleRemove)
         remove.setEnabled(False)

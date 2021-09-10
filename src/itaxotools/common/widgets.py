@@ -276,7 +276,12 @@ class ScalingImage(QtWidgets.QLabel):
 class PushButton(QtWidgets.QPushButton):
     """A larger button with square borders"""
     def __init__(self, *args, **kwargs):
+        onclick = None
+        if 'onclick' in kwargs:
+            onclick = kwargs.pop('onclick')
         super().__init__(*args, **kwargs)
+        if onclick:
+            self.clicked.connect(onclick)
         self.setStyleSheet("""
             QPushButton {
                 border: 1px solid Palette(Mid);
