@@ -92,18 +92,15 @@ class FilterItem(widgets.WidgetItem):
         else:
             self.setAction('-')
             self.setBold(False)
-        self.treeWidget().resizeColumnToContents(1)
 
     def delete(self):
         self.setAction('Delete')
         self.setBold(True)
-        self.treeWidget().resizeColumnToContents(1)
 
-    def revert(self):
+    def clear(self):
         self.name = self.name_original
         self.setAction('-')
         self.setBold(False)
-        self.treeWidget().resizeColumnToContents(1)
 
     def setAction(self, value):
         signal = self.treeWidget().signalSummaryUpdate
@@ -140,7 +137,7 @@ class StepFilter(ssm.StepState):
         self.add_dummy_contents()
 
     def add_dummy_contents(self):
-        count = randint(5, 50)
+        count = randint(500, 2000)
         for i in range(0, count):
             FilterItem(self.view)
         self.view.resizeColumnsToContents()
@@ -218,18 +215,18 @@ class StepFilter(ssm.StepState):
 
         rename = common.widgets.PushButton('Rename', onclick=self.handleRename)
         delete = common.widgets.PushButton('Delete', onclick=self.handleDelete)
-        revert = common.widgets.PushButton('Revert', onclick=self.handleRevert)
+        clear = common.widgets.PushButton('Clear', onclick=self.handleClear)
 
         QtGui.QShortcut(QtGui.QKeySequence('F2'), view, self.handleRename)
         QtGui.QShortcut(QtGui.QKeySequence.Delete, view, self.handleDelete)
-        QtGui.QShortcut(QtGui.QKeySequence.Undo, view, self.handleRevert)
+        QtGui.QShortcut(QtGui.QKeySequence.Undo, view, self.handleClear)
 
         search = widgets.ViewSearchWidget(self, view)
 
         controls = QtWidgets.QHBoxLayout()
         controls.addWidget(rename)
         controls.addWidget(delete)
-        controls.addWidget(revert)
+        controls.addWidget(clear)
         controls.addStretch(1)
         controls.addWidget(search)
         controls.setSpacing(8)
@@ -255,14 +252,17 @@ class StepFilter(ssm.StepState):
     def handleRename(self, checked=False):
         index = self.view.currentIndex().siblingAtColumn(0)
         self.view.edit(index)
+        self.view.resizeColumnToContents(1)
 
     def handleDelete(self, checked=False):
         for item in self.view.selectedItems():
             item.delete()
+        self.view.resizeColumnToContents(1)
 
-    def handleRevert(self, checked=False):
+    def handleClear(self, checked=False):
         for item in self.view.selectedItems():
-            item.revert()
+            item.clear()
+        self.view.resizeColumnToContents(1)
 
     def handleActivated(self, item, column):
         index = self.view.indexFromItem(item).siblingAtColumn(0)

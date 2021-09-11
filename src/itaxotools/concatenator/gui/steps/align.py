@@ -52,6 +52,49 @@ def dummy_work(self, count, max, lines, period):
             count += 1
 
 
+class RichRadioButton(QtWidgets.QRadioButton):
+    def __init__(self, text, desc, parent):
+        super().__init__(text, parent)
+        self.desc = desc
+        self.setStyleSheet("""
+            RichRadioButton {
+                letter-spacing: 1px;
+                font-weight: bold;
+            }""")
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QtGui.QPainter()
+        painter.begin(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        font = self.font()
+        font.setBold(False)
+        painter.setFont(font)
+
+        width = self.size().width()
+        height = self.size().height()
+        sofar = super().sizeHint().width()
+
+        rect = QtCore.QRect(sofar, 0, width - sofar, height)
+        flags = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter
+        painter.drawText(rect, flags, self.desc)
+
+        painter.end()
+
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        x = event.localPos().x()
+        w = self.sizeHint().width()
+        if x < w:
+            self.setChecked(True)
+
+    def sizeHint(self):
+        extra = self.fontMetrics().horizontalAdvance(self.desc)
+        size = super().sizeHint()
+        size += QtCore.QSize(extra, 0)
+        return size
+
+
 class AlignItem(widgets.WidgetItem):
     fields = [
         'name',
@@ -84,18 +127,17 @@ class AlignItem(widgets.WidgetItem):
     def align(self):
         self.setAction('Align')
         self.setBold(True)
-        self.treeWidget().resizeColumnToContents(1)
+        pass
 
-    def ignore(self):
+    def clear(self):
         self.setAction('-')
         self.setBold(False)
-        self.treeWidget().resizeColumnToContents(1)
 
     def toggle(self):
         if self.action == '-':
             self.align()
         else:
-            self.ignore()
+            self.clear()
 
     def setAction(self, value):
         signal = self.treeWidget().signalSummaryUpdate
@@ -141,17 +183,45 @@ class StepAlignOptions(ssm.StepState):
                 )
         label = QtWidgets.QLabel(text)
 
-        placeholder = QtWidgets.QLabel('Strategy options')
+        available = QtWidgets.QLabel('Available strategies:')
+
+        auto = RichRadioButton('Auto', '(depends on data size)', widget)
+        desc = '(fast, progressive method, recommended for >2,000 sequences)'
+        fftns1 = RichRadioButton('FFT-NS-1', desc, widget)
+        desc = '(thorough, slow, recommended for <200 sequences)'
+        ginsi = RichRadioButton('G-INS-i', desc, widget)
+        skip = QtWidgets.QRadioButton('Skip alignment', widget)
+        skip.setStyleSheet("QRadioButton { letter-spacing: 1px; }")
+        auto.setChecked(True)
+
+        radios = QtWidgets.QVBoxLayout()
+        radios.addWidget(auto)
+        radios.addWidget(fftns1)
+        radios.addWidget(ginsi)
+        radios.addSpacing(16)
+        radios.addWidget(skip)
+        radios.setSpacing(16)
+        radios.setContentsMargins(16, 0, 0, 0)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(label)
-        layout.addWidget(placeholder)
+        layout.addWidget(available)
+        layout.addLayout(radios)
         layout.addStretch(1)
         layout.setSpacing(24)
         layout.setContentsMargins(0, 0, 0, 0)
         widget.setLayout(layout)
 
+        self.auto = auto
+        self.fftns1 = fftns1
+        self.ginsi = ginsi
+        self.skip = skip
+
         return widget
+
+    def onExit(self, event):
+        super().onExit(event)
+        self.data.skip = self.skip.isChecked()
 
 
 class StepAlignSetsEdit(ssm.StepSubState):
@@ -164,7 +234,7 @@ class StepAlignSetsEdit(ssm.StepSubState):
         self.add_dummy_contents()
 
     def add_dummy_contents(self):
-        count = randint(5, 50)
+        count = randint(500, 2000)
         for i in range(0, count):
             AlignItem(self.view)
         self.view.resizeColumnsToContents()
@@ -229,16 +299,16 @@ class StepAlignSetsEdit(ssm.StepSubState):
         alignment = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter
         headerItem.setTextAlignment(1, alignment)
 
-        align = common.widgets.PushButton('Align', onclick=self.handleAlign)
         all = common.widgets.PushButton('Align All', onclick=self.handleAll)
-        ignore = common.widgets.PushButton('Ignore', onclick=self.handleIgnore)
+        align = common.widgets.PushButton('Align ', onclick=self.handleAlign)
+        clear = common.widgets.PushButton('Clear', onclick=self.handleClear)
 
         search = widgets.ViewSearchWidget(self, view)
 
         controls = QtWidgets.QHBoxLayout()
-        controls.addWidget(align)
         controls.addWidget(all)
-        controls.addWidget(ignore)
+        controls.addWidget(align)
+        controls.addWidget(clear)
         controls.addStretch(1)
         controls.addWidget(search)
         controls.setSpacing(8)
@@ -256,7 +326,7 @@ class StepAlignSetsEdit(ssm.StepSubState):
 
         self.view = view
         self.frame = align
-        self.delete = ignore
+        self.delete = clear
         self.search = all
 
         return frame
@@ -264,10 +334,12 @@ class StepAlignSetsEdit(ssm.StepSubState):
     def handleAlign(self, checked=False):
         for item in self.view.selectedItems():
             item.align()
+        self.view.resizeColumnToContents(1)
 
-    def handleIgnore(self, checked=False):
+    def handleClear(self, checked=False):
         for item in self.view.selectedItems():
-            item.ignore()
+            item.clear()
+        self.view.resizeColumnToContents(1)
 
     def handleAll(self, checked=False):
         self.view.selectAll()
@@ -275,6 +347,7 @@ class StepAlignSetsEdit(ssm.StepSubState):
 
     def handleActivated(self, item, column):
         item.toggle()
+        self.view.resizeColumnToContents(1)
 
     def handleSummaryUpdate(self, field, change):
         item = getattr(self, field)
@@ -364,11 +437,25 @@ class StepAlignSets(ssm.StepTriState):
         if not skip:
             dummy_work(self, 42, 200, 10, 20)
 
+    def filterNext(self):
+        if self.states['edit'].aligned.value > 0:
+            return True
+        else:
+            msgBox = QtWidgets.QMessageBox(self.machine().parent())
+            msgBox.setWindowTitle('Skip alignment')
+            msgBox.setIcon(QtWidgets.QMessageBox.Warning)
+            msgBox.setText('Nothing marked for alignment.\nContinue anyway?')
+            msgBox.setStandardButtons(
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+            msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
+            res = msgBox.exec()
+            return res == QtWidgets.QMessageBox.Yes
+
     def filterCancel(self):
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
         msgBox.setWindowTitle('Cancel')
         msgBox.setIcon(QtWidgets.QMessageBox.Question)
-        msgBox.setText('Cancel current task?')
+        msgBox.setText('Cancel alignment?')
         msgBox.setStandardButtons(
             QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
         msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
