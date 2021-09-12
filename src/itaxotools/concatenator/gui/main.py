@@ -33,13 +33,10 @@ from . import step_state_machine as ssm
 from .steps.input import StepInput
 from .steps.filter import StepFilter
 from .steps.align import StepAlignOptions, StepAlignSets
+from .steps.codons import StepCodons
 
 
 class StepAbout(ssm.StepState):
-    pass
-
-
-class StepCodons(ssm.StepTriState):
     pass
 
 
@@ -232,15 +229,15 @@ class Main(common.widgets.ToolDialog):
         m = ssm.StepStateMachine(
             self, self.stepProgressBar, self.header, self.footer, self.body)
         m.addStep('about', 'About', 1, False, StepAbout)
-        m.addStep('input', 'Input', 1, True, StepInput)
-        m.addStep('filter', 'Filter', 1, True, StepFilter)
+        m.addStep('input', 'Files', 1, True, StepInput)
+        m.addStep('filter', 'Sets', 1, True, StepFilter)
         m.addStep('align_options', 'Align', 1, True, StepAlignOptions)
         m.addStep('align_sets', '', 1, False, StepAlignSets)
         m.addStep('codons', 'Codons', 1, True, StepCodons)
         m.addStep('export', 'Export', 1, True, StepExport)
         m.addStep('done', 'Done', 1, False, StepDone)
 
-        m.setInitialState(m.states['filter'])
+        m.setInitialState(m.states['codons'])
 
         self.machine = m
         self.machine.start()

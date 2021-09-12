@@ -95,9 +95,6 @@ class FileItem(widgets.WidgetItem):
         self.setFlags(QtCore.Qt.ItemIsSelectable |
                       QtCore.Qt.ItemIsEnabled)
         self.file = None
-        alignment = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
-        for col in range(1, 6):
-            self.setTextAlignment(col, alignment)
         font = self.font(0)
         font.setBold(True)
         self.setFont(0, font)
@@ -124,9 +121,6 @@ class SetItem(widgets.WidgetItem):
         self.setFlags(QtCore.Qt.ItemIsSelectable |
                       QtCore.Qt.ItemIsEnabled |
                       QtCore.Qt.ItemNeverHasChildren)
-        alignment = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
-        for col in range(1, 6):
-            self.setTextAlignment(col, alignment)
         self.name = lorem.words(randint(2, 6)).replace(' ', '_')
         self.format = '-'
         self.samples = randint(6, 300)
@@ -141,8 +135,8 @@ class DataObject(object):
 
 class StepInput(ssm.StepState):
 
-    title = 'Select Input Files'
-    description = 'Add and inspect sequence files'
+    title = 'Import Input Files'
+    description = 'Import and inspect sequence files'
 
     signalAdd = QtCore.Signal()
     signalDone = QtCore.Signal()
@@ -257,10 +251,10 @@ class StepInput(ssm.StepState):
         view = widgets.TreeWidget()
         view.itemSelectionChanged.connect(self.handleItemSelectionChanged)
         view.setIndentation(12)
-        view.setColumnCount(6)
+        view.setColumnCount(6, 2)
         view.setHeaderLabels([
-            ' Name', ' Format', ' Samples',
-            ' Nucleotides', ' Uniform', ' Missing'])
+            'Name', 'Format', 'Samples',
+            'Nucleotides', 'Uniform', 'Missing'])
 
         headerItem = view.headerItem()
         headerItem.setToolTip(0, lorem.words(13))
@@ -269,8 +263,8 @@ class StepInput(ssm.StepState):
 
         frame = InputFrame(self)
 
-        add = common.widgets.PushButton('&Add Files', onclick=self.handleAdd)
-        remove = common.widgets.PushButton('&Remove Files')
+        add = common.widgets.PushButton('&Import', onclick=self.handleAdd)
+        remove = common.widgets.PushButton('&Remove')
         remove.clicked.connect(self.handleRemove)
         remove.setEnabled(False)
 

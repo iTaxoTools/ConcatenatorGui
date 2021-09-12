@@ -69,6 +69,7 @@ class RichRadioButton(QtWidgets.QRadioButton):
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
         font = self.font()
         font.setBold(False)
+        font.setLetterSpacing(QtGui.QFont.PercentageSpacing, 0)
         painter.setFont(font)
 
         width = self.size().width()
@@ -114,9 +115,6 @@ class AlignItem(widgets.WidgetItem):
                       QtCore.Qt.ItemIsEnabled |
                       QtCore.Qt.ItemNeverHasChildren)
         self.file = None
-        alignment = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
-        for col in range(2, 6):
-            self.setTextAlignment(col, alignment)
         self.name = lorem.words(randint(2, 6)).replace(' ', '_')
         self.action = '-'
         self.samples = randint(6, 300)
@@ -127,7 +125,6 @@ class AlignItem(widgets.WidgetItem):
     def align(self):
         self.setAction('Align')
         self.setBold(True)
-        pass
 
     def clear(self):
         self.setAction('-')
@@ -152,7 +149,6 @@ class AlignItem(widgets.WidgetItem):
         font = self.font(0)
         font.setBold(value)
         self.setFont(0, font)
-        self.setFont(1, font)
 
 
 class TreeWidget(widgets.TreeWidget):
@@ -287,17 +283,15 @@ class StepAlignSetsEdit(ssm.StepSubState):
         view.signalSummaryUpdate.connect(self.handleSummaryUpdate)
         view.itemActivated.connect(self.handleActivated)
         view.setIndentation(0)
-        view.setColumnCount(6)
+        view.setColumnCount(6, 2)
         view.setHeaderLabels([
-            ' Name', ' Action', ' Samples',
-            ' Nucleotides', ' Uniform', ' Missing'])
+            'Name', 'Action', 'Samples',
+            'Nucleotides', 'Uniform', 'Missing'])
 
         headerItem = view.headerItem()
         headerItem.setToolTip(0, lorem.words(13))
         for col in range(1, 6):
             headerItem.setToolTip(col, lorem.words(randint(5, 15)))
-        alignment = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter
-        headerItem.setTextAlignment(1, alignment)
 
         all = common.widgets.PushButton('Align All', onclick=self.handleAll)
         align = common.widgets.PushButton('Align ', onclick=self.handleAlign)
@@ -325,9 +319,8 @@ class StepAlignSetsEdit(ssm.StepSubState):
         frame.setLayout(layout)
 
         self.view = view
-        self.frame = align
-        self.delete = clear
-        self.search = all
+        self.frame = frame
+        self.search = search
 
         return frame
 
@@ -432,28 +425,34 @@ class StepAlignSets(ssm.StepTriState):
         self.progbar.setValue(x)
 
     def work(self):
-        skip = self.machine().states['align_options'].data.skip
-        skip = skip or self.states['edit'].aligned.value == 0
-        if not skip:
-            dummy_work(self, 42, 200, 10, 20)
+        dummy_work(self, 42, 200, 10, 20)
+
+    def skip(self):
+        skip = ssm.NavigateEvent(ssm.NavigateEvent.Event.Skip)
+        self.machine().postEvent(skip)
+        return False
 
     def filterNext(self):
+        if self.machine().states['align_options'].data.skip:
+            return self.skip()
         if self.states['edit'].aligned.value > 0:
             return True
         else:
             msgBox = QtWidgets.QMessageBox(self.machine().parent())
-            msgBox.setWindowTitle('Skip alignment')
+            msgBox.setWindowTitle(self.machine().parent().title)
             msgBox.setIcon(QtWidgets.QMessageBox.Warning)
             msgBox.setText('Nothing marked for alignment.\nContinue anyway?')
             msgBox.setStandardButtons(
                 QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
             msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
             res = msgBox.exec()
-            return res == QtWidgets.QMessageBox.Yes
+            if res == QtWidgets.QMessageBox.Yes:
+                return self.skip()
+            return False
 
     def filterCancel(self):
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
-        msgBox.setWindowTitle('Cancel')
+        msgBox.setWindowTitle(self.machine().parent().title)
         msgBox.setIcon(QtWidgets.QMessageBox.Question)
         msgBox.setText('Cancel alignment?')
         msgBox.setStandardButtons(

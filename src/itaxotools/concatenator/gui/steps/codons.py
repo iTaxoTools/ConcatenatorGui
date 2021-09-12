@@ -16,7 +16,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 # -----------------------------------------------------------------------------
 
-"""StepFilter"""
+"""StepCodons"""
 
 from PySide6 import QtCore
 from PySide6 import QtWidgets
@@ -24,6 +24,8 @@ from PySide6 import QtGui
 
 from lorem_text import lorem
 from random import randint
+
+import sys
 
 from itaxotools import common
 import itaxotools.common.widgets
@@ -47,18 +49,18 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
             return None
 
 
-class FilterItem(widgets.WidgetItem):
+class CodonItem(widgets.WidgetItem):
     fields = [
         'name',
         'action',
+        'frame',
+        'code',
         'samples',
         'nucleotides',
-        'uniform',
         'missing',
         ]
     actions = {
-        'Delete': 'deleted',
-        'Rename': 'renamed',
+        'Subset': 'subsetted',
         }
 
     def __init__(self, *args, **kwargs):
@@ -69,41 +71,33 @@ class FilterItem(widgets.WidgetItem):
                       QtCore.Qt.ItemNeverHasChildren)
         self.file = None
         self.name = lorem.words(randint(2, 6)).replace(' ', '_')
-        self.name_original = self.name
         self.action = '-'
+        self.frame = ''
+        self.code = ''
         self.samples = randint(6, 300)
         self.nucleotides = randint(200, 3000000)
         self.uniform = ['Yes', 'No'][randint(0, 1)]
         self.missing = randint(0, 9999) / 10000
 
-    def setData(self, column, role, value):
-        if not value:
+    def subset(self):
+        if self.action == 'Subset':
             return
-        super().setData(column, role, value)
-        if role != QtCore.Qt.ItemDataRole.EditRole:
-            return
-        if column > 0:
-            raise RuntimeError(f'Cannot edit FilterItem column: {column}')
-        if value != self.name:
-            self.rename(value)
-
-    def rename(self, value):
-        self.name = value
-        if self.name != self.name_original:
-            self.setAction('Rename')
-            self.setBold(True)
-        else:
-            self.setAction('-')
-            self.setBold(False)
-
-    def delete(self):
-        self.setAction('Delete')
+        self.setAction('Subset')
         self.setBold(True)
+        self.frame = 'Auto'
+        self.code = 'Auto'
 
     def clear(self):
-        self.name = self.name_original
         self.setAction('-')
         self.setBold(False)
+        self.frame = ''
+        self.code = ''
+
+    def toggle(self):
+        if self.action == '-':
+            self.subset()
+        else:
+            self.clear()
 
     def setAction(self, value):
         signal = self.treeWidget().signalSummaryUpdate
@@ -128,10 +122,9 @@ class DataObject(object):
     pass
 
 
-class StepFilter(ssm.StepState):
+class StepCodonsEdit(ssm.StepSubState):
 
-    title = 'Filter Character Sets'
-    description = 'Rename or delete character sets'
+    description = 'Select which character sets to subset'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -141,15 +134,9 @@ class StepFilter(ssm.StepState):
     def add_dummy_contents(self):
         count = randint(500, 2000)
         for i in range(0, count):
-            FilterItem(self.view)
+            CodonItem(self.view)
         self.view.resizeColumnsToContents()
         self.sets.setValue(count)
-
-    def work(self):
-        time = randint(500, 2000)
-        for i in range(0, int(time/10)):
-            QtCore.QThread.msleep(10)
-            self.worker.check()
 
     def draw(self):
         widget = QtWidgets.QWidget()
@@ -174,23 +161,20 @@ class StepFilter(ssm.StepState):
 
     def draw_summary(self):
         sets = widgets.InfoLabel('Total Sets')
-        renamed = widgets.InfoLabel('Renamed', 0)
-        deleted = widgets.InfoLabel('Deleted', 0)
+        subsetted = widgets.InfoLabel('Subsetted', 0)
 
-        for item in [sets, renamed, deleted]:
+        for item in [sets, subsetted]:
             item.setToolTip(lorem.words(randint(5, 15)))
 
         summary = QtWidgets.QHBoxLayout()
         summary.addWidget(sets)
-        summary.addWidget(renamed)
-        summary.addWidget(deleted)
+        summary.addWidget(subsetted)
         summary.addStretch(1)
         summary.setSpacing(24)
         summary.setContentsMargins(4, 0, 4, 0)
 
         self.sets = sets
-        self.renamed = renamed
-        self.deleted = deleted
+        self.subsetted = subsetted
 
         return summary
 
@@ -202,29 +186,25 @@ class StepFilter(ssm.StepState):
         view.signalSummaryUpdate.connect(self.handleSummaryUpdate)
         view.itemActivated.connect(self.handleActivated)
         view.setIndentation(0)
-        view.setColumnCount(6, 2)
+        view.setColumnCount(7, 4)
         view.setHeaderLabels([
-            'Name', 'Action', 'Samples',
-            'Nucleotides', 'Uniform', 'Missing'])
+            'Name', 'Action', 'Frame', 'Code', 'Samples',
+            'Nucleotides', 'Missing'])
 
         headerItem = view.headerItem()
         headerItem.setToolTip(0, lorem.words(13))
         for col in range(1, 6):
             headerItem.setToolTip(col, lorem.words(randint(5, 15)))
 
-        rename = common.widgets.PushButton('Rename', onclick=self.handleRename)
-        delete = common.widgets.PushButton('Delete', onclick=self.handleDelete)
+        subset = common.widgets.PushButton('Subset', onclick=self.handleSubset)
+        options = common.widgets.PushButton('Options', onclick=self.handleOptions)
         clear = common.widgets.PushButton('Clear', onclick=self.handleClear)
-
-        QtGui.QShortcut(QtGui.QKeySequence('F2'), view, self.handleRename)
-        QtGui.QShortcut(QtGui.QKeySequence.Delete, view, self.handleDelete)
-        QtGui.QShortcut(QtGui.QKeySequence.Undo, view, self.handleClear)
 
         search = widgets.ViewSearchWidget(self, view)
 
         controls = QtWidgets.QHBoxLayout()
-        controls.addWidget(rename)
-        controls.addWidget(delete)
+        controls.addWidget(subset)
+        controls.addWidget(options)
         controls.addWidget(clear)
         controls.addStretch(1)
         controls.addWidget(search)
@@ -243,30 +223,39 @@ class StepFilter(ssm.StepState):
 
         self.view = view
         self.frame = frame
-        self.delete = delete
         self.search = search
 
         return frame
 
-    def handleRename(self, checked=False):
-        index = self.view.currentIndex().siblingAtColumn(0)
-        self.view.edit(index)
-        self.view.resizeColumnToContents(1)
-
-    def handleDelete(self, checked=False):
+    def handleSubset(self, checked=False):
         for item in self.view.selectedItems():
-            item.delete()
-        self.view.resizeColumnToContents(1)
+            item.subset()
+        self.view.resizeColumnsToContents()
 
     def handleClear(self, checked=False):
         for item in self.view.selectedItems():
             item.clear()
-        self.view.resizeColumnToContents(1)
+        self.view.resizeColumnsToContents()
+
+    def handleOptions(self, checked=False):
+        print('handleOptions')
 
     def handleActivated(self, item, column):
-        index = self.view.indexFromItem(item).siblingAtColumn(0)
-        self.view.edit(index)
+        item.toggle()
+        self.view.resizeColumnsToContents()
 
     def handleSummaryUpdate(self, field, change):
         item = getattr(self, field)
         item.setValue(item.value + change)
+
+
+class StepCodons(ssm.StepTriState):
+    title = 'Subset by Codons'
+
+    StepEdit = StepCodonsEdit
+
+    class StepFail(ssm.StepSubState):
+        description = 'Task failed'
+
+    def onFail(self, exception):
+        raise exception

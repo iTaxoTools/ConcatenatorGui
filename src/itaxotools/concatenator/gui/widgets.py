@@ -111,6 +111,19 @@ class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
     map = {}
     unmap = {}
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.copyTextAlignment()
+
+    def copyTextAlignment(self):
+        if not self.treeWidget():
+            return
+        headerItem = self.treeWidget().headerItem()
+        if not headerItem:
+            return
+        for column in range(0, headerItem.columnCount()):
+            self.setTextAlignment(column, headerItem.textAlignment(column))
+
     def __setattr__(self, attr, value):
         super().__setattr__(attr, value)
         if attr in self.map:
@@ -172,9 +185,7 @@ class HeaderView(QtWidgets.QHeaderView):
         if option.textAlignment & QtCore.Qt.AlignRight:
             margin -= QtCore.QMargins(20, 0, 8, 0)
         else:
-            margin -= QtCore.QMargins(4, 0, 20, 0)
-        # if option.position == soh.Beginning:
-        # margin += QtCore.QMargins(4, 0, 0, 0)
+            margin -= QtCore.QMargins(8, 0, 20, 0)
 
         painter.setPen(QtGui.QPen(black, 1, QtCore.Qt.SolidLine))
         painter.drawText(rect + margin, option.textAlignment, option.text)
@@ -235,13 +246,14 @@ class TreeWidget(QtWidgets.QTreeWidget):
                 }
             """)
 
-    def setColumnCount(self, columns):
+    def setColumnCount(self, columns, left_align=1):
         super().setColumnCount(columns)
         headerItem = self.headerItem()
         alignment = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter
-        headerItem.setTextAlignment(0, alignment)
+        for col in range(0, left_align):
+            headerItem.setTextAlignment(col, alignment)
         alignment = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
-        for col in range(1, 6):
+        for col in range(left_align, columns):
             headerItem.setTextAlignment(col, alignment)
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
 

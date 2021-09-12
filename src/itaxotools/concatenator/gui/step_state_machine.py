@@ -112,6 +112,7 @@ class NavigateEvent(QtCore.QEvent):
         Fail = enum.auto()
         Cancel = enum.auto()
         New = enum.auto()
+        Skip = enum.auto()
 
     def __init__(self, event: Event):
         """Pass name and args"""
@@ -316,6 +317,9 @@ class StepTriState(StepState):
             'editNext', ev.Next, lambda e: self.filterNext(),
             self.states['edit'], self.states['wait'])
         self.addSubTransition(
+            'editSkip', ev.Skip, lambda e: True,
+            self.states['edit'], None)
+        self.addSubTransition(
             'waitFail', ev.Fail, lambda e: True,
             self.states['wait'], self.states['fail'])
         self.addSubTransition(
@@ -342,6 +346,7 @@ class StepTriState(StepState):
 
     def setNextState(self, state):
         self.transitions['waitDone'].setTargetState(state)
+        self.transitions['editSkip'].setTargetState(state)
         self.nextState = state
 
     def setPrevState(self, state):
