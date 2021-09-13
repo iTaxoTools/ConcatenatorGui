@@ -237,7 +237,7 @@ class Main(common.widgets.ToolDialog):
         m.addStep('export', 'Export', 1, True, StepExport)
         m.addStep('done', 'Done', 1, False, StepDone)
 
-        m.setInitialState(m.states['align_sets'])
+        m.setInitialState(m.states.filter)
 
         self.machine = m
         self.machine.start()

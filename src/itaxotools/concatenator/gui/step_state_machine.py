@@ -30,6 +30,12 @@ from itaxotools.common import widgets
 from . import step_progress_bar as spb
 
 
+class AttrDict(dict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__dict__ = self
+
+
 class FailedError(Exception):
     def __init__(self, code=1):
         super().__init__(f'Thread failed with code: {code}')
@@ -190,19 +196,19 @@ class StepState(StepSubState):
         self.cog()
 
     def cog(self):
-        transitions = {}
-        transitions['next'] = NavigateTransition(NavigateEvent.Event.Next)
-        transitions['back'] = NavigateTransition(NavigateEvent.Event.Back)
+        transitions = AttrDict()
+        transitions.next = NavigateTransition(NavigateEvent.Event.Next)
+        transitions.back = NavigateTransition(NavigateEvent.Event.Back)
         for transition in transitions:
             self.addTransition(transitions[transition])
         self.transitions = transitions
 
     def setNextState(self, state):
-        self.transitions['next'].setTargetState(state)
+        self.transitions.next.setTargetState(state)
         self.nextState = state
 
     def setPrevState(self, state):
-        self.transitions['back'].setTargetState(state)
+        self.transitions.back.setTargetState(state)
         self.prevState = state
 
     def onEntry(self, event):
@@ -255,7 +261,7 @@ class StepTriStateDone(StepSubState):
         self.result = None
 
     def draw(self):
-        return self.parent().states['wait'].widget
+        return self.parent().states.wait.widget
 
 
 class StepTriStateFail(StepSubState):
@@ -266,7 +272,7 @@ class StepTriStateFail(StepSubState):
         self.exception = None
 
     def draw(self):
-        return self.parent().states['wait'].widget
+        return self.parent().states.wait.widget
 
 
 class StepTriState(StepState):
@@ -320,14 +326,14 @@ class StepTriState(StepState):
 
     def _onDone(self, result):
         self.onDone(result)
-        self.states['done'].result = result
-        self.states['fail'].exception = None
+        self.states.done.result = result
+        self.states.fail.exception = None
         self.machine().postEvent(NavigateEvent(NavigateEvent.Event.Done))
 
     def _onFail(self, exception):
         self.onFail(exception)
-        self.states['done'].result = None
-        self.states['fail'].exception = exception
+        self.states.done.result = None
+        self.states.fail.exception = exception
         self.machine().postEvent(NavigateEvent(NavigateEvent.Event.Fail))
 
     def onDone(self, result):
@@ -381,42 +387,42 @@ class StepTriState(StepState):
         return True
 
     def cog(self):
-        self.states = {}
+        self.states = AttrDict()
         self.addSubState('edit', self.StepEdit)
         self.addSubState('wait', self.StepWait)
         self.addSubState('done', self.StepDone)
         self.addSubState('fail', self.StepFail)
-        self.setInitialState(self.states['edit'])
+        self.setInitialState(self.states.edit)
 
         ev = NavigateEvent.Event
-        self.transitions = {}
+        self.transitions = AttrDict()
         self.addSubTransition(
             'editNext', ev.Next, lambda e: self._filterNext(),
-            self.states['edit'], self.states['wait'])
+            self.states.edit, self.states.wait)
         self.addSubTransition(
             'editSkip', ev.Skip, lambda e: True,
-            self.states['edit'], None)
+            self.states.edit, None)
         self.addSubTransition(
             'waitFail', ev.Fail, lambda e: True,
-            self.states['wait'], self.states['fail'])
+            self.states.wait, self.states.fail)
         self.addSubTransition(
             'waitDone', ev.Done, lambda e: True,
-            self.states['wait'], self.states['done'])
+            self.states.wait, self.states.done)
         self.addSubTransition(
             'waitCancel', ev.Cancel, lambda e: self.filterCancel(),
-            self.states['wait'], self.states['edit'])
+            self.states.wait, self.states.edit)
         self.addSubTransition(
             'failBack', ev.Back, lambda e: True,
-            self.states['fail'], self.states['edit'])
+            self.states.fail, self.states.edit)
         self.addSubTransition(
             'doneΒαψκ', ev.Back, lambda e: True,
-            self.states['done'], self.states['edit'])
+            self.states.done, self.states.edit)
         self.addSubTransition(
             'doneNext', ev.Next, lambda e: True,
-            self.states['done'], None)
+            self.states.done, None)
         self.addSubTransition(
             'editBack', ev.Back, lambda e: self.filterBack(),
-            self.states['edit'], None)
+            self.states.edit, None)
 
     def addSubState(self, name, cls):
         self.states[name] = cls(self, self.widget)
@@ -428,12 +434,12 @@ class StepTriState(StepState):
         self.transitions[name] = transition
 
     def setNextState(self, state):
-        self.transitions['doneNext'].setTargetState(state)
-        self.transitions['editSkip'].setTargetState(state)
+        self.transitions.doneNext.setTargetState(state)
+        self.transitions.editSkip.setTargetState(state)
         self.nextState = state
 
     def setPrevState(self, state):
-        self.transitions['editBack'].setTargetState(state)
+        self.transitions.editBack.setTargetState(state)
         self.prevState = state
 
 
@@ -454,7 +460,7 @@ class StepStateMachine(QtStateMachine.QStateMachine):
         self.header = header
         self.footer = footer
         self.stack = stack
-        self.states = {}
+        self.states = AttrDict()
         self.steps = []
         self.waiting = False
 

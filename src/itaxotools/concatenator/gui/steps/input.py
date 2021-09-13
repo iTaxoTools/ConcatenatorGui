@@ -346,30 +346,30 @@ class StepInput(ssm.StepState):
     def cog(self):
         super().cog()
 
-        self.states = dict()
-        self.states['idle'] = StepInputIdle(self)
-        self.states['busy'] = StepInputBusy(self)
-        self.setInitialState(self.states['idle'])
+        self.states = ssm.AttrDict()
+        self.states.idle = StepInputIdle(self)
+        self.states.busy = StepInputBusy(self)
+        self.setInitialState(self.states.idle)
 
         transition = QtStateMachine.QSignalTransition(self.signalAdd)
-        transition.setTargetState(self.states['busy'])
-        self.states['idle'].addTransition(transition)
-        self.transitions['add'] = transition
+        transition.setTargetState(self.states.busy)
+        self.states.idle.addTransition(transition)
+        self.transitions.add = transition
 
         transition = QtStateMachine.QSignalTransition(self.signalRefresh)
-        transition.setTargetState(self.states['idle'])
-        self.states['idle'].addTransition(transition)
-        self.transitions['refresh'] = transition
+        transition.setTargetState(self.states.idle)
+        self.states.idle.addTransition(transition)
+        self.transitions.refresh = transition
 
         transition = QtStateMachine.QSignalTransition(self.signalDone)
-        transition.setTargetState(self.states['idle'])
-        self.states['busy'].addTransition(transition)
-        self.transitions['done'] = transition
+        transition.setTargetState(self.states.idle)
+        self.states.busy.addTransition(transition)
+        self.transitions.done = transition
 
         transition = ssm.NavigateTransition(ssm.NavigateEvent.Event.Cancel)
-        transition.setTargetState(self.states['idle'])
-        self.states['busy'].addTransition(transition)
-        self.transitions['cancel'] = transition
+        transition.setTargetState(self.states.idle)
+        self.states.busy.addTransition(transition)
+        self.transitions.cancel = transition
 
     def refresh_contents(self):
         self.files.setValue(len(self.data.files))

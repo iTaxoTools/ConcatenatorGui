@@ -77,15 +77,14 @@ class FilterItem(widgets.WidgetItem):
         self.missing = randint(0, 9999) / 10000
 
     def setData(self, column, role, value):
-        if not value:
-            return
-        super().setData(column, role, value)
-        if role != QtCore.Qt.ItemDataRole.EditRole:
-            return
-        if column > 0:
-            raise RuntimeError(f'Cannot edit FilterItem column: {column}')
-        if value != self.name:
-            self.rename(value)
+        if role == QtCore.Qt.ItemDataRole.EditRole:
+            if column > 0:
+                raise RuntimeError(f'Cannot edit FilterItem column: {column}')
+            if not value:
+                return False
+            if value != self.name:
+                self.rename(value)
+        return super().setData(column, role, value)
 
     def rename(self, value):
         self.name = value
@@ -251,17 +250,17 @@ class StepFilter(ssm.StepState):
     def handleRename(self, checked=False):
         index = self.view.currentIndex().siblingAtColumn(0)
         self.view.edit(index)
-        self.view.resizeColumnToContents(1)
+        self.view.scrollToItem(self.view.itemFromIndex(index))
 
     def handleDelete(self, checked=False):
         for item in self.view.selectedItems():
             item.delete()
-        self.view.resizeColumnToContents(1)
+        self.view.scrollToItem(item)
 
     def handleClear(self, checked=False):
         for item in self.view.selectedItems():
             item.clear()
-        self.view.resizeColumnToContents(1)
+        self.view.scrollToItem(item)
 
     def handleActivated(self, item, column):
         index = self.view.indexFromItem(item).siblingAtColumn(0)

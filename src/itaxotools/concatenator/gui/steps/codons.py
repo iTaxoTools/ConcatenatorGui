@@ -390,6 +390,7 @@ class OptionsDialog(QtWidgets.QDialog):
                 3: self.third.text(),
                 }
             item.setNames(names)
+        self.view.scrollToItem(item)
 
 
 class StepCodonsEdit(ssm.StepTriStateEdit):
@@ -499,10 +500,12 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
     def handleSubset(self, checked=False):
         for item in self.view.selectedItems():
             item.subset()
+        self.view.scrollToItem(item)
 
     def handleClear(self, checked=False):
         for item in self.view.selectedItems():
             item.clear()
+        self.view.scrollToItem(item)
 
     def handleOptions(self, checked=False):
         items = self.view.selectedItems()

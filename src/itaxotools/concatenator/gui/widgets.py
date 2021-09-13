@@ -134,8 +134,7 @@ class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
                 value = f'{value:.2f}%'
             self.setText(self.map[attr], str(value))
             if self.map[attr] == 0:
-                for k in self.unmap.keys():
-                    self.setToolTip(self.map[attr], str(value))
+                self.setToolTip(0, str(value))
 
     def __lt__(self, other):
         col = self.treeWidget().sortColumn()
@@ -150,6 +149,7 @@ class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
         super().setData(column, role, value)
         if role == QtCore.Qt.EditRole and column in self.unmap:
             setattr(self, self.unmap[column], value)
+            self.treeWidget().scrollToItem(self)
 
 
 class HeaderView(QtWidgets.QHeaderView):

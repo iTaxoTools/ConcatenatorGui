@@ -331,12 +331,12 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
     def handleAlign(self, checked=False):
         for item in self.view.selectedItems():
             item.align()
-        self.view.resizeColumnToContents(1)
+        self.view.scrollToItem(item)
 
     def handleClear(self, checked=False):
         for item in self.view.selectedItems():
             item.clear()
-        self.view.resizeColumnToContents(1)
+        self.view.scrollToItem(item)
 
     def handleAll(self, checked=False):
         self.view.selectAll()
@@ -344,7 +344,7 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
     def handleActivated(self, item, column):
         item.toggle()
-        self.view.resizeColumnToContents(1)
+        self.view.scrollToItem(item)
 
     def handleSummaryUpdate(self, field, change):
         item = getattr(self, field)
