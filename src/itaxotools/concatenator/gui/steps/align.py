@@ -137,12 +137,13 @@ class AlignItem(widgets.WidgetItem):
             self.clear()
 
     def setAction(self, value):
-        signal = self.treeWidget().signalSummaryUpdate
-        if self.action != value:
-            if self.action in self.actions:
-                signal.emit(self.actions[self.action], -1)
-            if value in self.actions:
-                signal.emit(self.actions[value], 1)
+        if self.treeWidget():
+            signal = self.treeWidget().signalSummaryUpdate
+            if self.action != value:
+                if self.action in self.actions:
+                    signal.emit(self.actions[self.action], -1)
+                if value in self.actions:
+                    signal.emit(self.actions[value], 1)
         self.action = value
 
     def setBold(self, value):
@@ -259,7 +260,7 @@ class StepAlignSetsEdit(ssm.StepSubState):
 
     def draw_summary(self):
         sets = widgets.InfoLabel('Total Sets')
-        aligned = widgets.InfoLabel('Aligned', 0)
+        aligned = widgets.InfoLabel('Selected', 0)
 
         for item in [sets, aligned]:
             item.setToolTip(lorem.words(randint(5, 15)))

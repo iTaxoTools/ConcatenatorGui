@@ -146,6 +146,11 @@ class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
             that = that.casefold()
         return this < that
 
+    def setData(self, column, role, value):
+        super().setData(column, role, value)
+        if role == QtCore.Qt.EditRole and column in self.unmap:
+            setattr(self, self.unmap[column], value)
+
 
 class HeaderView(QtWidgets.QHeaderView):
 
@@ -245,6 +250,12 @@ class TreeWidget(QtWidgets.QTreeWidget):
                 color: Palette(Light);
                 }
             """)
+
+    def showEvent(self, event):
+        item = self.topLevelItem(0)
+        index = self.indexFromItem(item)
+        self.setCurrentIndex(index)
+        self.scrollToItem(item)
 
     def setColumnCount(self, columns, left_align=1):
         super().setColumnCount(columns)
