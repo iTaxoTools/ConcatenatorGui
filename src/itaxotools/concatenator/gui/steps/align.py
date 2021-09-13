@@ -25,8 +25,6 @@ from PySide6 import QtGui
 from lorem_text import lorem
 from random import randint
 
-import sys
-
 from itaxotools import common
 import itaxotools.common.widgets
 import itaxotools.common.resources # noqa
@@ -34,22 +32,27 @@ import itaxotools.common.resources # noqa
 from .. import widgets
 from .. import step_state_machine as ssm
 
+from .wait import StepWaitBar
 
-def dummy_work(self, count, max, lines, period):
-    with common.io.redirect(sys, 'stdout', self.logio):
-        print('')
-        while True:
-            text = lorem.words(3)
-            print(f'\nStep {count}/{max} {text}')
-            for i in range(1, lines):
-                print(lorem.words(randint(3, 12)))
-            self.updateSignal.emit((count, max, text))
-            if count >= max:
-                break
-            for i in range(0, int(period/10)):
-                QtCore.QThread.msleep(10)
-                self.worker.check()
-            count += 1
+
+def dummy_work(state, count, max, lines, period):
+    print('')
+    while True:
+        # if count == 101:
+        #     raise Exception('ohno')
+        now = lorem.words(3)
+        print(f'\nStep {count}/{max} {now}')
+        for i in range(1, lines):
+            print(lorem.words(randint(3, 12)))
+        text = f'Sequence {count}/{max}: {now}'
+        state.update(count, max, text)
+        if count >= max:
+            break
+        for i in range(0, int(period/10)):
+            QtCore.QThread.msleep(10)
+            state.worker.check()
+        count += 1
+    return max
 
 
 class RichRadioButton(QtWidgets.QRadioButton):
@@ -221,7 +224,7 @@ class StepAlignOptions(ssm.StepState):
         self.data.skip = self.skip.isChecked()
 
 
-class StepAlignSetsEdit(ssm.StepSubState):
+class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
     description = 'Select which character sets to align'
 
@@ -348,55 +351,29 @@ class StepAlignSetsEdit(ssm.StepSubState):
         item.setValue(item.value + change)
 
 
-class StepAlignSetsWait(ssm.StepSubState):
-    description = 'Please wait...'
+class StepAlignSetsWait(StepWaitBar):
+    def onEntry(self, event):
+        super().onEntry(event)
+        for i in range(1, 50):
+            self.logio.writeline(lorem.words(randint(3, 12)))
 
-    def draw(self):
-        widget = QtWidgets.QWidget()
 
-        progtext = QtWidgets.QLabel('No task')
-        progtext.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
-        progbar = QtWidgets.QProgressBar()
-        progbar.setTextVisible(False)
-        progbar.setStyleSheet("""
-            QProgressBar {
-                background: Palette(Light);
-                border: 1px solid Palette(Mid);
-                border-radius: 0px;
-                text-align: center;
-            }
-            QProgressBar::chunk {
-                background-color: Palette(Highlight);
-                width: 1px;
-            }""")
-        logger = common.widgets.TextEditLogger()
-        logger.setFont(QtGui.QFontDatabase.systemFont(
-            QtGui.QFontDatabase.FixedFont))
-        logger.document().setDocumentMargin(10)
-        logio = common.io.TextEditLoggerIO(logger)
-
-        layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(progtext)
-        layout.addSpacing(6)
-        layout.addWidget(progbar)
-        layout.addSpacing(16)
-        layout.addWidget(logger, 1)
-        layout.setSpacing(0)
-        layout.setContentsMargins(0, 0, 0, 0)
-        widget.setLayout(layout)
-
-        self.parent().logio = logio
-        self.parent().logger = logger
-        self.parent().progtext = progtext
-        self.parent().progbar = progbar
-
-        return widget
+class StepAlignSetsDone(ssm.StepTriStateDone):
+    description = 'Alignment completed'
 
     def onEntry(self, event):
         super().onEntry(event)
-        self.parent().logger.clear()
-        for i in range(1, 50):
-            self.parent().logio.writeline(lorem.words(randint(3, 12)))
+        self.parent().update(
+            text=f'Successfully aligned {str(self.result)} sequences.')
+
+
+class StepAlignSetsFail(ssm.StepTriStateFail):
+    description = 'Alignment failed'
+
+    def onEntry(self, event):
+        super().onEntry(event)
+        self.parent().update(
+            text=f'Sequence alignment failed: {str(self.exception)}')
 
 
 class StepAlignSets(ssm.StepTriState):
@@ -404,52 +381,31 @@ class StepAlignSets(ssm.StepTriState):
 
     StepEdit = StepAlignSetsEdit
     StepWait = StepAlignSetsWait
-
-    class StepFail(ssm.StepSubState):
-        description = 'Task failed'
-
-    def onFail(self, exception):
-        raise exception
-
-    def onEntry(self, event):
-        skip = self.machine().states['align_options'].data.skip
-        if skip:
-            repeat = ssm.NavigateEvent(event.event)
-            self.machine().postEvent(repeat)
-        else:
-            super().onEntry(event)
-
-    def updateProgress(self, tuple):
-        x, m, w = tuple
-        self.progtext.setText(f'Sequence {x}/{m}: {w}')
-        self.progbar.setMaximum(m)
-        self.progbar.setValue(x)
+    StepDone = StepAlignSetsDone
+    StepFail = StepAlignSetsFail
 
     def work(self):
-        dummy_work(self, 42, 200, 10, 20)
+        with self.states['wait'].redirect():
+            return dummy_work(self, 42, 200, 10, 20)
 
-    def skip(self):
-        skip = ssm.NavigateEvent(ssm.NavigateEvent.Event.Skip)
-        self.machine().postEvent(skip)
-        return False
+    def skipAll(self):
+        skip = self.machine().states['align_options'].data.skip
+        return bool(skip)
 
-    def filterNext(self):
-        if self.machine().states['align_options'].data.skip:
-            return self.skip()
-        if self.states['edit'].aligned.value > 0:
-            return True
-        else:
-            msgBox = QtWidgets.QMessageBox(self.machine().parent())
-            msgBox.setWindowTitle(self.machine().parent().title)
-            msgBox.setIcon(QtWidgets.QMessageBox.Warning)
-            msgBox.setText('Nothing marked for alignment.\nContinue anyway?')
-            msgBox.setStandardButtons(
-                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-            msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
-            res = msgBox.exec()
-            if res == QtWidgets.QMessageBox.Yes:
-                return self.skip()
-            return False
+    def skipWait(self):
+        skip = self.states['edit'].aligned.value == 0
+        return bool(skip)
+
+    def filterSkip(self):
+        msgBox = QtWidgets.QMessageBox(self.machine().parent())
+        msgBox.setWindowTitle(self.machine().parent().title)
+        msgBox.setIcon(QtWidgets.QMessageBox.Warning)
+        msgBox.setText('Nothing marked for alignment.\nContinue anyway?')
+        msgBox.setStandardButtons(
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+        msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
+        res = msgBox.exec()
+        return res == QtWidgets.QMessageBox.Yes
 
     def filterCancel(self):
         msgBox = QtWidgets.QMessageBox(self.machine().parent())

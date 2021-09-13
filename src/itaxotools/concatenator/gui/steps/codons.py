@@ -32,6 +32,26 @@ import itaxotools.common.resources # noqa
 from .. import widgets
 from .. import step_state_machine as ssm
 
+from .wait import StepWaitBar
+
+
+def dummy_work(state, count, max, lines, period):
+    print('')
+    while True:
+        now = lorem.words(3)
+        print(f'\nStep {count}/{max} {now}')
+        for i in range(1, lines):
+            print(lorem.words(randint(3, 12)))
+        text = f'Sequence {count}/{max}: {now}'
+        state.update(count, max, text)
+        if count >= max:
+            break
+        for i in range(0, int(period/10)):
+            QtCore.QThread.msleep(10)
+            state.worker.check()
+        count += 1
+    return max
+
 
 class CodonItem(widgets.WidgetItem):
     fields = [
@@ -372,7 +392,7 @@ class OptionsDialog(QtWidgets.QDialog):
             item.setNames(names)
 
 
-class StepCodonsEdit(ssm.StepSubState):
+class StepCodonsEdit(ssm.StepTriStateEdit):
 
     description = 'Select which character sets to subset'
 
@@ -501,13 +521,62 @@ class StepCodonsEdit(ssm.StepSubState):
         item.setValue(item.value + change)
 
 
+class StepCodonsWait(StepWaitBar):
+    def onEntry(self, event):
+        super().onEntry(event)
+        for i in range(1, 50):
+            self.logio.writeline(lorem.words(randint(3, 12)))
+
+
+class StepCodonsDone(ssm.StepTriStateDone):
+    description = 'Codon subsetting completed'
+
+    def onEntry(self, event):
+        super().onEntry(event)
+        subsetted = self.parent().states['edit'].subsetted.value
+        s = 's' if subsetted > 1 else ''
+        self.parent().update(
+            text=f'Successfully split {subsetted} character set{s}.')
+
+
+class StepCodonsFail(ssm.StepTriStateFail):
+    description = 'Codon subsetting failed'
+
+    def onEntry(self, event):
+        super().onEntry(event)
+        self.parent().update(
+            text=f'Codon subsetting failed: {str(self.exception)}')
+
+
 class StepCodons(ssm.StepTriState):
     title = 'Subset by Codons'
 
     StepEdit = StepCodonsEdit
+    StepWait = StepCodonsWait
+    StepDone = StepCodonsDone
+    StepFail = StepCodonsFail
 
     class StepFail(ssm.StepSubState):
         description = 'Task failed'
 
     def onFail(self, exception):
         raise exception
+
+    def work(self):
+        with self.states['wait'].redirect():
+            return dummy_work(self, 42, 100, 10, 20)
+
+    def skipWait(self):
+        skip = self.states['edit'].subsetted.value == 0
+        return bool(skip)
+
+    def filterCancel(self):
+        msgBox = QtWidgets.QMessageBox(self.machine().parent())
+        msgBox.setWindowTitle(self.machine().parent().title)
+        msgBox.setIcon(QtWidgets.QMessageBox.Question)
+        msgBox.setText('Cancel subsetting?')
+        msgBox.setStandardButtons(
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+        msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
+        res = msgBox.exec()
+        return res == QtWidgets.QMessageBox.Yes

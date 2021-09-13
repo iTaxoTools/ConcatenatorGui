@@ -149,11 +149,11 @@ class StepSubState(QtStateMachine.QState):
     title = None
     description = None
 
-    def __init__(self, parent, stack, navMode, progStatus):
+    def __init__(self, parent, stack):
         super().__init__(parent)
         self.stack = stack
-        self.navMode = navMode
-        self.progStatus = progStatus
+        self.navMode: widgets.NavigationFooter.Mode = None
+        self.progStatus: spb.states.AbstractStatus = None
         self.stepProgressBar = parent.stepProgressBar
         self.header = parent.header
         self.footer = parent.footer
@@ -174,13 +174,16 @@ class StepSubState(QtStateMachine.QState):
             self.header.showTool()
         else:
             self.header.showTask(self.title, self.description)
-        self.footer.setMode(self.navMode, backwards)
-        self.stepProgressBar.setStatus(self.progStatus)
+        if self.navMode:
+            self.footer.setMode(self.navMode, backwards)
+        if self.progStatus:
+            self.stepProgressBar.setStatus(self.progStatus)
 
 
 class StepState(StepSubState):
     def __init__(self, name, parent, stack):
-        super().__init__(parent, stack, None, spb.states.Active)
+        super().__init__(parent, stack)
+        self.progStatus = spb.states.Active
         self.nextState = None
         self.prevState = None
         self.name = name
@@ -214,13 +217,66 @@ class StepState(StepSubState):
         super().onEntry(event)
 
 
+class StepTriStateEdit(StepSubState):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.navMode = widgets.NavigationFooter.Mode.Middle
+        self.progStatus = spb.states.Active
+
+
+class StepTriStateWait(StepSubState):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.navMode = widgets.NavigationFooter.Mode.Wait
+        self.progStatus = spb.states.Ongoing
+        self.parent().updated.connect(self._update)
+
+    def onEntry(self, event):
+        self.parent().worker.start()
+        super().onEntry(event)
+
+    def onExit(self, event):
+        self.parent().worker.terminate()
+        super().onExit(event)
+
+    def _update(self, args, kwargs):
+        self.update(*args, **kwargs)
+
+    def update(self, *args, **kwargs):
+        """Virtual. Called when worker thread uses update()"""
+        pass
+
+
+class StepTriStateDone(StepSubState):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.navMode = widgets.NavigationFooter.Mode.Middle
+        self.progStatus = spb.states.Complete
+        self.result = None
+
+    def draw(self):
+        return self.parent().states['wait'].widget
+
+
+class StepTriStateFail(StepSubState):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.navMode = widgets.NavigationFooter.Mode.Error
+        self.progStatus = spb.states.Failed
+        self.exception = None
+
+    def draw(self):
+        return self.parent().states['wait'].widget
+
+
 class StepTriState(StepState):
 
-    StepEdit = StepSubState
-    StepWait = StepSubState
-    StepFail = StepSubState
+    StepEdit = StepTriStateEdit
+    StepWait = StepTriStateWait
+    StepDone = StepTriStateDone
+    StepFail = StepTriStateFail
 
-    updateSignal = QtCore.Signal(object)
+    updated = QtCore.Signal(list, dict)
 
     class DataObject(object):
         pass
@@ -228,7 +284,6 @@ class StepTriState(StepState):
     def __init__(self, name, parent, stack):
         super().__init__(name, parent, stack)
         parent.installWorker(self)
-        self.updateSignal.connect(self.updateProgress)
         self.data = self.DataObject()
 
     def draw(self):
@@ -245,6 +300,7 @@ class StepTriState(StepState):
         - Queue self.worker.exit() and call super().work().
         For long tasks, you may use self.worker.check() at regular
         intervals to cleanly interrupt execution at user request.
+        You may use self.update() to update StepWait contents.
         """
         code = self.worker.exec()
         if code < 0:
@@ -252,16 +308,26 @@ class StepTriState(StepState):
         if code > 0:
             raise FailedError(code)
 
-    def updateProgress(self, obj):
-        """Virtual. Called when worker thread uses updateSignal.emit(obj)"""
-        pass
+    def update(self, *args, **kwargs):
+        self.updated.emit(args, kwargs)
+
+    def onEntry(self, event):
+        if self.skipAll():
+            repeat = NavigateEvent(event.event)
+            self.machine().postEvent(repeat)
+        else:
+            super().onEntry(event)
 
     def _onDone(self, result):
         self.onDone(result)
+        self.states['done'].result = result
+        self.states['fail'].exception = None
         self.machine().postEvent(NavigateEvent(NavigateEvent.Event.Done))
 
     def _onFail(self, exception):
         self.onFail(exception)
+        self.states['done'].result = None
+        self.states['fail'].exception = exception
         self.machine().postEvent(NavigateEvent(NavigateEvent.Event.Fail))
 
     def onDone(self, result):
@@ -276,8 +342,34 @@ class StepTriState(StepState):
         """Called after work() was cancelled"""
         pass
 
+    def _skip(self):
+        skip = NavigateEvent(NavigateEvent.Event.Skip)
+        self.machine().postEvent(skip)
+
+    def skipAll(self):
+        """Override to skip the whole step"""
+        return False
+
+    def skipWait(self):
+        """Override to skip the waiting step"""
+        return False
+
+    def _filterNext(self):
+        if self.skipAll():
+            self._skip()
+            return False
+        if self.skipWait():
+            if self.filterSkip():
+                self._skip()
+            return False
+        return self.filterNext()
+
     def filterNext(self):
         """Intercepts transition editNext"""
+        return True
+
+    def filterSkip(self):
+        """Intercepts skipWait effects"""
         return True
 
     def filterBack(self):
@@ -288,33 +380,18 @@ class StepTriState(StepState):
         """Intercepts transition waitCancel"""
         return True
 
-    def wrapStepWait(self):
-        """Wrap self.StepWait methods to handle worker"""
-        tristate = self
-
-        class _StepWait(self.StepWait):
-            def onEntry(self, event):
-                tristate.worker.start()
-                super().onEntry(event)
-
-            def onExit(self, event):
-                tristate.worker.terminate()
-                super().onExit(event)
-        return _StepWait
-
     def cog(self):
         self.states = {}
-        nm = widgets.NavigationFooter.Mode
-        ps = spb.states
-        self.addSubState('edit', self.StepEdit, nm.Middle, ps.Active)
-        self.addSubState('fail', self.StepFail, nm.Error, ps.Failed)
-        self.addSubState('wait', self.wrapStepWait(), nm.Wait, ps.Ongoing)
+        self.addSubState('edit', self.StepEdit)
+        self.addSubState('wait', self.StepWait)
+        self.addSubState('done', self.StepDone)
+        self.addSubState('fail', self.StepFail)
         self.setInitialState(self.states['edit'])
 
         ev = NavigateEvent.Event
         self.transitions = {}
         self.addSubTransition(
-            'editNext', ev.Next, lambda e: self.filterNext(),
+            'editNext', ev.Next, lambda e: self._filterNext(),
             self.states['edit'], self.states['wait'])
         self.addSubTransition(
             'editSkip', ev.Skip, lambda e: True,
@@ -323,20 +400,26 @@ class StepTriState(StepState):
             'waitFail', ev.Fail, lambda e: True,
             self.states['wait'], self.states['fail'])
         self.addSubTransition(
+            'waitDone', ev.Done, lambda e: True,
+            self.states['wait'], self.states['done'])
+        self.addSubTransition(
             'waitCancel', ev.Cancel, lambda e: self.filterCancel(),
             self.states['wait'], self.states['edit'])
         self.addSubTransition(
             'failBack', ev.Back, lambda e: True,
             self.states['fail'], self.states['edit'])
         self.addSubTransition(
-            'waitDone', ev.Done, lambda e: True,
-            self.states['wait'], None)
+            'doneΒαψκ', ev.Back, lambda e: True,
+            self.states['done'], self.states['edit'])
         self.addSubTransition(
-            'dataBack', ev.Back, lambda e: self.filterBack(),
+            'doneNext', ev.Next, lambda e: True,
+            self.states['done'], None)
+        self.addSubTransition(
+            'editBack', ev.Back, lambda e: self.filterBack(),
             self.states['edit'], None)
 
-    def addSubState(self, name, cls, navMode, progStatus):
-        self.states[name] = cls(self, self.widget, navMode, progStatus)
+    def addSubState(self, name, cls):
+        self.states[name] = cls(self, self.widget)
 
     def addSubTransition(self, name, action, filter, source, target):
         transition = NavigateTransition(action, filter)
@@ -345,12 +428,12 @@ class StepTriState(StepState):
         self.transitions[name] = transition
 
     def setNextState(self, state):
-        self.transitions['waitDone'].setTargetState(state)
+        self.transitions['doneNext'].setTargetState(state)
         self.transitions['editSkip'].setTargetState(state)
         self.nextState = state
 
     def setPrevState(self, state):
-        self.transitions['dataBack'].setTargetState(state)
+        self.transitions['editBack'].setTargetState(state)
         self.prevState = state
 
 
