@@ -6,8 +6,8 @@ import sys
 
 try:
     import importlib.resources
-    _resource_path = importlib.resources.files(resources)
-except Exception:
+    _resource_path = importlib.resources.files(__package__)
+except ModuleNotFoundError as e:
     if hasattr(sys, '_MEIPASS'):
         _resource_path = (pathlib.Path(sys._MEIPASS) /
             'itaxotools' / 'common' / 'resources')
