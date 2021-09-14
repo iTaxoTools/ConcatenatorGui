@@ -209,7 +209,7 @@ class StepAlignOptions(ssm.StepState):
         layout.addLayout(radios)
         layout.addStretch(1)
         layout.setSpacing(24)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(0, 0, 0, 32)
         widget.setLayout(layout)
 
         self.auto = auto
@@ -359,7 +359,7 @@ class StepAlignSetsWait(StepWaitBar):
 
 
 class StepAlignSetsDone(ssm.StepTriStateDone):
-    description = 'Alignment completed'
+    description = 'Alignment complete'
 
     def onEntry(self, event):
         super().onEntry(event)

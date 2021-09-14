@@ -532,7 +532,7 @@ class StepCodonsWait(StepWaitBar):
 
 
 class StepCodonsDone(ssm.StepTriStateDone):
-    description = 'Codon subsetting completed'
+    description = 'Codon subsetting complete'
 
     def onEntry(self, event):
         super().onEntry(event)
