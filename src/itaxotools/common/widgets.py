@@ -554,10 +554,40 @@ class Subheader(QtWidgets.QFrame):
             """)
 
 
+class NavigationButton(PushButton):
+    def __init__(self, text, *args, **kwargs):
+        super().__init__(text, *args, **kwargs)
+        self._default_text = text
+
+    def setText(self, text=None):
+        if text is None:
+            return super().setText(self._default_text)
+        return super().setText(text)
+
+
+def _mode_method(mode):
+    """
+    Class method decorator that populates `_mode_methods` with the
+    given mode, pointing to the decorated function, for use by setMode().
+    """
+    class ModeMethod:
+        def __init__(self, method):
+            self.method = method
+
+        def __call__(self, *args, **kwargs):
+            self.method(*args, **kwargs)
+
+        def __set_name__(self, owner, name):
+            owner._mode_methods[mode] = self.method
+            setattr(owner, name, self.method)
+    return ModeMethod
+
+
 class NavigationFooter(QtWidgets.QFrame):
     """A styled footer with navigation buttons"""
 
     _mode_methods = {}
+    _buttons = []
 
     class Mode(enum.Enum):
         First = enum.auto()
@@ -572,23 +602,6 @@ class NavigationFooter(QtWidgets.QFrame):
         Disabled = enum.auto()
         Hidden = enum.auto()
 
-    def mode_method(mode):
-        """
-        Class method decorator that populates `_mode_methods` with the
-        given mode, pointing to the decorated function, for use by setMode().
-        """
-        class ModeMethod:
-            def __init__(self, method):
-                self.method = method
-
-            def __call__(self, *args, **kwargs):
-                self.method(*args, **kwargs)
-
-            def __set_name__(self, owner, name):
-                owner._mode_methods[mode] = self.method
-                setattr(owner, name, self.method)
-        return ModeMethod
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setStyleSheet("""
@@ -599,11 +612,11 @@ class NavigationFooter(QtWidgets.QFrame):
                 }
             """)
 
-        self.back = PushButton('< &Back')
-        self.next = PushButton('&Next >')
-        self.exit = PushButton('E&xit')
-        self.cancel = PushButton('&Cancel')
-        self.new = PushButton('&New')
+        self.back = self.addButton('< &Back')
+        self.next = self.addButton('&Next >')
+        self.exit = self.addButton('E&xit')
+        self.cancel = self.addButton('&Cancel')
+        self.new = self.addButton('&New')
 
         layout = QtWidgets.QHBoxLayout()
         layout.addWidget(self.cancel)
@@ -616,6 +629,11 @@ class NavigationFooter(QtWidgets.QFrame):
         layout.setContentsMargins(16, 16, 16, 16)
         self.setLayout(layout)
 
+    def addButton(self, text):
+        button = NavigationButton(text)
+        self._buttons.append(button)
+        return button
+
     def setButtonActions(self, dictionary):
         """Bind functions to buttons"""
         for name in dictionary:
@@ -626,6 +644,8 @@ class NavigationFooter(QtWidgets.QFrame):
         """Calls the function corresponding to given mode"""
         if mode in self._mode_methods:
             self._mode_methods[mode](self, backwards)
+            for button in self._buttons:
+                button.setText()
         else:
             raise ValueError(f'Mode {mode} has no matching method.')
 
@@ -633,7 +653,7 @@ class NavigationFooter(QtWidgets.QFrame):
         button.setVisible(mode != self.ButtonMode.Hidden)
         button.setEnabled(mode == self.ButtonMode.Enabled)
 
-    @mode_method(Mode.First)
+    @_mode_method(Mode.First)
     def setModeFirst(self, backwards=False):
         self.setButtonMode(self.back, self.ButtonMode.Disabled)
         self.setButtonMode(self.next, self.ButtonMode.Enabled)
@@ -642,7 +662,7 @@ class NavigationFooter(QtWidgets.QFrame):
         self.setButtonMode(self.new, self.ButtonMode.Hidden)
         self.next.setFocus()
 
-    @mode_method(Mode.Middle)
+    @_mode_method(Mode.Middle)
     def setModeMiddle(self, backwards=False):
         self.setButtonMode(self.back, self.ButtonMode.Enabled)
         self.setButtonMode(self.next, self.ButtonMode.Enabled)
@@ -654,7 +674,7 @@ class NavigationFooter(QtWidgets.QFrame):
         else:
             self.next.setFocus()
 
-    @mode_method(Mode.Final)
+    @_mode_method(Mode.Final)
     def setModeFinal(self, backwards=False):
         self.setButtonMode(self.back, self.ButtonMode.Enabled)
         self.setButtonMode(self.next, self.ButtonMode.Hidden)
@@ -663,7 +683,7 @@ class NavigationFooter(QtWidgets.QFrame):
         self.setButtonMode(self.new, self.ButtonMode.Enabled)
         self.exit.setFocus()
 
-    @mode_method(Mode.Wait)
+    @_mode_method(Mode.Wait)
     def setModeWait(self, backwards=False):
         self.setButtonMode(self.back, self.ButtonMode.Disabled)
         self.setButtonMode(self.next, self.ButtonMode.Disabled)
@@ -672,7 +692,7 @@ class NavigationFooter(QtWidgets.QFrame):
         self.setButtonMode(self.new, self.ButtonMode.Hidden)
         self.cancel.setFocus()
 
-    @mode_method(Mode.Error)
+    @_mode_method(Mode.Error)
     def setModeError(self, backwards=False):
         self.setButtonMode(self.back, self.ButtonMode.Enabled)
         self.setButtonMode(self.next, self.ButtonMode.Disabled)
@@ -681,7 +701,7 @@ class NavigationFooter(QtWidgets.QFrame):
         self.setButtonMode(self.new, self.ButtonMode.Hidden)
         self.back.setFocus()
 
-    @mode_method(Mode.Frozen)
+    @_mode_method(Mode.Frozen)
     def setModeFrozen(self, backwards=False):
         self.setButtonMode(self.back, self.ButtonMode.Disabled)
         self.setButtonMode(self.next, self.ButtonMode.Disabled)

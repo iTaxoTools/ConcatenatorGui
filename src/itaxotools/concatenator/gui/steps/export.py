@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from lorem_text import lorem
 from random import randint
 
+import pathlib
 import enum
 
 from .. import step_state_machine as ssm
@@ -55,8 +56,13 @@ def dummy_work(state, count, max, lines, period):
 @dataclass
 class FileFormat:
     text: str
-    many_files: bool
-    order_matters: bool
+    many_files: bool = False
+    order_matters: bool = True
+    extension: str = None
+
+    def dialogFilter(self):
+        glob = f'*.{self.extension}' if not self.many_files else '*'
+        return f'{self.text} ({glob})'
 
 
 @dataclass
@@ -84,21 +90,12 @@ class StepExportEdit(ssm.StepTriStateEdit):
     description = 'Configure output'
 
     def __init__(self, *args, **kwargs):
-        self.fileFormats = [
-            FileFormat('Interleaved NEXUS', False, True),
-            FileFormat('Concatenated Fasta', False, True),
-            FileFormat('Concatenated Phylip', True, True),
-            FileFormat('Distributed Fasta', False, False),
-            FileFormat('Ali Alignment', True, False),
-            FileFormat('Partitionfinder', True, True),
-            ]
-        self.fileCompressions = [
-            FileCompression('None', None),
-            FileCompression('Zip', 'zip'),
-            FileCompression('Tar', 'tar'),
-            ]
         self.data = DataObject()
         super().__init__(*args, **kwargs)
+
+    def onEntry(self, event):
+        super().onEntry(event)
+        self.footer.next.setText('Export')
 
     def draw(self):
         widget = QtWidgets.QWidget()
@@ -150,10 +147,9 @@ class StepExportEdit(ssm.StepTriStateEdit):
         label_order.setToolTip(order.toolTip())
         label_compression.setToolTip(compression.toolTip())
 
-
-        for fileFormat in self.fileFormats:
+        for fileFormat in self.parent().fileFormats:
             format.addItem(fileFormat.text, fileFormat)
-        for fileCompression in self.fileCompressions:
+        for fileCompression in self.parent().fileCompressions:
             compression.addItem(fileCompression.text, fileCompression)
         order.addItem('Alphabetical', OrderingOptions.Alphabetical)
         order.addItem('Same as input', OrderingOptions.SameAsInput)
@@ -258,9 +254,45 @@ class StepExport(ssm.StepTriState):
     StepDone = StepExportDone
     StepFail = StepExportFail
 
+    def __init__(self, *args, **kwargs):
+        self.fileFormats = [
+            FileFormat('Interleaved NEXUS', False, True, 'nex'),
+            FileFormat('Concatenated FASTA', False, True, 'fas'),
+            FileFormat('Concatenated PHYLIP', False, True, 'phy'),
+            FileFormat('Distributed FASTA', True, False),
+            FileFormat('Ali Alignment', True, False),
+            FileFormat('Partitionfinder', True, True),
+            ]
+        self.fileCompressions = [
+            FileCompression('None', None),
+            FileCompression('Zip', 'zip'),
+            FileCompression('Tar', 'tar'),
+            ]
+        super().__init__(*args, **kwargs)
+
     def work(self):
         with self.states['wait'].redirect():
             return dummy_work(self, 2, 10, 2, 80)
 
     def filterNext(self):
-        return True
+        format = self.states.edit.format.currentData()
+        (fileName, _) = QtWidgets.QFileDialog.getSaveFileName(
+            self.machine().parent(),
+            self.machine().parent().title + ' - Export',
+            QtCore.QDir.currentPath(),
+            format.dialogFilter())
+        if len(fileName) > 0:
+            self.data.targetFile = pathlib.Path(fileName)
+            return True
+        return False
+
+    def filterCancel(self):
+        msgBox = QtWidgets.QMessageBox(self.machine().parent())
+        msgBox.setWindowTitle(self.machine().parent().title)
+        msgBox.setIcon(QtWidgets.QMessageBox.Question)
+        msgBox.setText('Cancel file export?')
+        msgBox.setStandardButtons(
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+        msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
+        res = msgBox.exec()
+        return res == QtWidgets.QMessageBox.Yes
