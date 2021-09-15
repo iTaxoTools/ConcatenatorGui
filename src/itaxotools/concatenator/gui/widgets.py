@@ -328,7 +328,7 @@ class ViewSearchWidget(common.widgets.SearchWidget):
 
         action = QtGui.QAction('Find next: F3', self)
         pixmap = common.widgets.VectorPixmap(
-            common.resources.get_icon('search.svg'),
+            common.resources.get('icons/svg/search.svg'),
             colormap=state.machine().parent().colormap_icon_light)
         action.setIcon(pixmap)
         action.setShortcut(QtGui.QKeySequence.FindNext)

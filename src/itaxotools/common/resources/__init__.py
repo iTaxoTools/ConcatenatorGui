@@ -3,23 +3,60 @@
 
 import pathlib
 import sys
+import os
+
+__all__ = ['package_path', 'get_common', 'get_local', 'get']
+
+
+def package_path_pyinstaller(package):
+    if isinstance(package, str):
+        parts = package.split('.')
+    elif isinstance(package, type(sys)):
+        parts = package.__name__.split('.')
+    else:
+        return None
+    path = pathlib.Path(sys._MEIPASS)
+    for part in parts:
+        path /= part
+    return path
+
+
+def package_path_file(package):
+    if isinstance(package, str):
+        file = sys.modules[package].__file__
+    elif isinstance(package, type(sys)):
+        file = package.__file__
+    else:
+        return None
+    path = pathlib.Path(os.path.dirname(file))
+    return path
+
+
+def package_path_importlib(package):
+    return importlib.resources.files(package)
 
 
 try:
-    import importlib.resources
-    _resource_path = importlib.resources.files(__package__)
+    import importlib.resources2
+    package_path = package_path_importlib
 except ModuleNotFoundError:
     if hasattr(sys, '_MEIPASS'):
-        _resource_path = (pathlib.Path(sys._MEIPASS) /
-                          'itaxotools' / 'common' / 'resources')
+        package_path = package_path_pyinstaller
     else:
-        import os
-        _resource_path = pathlib.Path(os.path.dirname(__file__))
+        package_path = package_path_file
+
+_resource_path = package_path(__package__)
 
 
-def get(path):
+def get_common(path):
     return str(_resource_path / path)
 
 
-def get_icon(path):
-    return str(_resource_path / 'icons/svg' / path)
+def get_local(package, path):
+    return str(package_path(package) / path)
+
+
+def get(*args):
+    if len(args) == 1:
+        return get_common(*args)
+    return get_local(*args)

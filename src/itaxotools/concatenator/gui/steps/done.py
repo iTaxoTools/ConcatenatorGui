@@ -23,6 +23,9 @@ from PySide6 import QtWidgets
 
 from .. import step_state_machine as ssm
 
+from itaxotools import common
+import itaxotools.common.resources # noqa
+
 
 class DataObject(object):
     pass
@@ -48,13 +51,10 @@ class StepDone(ssm.StepState):
     def draw(self):
         widget = QtWidgets.QWidget()
 
-        text = """
-### Title
-text
-http://google.com
-text
-
-        """
+        path = common.resources.get(
+            'itaxotools.concatenator.gui', 'docs/done.md')
+        with open(path) as file:
+            text = file.read()
 
         self.label = QtWidgets.QLabel()
         self.label.setTextFormat(QtCore.Qt.MarkdownText)
