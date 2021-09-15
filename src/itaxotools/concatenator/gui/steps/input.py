@@ -36,33 +36,6 @@ from .. import step_progress_bar as spb
 from .. import step_state_machine as ssm
 
 
-class StepInputIdle(QtStateMachine.QState):
-    def onEntry(self, event):
-        parent = self.parent()
-        parent.frame.setEnabled(True)
-        parent.overlay.setVisible(False)
-        parent.footer.setMode(parent.footer.Mode.Middle)
-        parent.footer.next.setEnabled(bool(parent.data.files))
-        parent.stepProgressBar.setStatus(spb.states.Active)
-        parent.refresh_contents()
-
-
-class StepInputBusy(QtStateMachine.QState):
-    def onEntry(self, event):
-        parent = self.parent()
-        parent.frame.setEnabled(False)
-        parent.overlay.setVisible(True)
-        parent.footer.setMode(parent.footer.Mode.Wait)
-        parent.stepProgressBar.setStatus(spb.states.Ongoing)
-        parent.spin.start()
-        parent.worker.start()
-
-    def onExit(self, event):
-        parent = self.parent()
-        parent.spin.stop()
-        parent.worker.terminate()
-
-
 class InputFrame(common.widgets.Frame):
     def __init__(self, state, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -131,6 +104,33 @@ class SetItem(widgets.WidgetItem):
 
 class DataObject(object):
     pass
+
+
+class StepInputIdle(QtStateMachine.QState):
+    def onEntry(self, event):
+        parent = self.parent()
+        parent.frame.setEnabled(True)
+        parent.overlay.setVisible(False)
+        parent.footer.setMode(parent.footer.Mode.Middle)
+        parent.footer.next.setEnabled(bool(parent.data.files))
+        parent.stepProgressBar.setStatus(spb.states.Active)
+        parent.refresh_contents()
+
+
+class StepInputBusy(QtStateMachine.QState):
+    def onEntry(self, event):
+        parent = self.parent()
+        parent.frame.setEnabled(False)
+        parent.overlay.setVisible(True)
+        parent.footer.setMode(parent.footer.Mode.Wait)
+        parent.stepProgressBar.setStatus(spb.states.Ongoing)
+        parent.spin.start()
+        parent.worker.start()
+
+    def onExit(self, event):
+        parent = self.parent()
+        parent.spin.stop()
+        parent.worker.terminate()
 
 
 class StepInput(ssm.StepState):
@@ -366,7 +366,8 @@ class StepInput(ssm.StepState):
         self.states.busy.addTransition(transition)
         self.transitions.done = transition
 
-        transition = ssm.NavigateTransition(ssm.NavigateEvent.Event.Cancel)
+        transition = self.machine().navigateTransition(
+            ssm.NavigateAction.Cancel)
         transition.setTargetState(self.states.idle)
         self.states.busy.addTransition(transition)
         self.transitions.cancel = transition

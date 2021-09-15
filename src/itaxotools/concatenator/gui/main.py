@@ -234,13 +234,15 @@ class Main(common.widgets.ToolDialog):
         m.addStep('export', 'Export', 1, True, StepExport)
         m.addStep('done', 'Done', 1, False, StepDone)
 
-        m.setInitialState(m.states.export)
+        m.setInitialState(m.states.input)
 
         self.machine = m
         self.machine.start()
 
-    def onReject(self):
+    def filterReject(self):
+        if self.machine.states.done in self.machine.configuration():
+            return None
         return self.machine.cancel()
 
-    def postReject(self):
+    def onReject(self):
         self.machine.terminate()

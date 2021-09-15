@@ -233,8 +233,7 @@ class StepExportWait(StepWaitBar):
 class StepExportDone(ssm.StepTriStateDone):
 
     def onEntry(self, event):
-        repeat = ssm.NavigateEvent(ssm.NavigateEvent.Event.Next)
-        self.machine().postEvent(repeat)
+        self.machine().navigate(ssm.NavigateAction.Next)
 
 
 class StepExportFail(ssm.StepTriStateFail):
@@ -279,7 +278,7 @@ class StepExport(ssm.StepTriState):
         (fileName, _) = QtWidgets.QFileDialog.getSaveFileName(
             self.machine().parent(),
             self.machine().parent().title + ' - Export',
-            QtCore.QDir.currentPath(),
+            QtCore.QDir.currentPath() + '/concatenated',
             format.dialogFilter())
         if len(fileName) > 0:
             self.data.targetFile = pathlib.Path(fileName)

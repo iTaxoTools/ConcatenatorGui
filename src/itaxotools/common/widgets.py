@@ -861,9 +861,14 @@ class ToolDialog(QtWidgets.QDialog):
     Handles notification sub-dialogs.
     Asks for verification before closing.
     """
-    def reject(self):
+    def reject(self, force=False):
         """Called on dialog close or <ESC>"""
-        if self.onReject() is not None:
+        if force:
+            return self._reject()
+        filter = self.filterReject()
+        if filter is None:
+            return self._reject()
+        if not filter:
             return
         msgBox = QtWidgets.QMessageBox(self)
         msgBox.setWindowTitle(self.windowTitle())
@@ -874,18 +879,19 @@ class ToolDialog(QtWidgets.QDialog):
         msgBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
         confirm = self.msgShow(msgBox)
         if confirm == QtWidgets.QMessageBox.Yes:
-            self.postReject()
-            super().reject()
+            self._reject()
 
-    def postReject(self):
-        pass
+    def _reject(self):
+        self.onReject()
+        super().reject()
 
     def onReject(self):
-        """
-        Overload this to handle reject events.
-        Return None to continue with rejection, anything else to cancel.
-        """
-        return None
+        """Called when dialog is closed"""
+        pass
+
+    def filterReject(self):
+        """Intercept reject events: True allows, False blocks, None rejects"""
+        return True
 
     def msgCloseAll(self):
         """Rejects any open QMessageBoxes"""
