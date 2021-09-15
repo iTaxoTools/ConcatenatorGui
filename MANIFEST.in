@@ -11,3 +11,6 @@ include setup.py
 
 # Recursively include all common resources
 recursive-include src/itaxotools/**/resources *
+
+# Include data files
+include src/itaxotools/fasttreepy/gui/docs/*.html

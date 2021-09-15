@@ -11,7 +11,7 @@ long_description = (here / 'README.md').read_text(encoding='utf-8')
 
 setup(
     name='concatenator-qt',
-    version='0.0.1',
+    version='0.1.0',
     description='A Qt GUI for Concatenator',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -23,16 +23,17 @@ setup(
         include=('itaxotools*',),
         where='src',
     ),
-    python_requires='>=3.6, <4',
+    python_requires='>=3.8.6, <4',
     install_requires=[
         'pyside6>=6.1.1',
+        'lorem_text>=1.5',
         ],
     extras_require={
-        'dev': ['pyinstaller==5.0.dev0'],
+        'dev': ['pyinstaller>=4.5.1'],
     },
     entry_points={
         'console_scripts': [
-            'concatenator-qt = itaxotools.concatenator.gui:main',
+            'concatenator-gui = itaxotools.concatenator.gui:main',
         ],
         'pyinstaller40': [
           'hook-dirs = itaxotools.__pyinstaller:get_hook_dirs',
@@ -42,8 +43,6 @@ setup(
     classifiers=[
         'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)', # noqa
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3 :: Only',

@@ -229,7 +229,7 @@ class Main(common.widgets.ToolDialog):
         m.addStep('export', 'Export', 1, True, StepExport)
         m.addStep('done', 'Done', 1, False, StepDone)
 
-        m.setInitialState(m.states.done)
+        m.setInitialState(m.states.about)
         m.finished.connect(lambda: self.reject(force=True))
 
         self.machine = m
