@@ -30,16 +30,13 @@ import itaxotools.common.io # noqa
 from . import step_progress_bar as spb
 from . import step_state_machine as ssm
 
+from .steps.about import StepAbout
 from .steps.input import StepInput
 from .steps.filter import StepFilter
 from .steps.align import StepAlignOptions, StepAlignSets
 from .steps.codons import StepCodons
 from .steps.export import StepExport
 from .steps.done import StepDone
-
-
-class StepAbout(ssm.StepState):
-    pass
 
 
 class Main(common.widgets.ToolDialog):
@@ -231,7 +228,7 @@ class Main(common.widgets.ToolDialog):
         m.addStep('export', 'Export', 1, True, StepExport)
         m.addStep('done', 'Done', 1, False, StepDone)
 
-        m.setInitialState(m.states.done)
+        m.setInitialState(m.states.about)
         m.finished.connect(lambda: self.reject(force=True))
 
         self.machine = m

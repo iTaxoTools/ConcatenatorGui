@@ -16,7 +16,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 # -----------------------------------------------------------------------------
 
-"""StepDone"""
+"""StepAbout"""
 
 from PySide6 import QtCore
 from PySide6 import QtWidgets
@@ -27,24 +27,13 @@ from itaxotools import common
 import itaxotools.common.resources # noqa
 
 
-class StepDone(ssm.StepState):
-
-    title = 'Concatenation Complete'
-    description = 'Successfully exported output'
-
-    def cog(self):
-        super().cog()
-        machine = self.machine()
-        transition = machine.navigateTransitionClear()
-        transition.setTargetState(machine.states.input)
-        self.addTransition(transition)
-        self.transitions.new = transition
+class StepAbout(ssm.StepState):
 
     def draw(self):
         widget = QtWidgets.QWidget()
 
         path = common.resources.get(
-            'itaxotools.concatenator.gui', 'docs/done.md')
+            'itaxotools.concatenator.gui', 'docs/about.md')
         with open(path) as file:
             text = file.read()
 
