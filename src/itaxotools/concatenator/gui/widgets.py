@@ -91,7 +91,7 @@ class InfoLabel(QtWidgets.QLabel):
         self.prefix = text
         self.setValue(value)
 
-    def setValue(self, value):
+    def setValue(self, value='-'):
         self.value = value
         if isinstance(value, int):
             value = f'{value:,}'

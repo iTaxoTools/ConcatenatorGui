@@ -53,11 +53,6 @@ class TerminatedError(Exception):
         super().__init__('Thread was forcibly terminated')
 
 
-class NavigateEventError(Exception):
-    def __init__(self):
-        super().__init__('Invalid NavigateEvent')
-
-
 class WorkerThread(QtCore.QThread):
     done = QtCore.Signal(object)
     fail = QtCore.Signal(object)
@@ -149,21 +144,28 @@ class NavigateEvent(QtStateMachine.QStateMachine.SignalEvent):
 
 
 class NavigateTransition(QtStateMachine.QSignalTransition):
-    """
-    Only catches NavigateEvents of a specific NavigateAction.
-    For further checks, a filter function may be provided.
-    """
+    """Only catches NavigateEvents of a specific NavigateAction."""
 
-    def __init__(self, signal, action: NavigateAction, filter=lambda e: True):
+    def __init__(
+        self, signal,
+        action: NavigateAction,
+        filter=lambda e: True,
+        function=lambda: None,
+    ):
         super().__init__(signal)
         self.action = action
         self.filter = filter
+        self.function = function
 
     def eventTest(self, event):
         action = NavigateEvent(event).action()
         if action == self.action:
             return self.filter(event)
         return False
+
+    def onTransition(self, event):
+        self.function()
+        super().onTransition(event)
 
 
 class StepSubState(QtStateMachine.QState):
@@ -201,6 +203,10 @@ class StepSubState(QtStateMachine.QState):
         if self.progStatus:
             self.stepProgressBar.setStatus(self.progStatus)
 
+    def clear(self):
+        """Virtual. Override should reset local data and widgets"""
+        pass
+
 
 class StepState(StepSubState):
     def __init__(self, name, parent, stack):
@@ -216,12 +222,15 @@ class StepState(StepSubState):
         transitions = AttrDict()
         transitions.next = m.navigateTransition(NavigateAction.Next)
         transitions.back = m.navigateTransition(NavigateAction.Back)
+        transitions.exit = m.navigateTransition(NavigateAction.Exit)
+        transitions.exit.setTargetState(m.states.final)
         for transition in transitions:
             self.addTransition(transitions[transition])
         self.transitions = transitions
 
     def setNextState(self, state):
         self.transitions.next.setTargetState(state)
+        self.transitions.exit.setTargetState(None)
         self.nextState = state
 
     def setPrevState(self, state):
@@ -376,29 +385,29 @@ class StepTriState(StepState):
         """Override to skip the waiting step"""
         return False
 
-    def _filterNext(self):
+    def _filterNext(self, event):
         if self.skipAll():
             self._skip()
             return False
         if self.skipWait():
-            if self.filterSkip():
+            if self.filterSkip(event):
                 self._skip()
             return False
-        return self.filterNext()
+        return self.filterNext(event)
 
-    def filterNext(self):
+    def filterNext(self, event):
         """Intercepts transition editNext"""
         return True
 
-    def filterSkip(self):
+    def filterSkip(self, event):
         """Intercepts skipWait effects"""
         return True
 
-    def filterBack(self):
+    def filterBack(self, event):
         """Intercepts transition dataBack"""
         return True
 
-    def filterCancel(self):
+    def filterCancel(self, event):
         """Intercepts transition waitCancel"""
         return True
 
@@ -412,37 +421,43 @@ class StepTriState(StepState):
 
         self.transitions = AttrDict()
         self.addSubTransition(
-            'editNext', NavigateAction.Next, lambda e: self._filterNext(),
-            self.states.edit, self.states.wait)
+            'editNext', NavigateAction.Next,
+            self.states.edit, self.states.wait,
+            self._filterNext)
         self.addSubTransition(
-            'editSkip', NavigateAction.Skip, lambda e: True,
+            'editSkip', NavigateAction.Skip,
             self.states.edit, None)
         self.addSubTransition(
-            'waitFail', NavigateAction.Fail, lambda e: True,
+            'waitFail', NavigateAction.Fail,
             self.states.wait, self.states.fail)
         self.addSubTransition(
-            'waitDone', NavigateAction.Done, lambda e: True,
+            'waitDone', NavigateAction.Done,
             self.states.wait, self.states.done)
         self.addSubTransition(
-            'waitCancel', NavigateAction.Cancel, lambda e: self.filterCancel(),
-            self.states.wait, self.states.edit)
+            'waitCancel', NavigateAction.Cancel,
+            self.states.wait, self.states.edit,
+            self.filterCancel)
         self.addSubTransition(
-            'failBack', NavigateAction.Back, lambda e: True,
+            'failBack', NavigateAction.Back,
             self.states.fail, self.states.edit)
         self.addSubTransition(
-            'doneΒαψκ', NavigateAction.Back, lambda e: True,
+            'doneBack', NavigateAction.Back,
             self.states.done, self.states.edit)
         self.addSubTransition(
-            'doneNext', NavigateAction.Next, lambda e: True,
+            'doneNext', NavigateAction.Next,
             self.states.done, None)
         self.addSubTransition(
-            'editBack', NavigateAction.Back, lambda e: self.filterBack(),
-            self.states.edit, None)
+            'editBack', NavigateAction.Back,
+            self.states.edit, None,
+            self.filterBack)
 
     def addSubState(self, name, cls):
         self.states[name] = cls(self, self.widget)
 
-    def addSubTransition(self, name, action, filter, source, target):
+    def addSubTransition(
+        self, name, action, source, target,
+        filter=lambda e: True
+    ):
         transition = self.machine().navigateTransition(action, filter)
         transition.setTargetState(target)
         source.addTransition(transition)
@@ -457,6 +472,10 @@ class StepTriState(StepState):
         self.transitions.editBack.setTargetState(state)
         self.prevState = state
 
+    def clear(self):
+        for state in dict(self.states).values():
+            state.clear()
+
 
 class StepStateMachine(QtStateMachine.QStateMachine):
     """Provides extra functionality for StepStates"""
@@ -464,13 +483,14 @@ class StepStateMachine(QtStateMachine.QStateMachine):
     terminateSignal = QtCore.Signal()
     navigateSignal = QtCore.Signal(NavigateAction)
 
-    def __init__(self,
-                 parent: QtWidgets.QWidget,
-                 stepProgressBar: spb.StepProgressBar,
-                 header: widgets.Header,
-                 footer: widgets.NavigationFooter,
-                 stack: QtWidgets.QStackedLayout
-                 ):
+    def __init__(
+        self,
+        parent: QtWidgets.QWidget,
+        stepProgressBar: spb.StepProgressBar,
+        header: widgets.Header,
+        footer: widgets.NavigationFooter,
+        stack: QtWidgets.QStackedLayout
+     ):
         super().__init__(parent)
         self.stepProgressBar = stepProgressBar
         self.header = header
@@ -479,6 +499,8 @@ class StepStateMachine(QtStateMachine.QStateMachine):
         self.states = AttrDict()
         self.steps = []
         self.waiting = False
+
+        self.states.final = QtStateMachine.QFinalState(self)
 
         self.footer.setButtonActions({
             'next': self.eventGenerator(action=NavigateAction.Next),
@@ -539,11 +561,25 @@ class StepStateMachine(QtStateMachine.QStateMachine):
     def navigate(self, action):
         self.navigateSignal.emit(action)
 
-    def navigateTransition(self, action, filter=lambda e: True):
-        return NavigateTransition(self.navigateSignal, action, filter)
+    def navigateTransition(
+            self, action,
+            filter=lambda e: True,
+            function=lambda: None):
+        return NavigateTransition(
+            self.navigateSignal, action, filter, function)
+
+    def navigateTransitionClear(self):
+        return self.navigateTransition(
+            NavigateAction.New, function=self.clear)
+
+    def clear(self):
+        """Clears local data for all states"""
+        for state in dict(self.states).values():
+            if isinstance(state, StepSubState):
+                state.clear()
 
     def cancel(self):
-        """If in wait check, try to cancel, else return None"""
+        """If in wait check, try to cancel"""
         if self.waiting:
             self.navigate(NavigateAction.Cancel)
             return False

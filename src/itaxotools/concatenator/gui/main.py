@@ -35,13 +35,10 @@ from .steps.filter import StepFilter
 from .steps.align import StepAlignOptions, StepAlignSets
 from .steps.codons import StepCodons
 from .steps.export import StepExport
+from .steps.done import StepDone
 
 
 class StepAbout(ssm.StepState):
-    pass
-
-
-class StepDone(ssm.StepState):
     pass
 
 
@@ -234,7 +231,8 @@ class Main(common.widgets.ToolDialog):
         m.addStep('export', 'Export', 1, True, StepExport)
         m.addStep('done', 'Done', 1, False, StepDone)
 
-        m.setInitialState(m.states.codons)
+        m.setInitialState(m.states.done)
+        m.finished.connect(lambda: self.reject(force=True))
 
         self.machine = m
         self.machine.start()

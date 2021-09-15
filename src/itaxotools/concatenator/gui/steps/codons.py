@@ -573,7 +573,7 @@ class StepCodons(ssm.StepTriState):
         skip = self.states['edit'].subsetted.value == 0
         return bool(skip)
 
-    def filterCancel(self):
+    def filterCancel(self, event):
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
         msgBox.setWindowTitle(self.machine().parent().title)
         msgBox.setIcon(QtWidgets.QMessageBox.Question)

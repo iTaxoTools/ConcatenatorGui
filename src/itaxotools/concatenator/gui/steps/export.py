@@ -275,7 +275,7 @@ class StepExport(ssm.StepTriState):
         glob = f'*.{format.extension}' if not format.many_files else '*'
         return f'{format.text} ({glob})'
 
-    def filterNext(self):
+    def filterNext(self, event):
         format = self.states.edit.format.currentData()
         compression = self.states.edit.compression.currentData()
         (fileName, _) = QtWidgets.QFileDialog.getSaveFileName(
@@ -288,7 +288,7 @@ class StepExport(ssm.StepTriState):
             return True
         return False
 
-    def filterCancel(self):
+    def filterCancel(self, event):
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
         msgBox.setWindowTitle(self.machine().parent().title)
         msgBox.setIcon(QtWidgets.QMessageBox.Question)

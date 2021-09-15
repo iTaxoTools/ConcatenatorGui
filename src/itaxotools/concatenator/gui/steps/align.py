@@ -396,7 +396,7 @@ class StepAlignSets(ssm.StepTriState):
         skip = self.states['edit'].aligned.value == 0
         return bool(skip)
 
-    def filterSkip(self):
+    def filterSkip(self, event):
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
         msgBox.setWindowTitle(self.machine().parent().title)
         msgBox.setIcon(QtWidgets.QMessageBox.Warning)
@@ -407,7 +407,7 @@ class StepAlignSets(ssm.StepTriState):
         res = msgBox.exec()
         return res == QtWidgets.QMessageBox.Yes
 
-    def filterCancel(self):
+    def filterCancel(self, event):
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
         msgBox.setWindowTitle(self.machine().parent().title)
         msgBox.setIcon(QtWidgets.QMessageBox.Question)

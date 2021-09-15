@@ -145,8 +145,7 @@ class StepInput(ssm.StepState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.data = DataObject()
-        self.data.files = []
-        self.data.files_pending = []
+        self.clear()
         self.machine().installWorker(self)
 
     def onDone(self, result):
@@ -190,6 +189,15 @@ class StepInput(ssm.StepState):
         for i in range(0, int(time/10)):
             QtCore.QThread.msleep(10)
             self.worker.check()
+
+    def clear(self):
+        self.data.files = []
+        self.data.files_pending = []
+        self.view.clear()
+        self.files.setValue()
+        self.sets.setValue()
+        self.samples.setValue()
+        self.nucleotides.setValue()
 
     def draw(self):
         widget = QtWidgets.QWidget()
