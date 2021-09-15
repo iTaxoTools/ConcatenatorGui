@@ -53,8 +53,8 @@ class FilterItem(widgets.WidgetItem):
         'action',
         'samples',
         'nucleotides',
-        'uniform',
         'missing',
+        'uniform',
         ]
     actions = {
         'Delete': 'deleted',
@@ -153,11 +153,10 @@ class StepFilter(ssm.StepState):
     def draw(self):
         widget = QtWidgets.QWidget()
 
-        text = ('Quisque tortor est, porttitor sed viverra ut, '
-                'pharetra at nunc. Aenean vel congue dui. '
-                'Vivamus auctor, quam se. \n'
-                'Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
-                )
+        text = (
+            'Select multiple sets by drag-and-click or '
+            'by clicking while holding Ctrl/Shift. '
+            'Sort by column by clicking on the headers.')
         label = QtWidgets.QLabel(text)
 
         frame = self.draw_frame()
@@ -176,8 +175,9 @@ class StepFilter(ssm.StepState):
         renamed = widgets.InfoLabel('Renamed', 0)
         deleted = widgets.InfoLabel('Deleted', 0)
 
-        for item in [sets, renamed, deleted]:
-            item.setToolTip(lorem.words(randint(5, 15)))
+        sets.setToolTip('Total number of character sets.')
+        renamed.setToolTip('Character sets pending renaming.')
+        deleted.setToolTip('Character sets pending deletion.')
 
         summary = QtWidgets.QHBoxLayout()
         summary.addWidget(sets)
@@ -204,12 +204,15 @@ class StepFilter(ssm.StepState):
         view.setColumnCount(6, 2)
         view.setHeaderLabels([
             'Name', 'Action', 'Samples',
-            'Nucleotides', 'Uniform', 'Missing'])
+            'Nucleotides', 'Missing', 'Uniform'])
 
         headerItem = view.headerItem()
-        headerItem.setToolTip(0, lorem.words(13))
-        for col in range(1, 6):
-            headerItem.setToolTip(col, lorem.words(randint(5, 15)))
+        headerItem.setToolTip(0, 'Character set name')
+        headerItem.setToolTip(1, 'Pending action')
+        headerItem.setToolTip(2, 'Total number of sequences')
+        headerItem.setToolTip(3, 'Total number of nucleotide characters')
+        headerItem.setToolTip(4, 'Proportion of missing data')
+        headerItem.setToolTip(5, 'Are all sequences of the same length?')
 
         rename = common.widgets.PushButton('Rename', onclick=self.handleRename)
         delete = common.widgets.PushButton('Delete', onclick=self.handleDelete)

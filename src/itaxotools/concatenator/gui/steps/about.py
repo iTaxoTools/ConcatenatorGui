@@ -18,13 +18,13 @@
 
 """StepAbout"""
 
-from PySide6 import QtCore
 from PySide6 import QtWidgets
-
-from .. import step_state_machine as ssm
 
 from itaxotools import common
 import itaxotools.common.resources # noqa
+
+from .. import step_state_machine as ssm
+from .. import widgets
 
 
 class StepAbout(ssm.StepState):
@@ -33,20 +33,20 @@ class StepAbout(ssm.StepState):
         widget = QtWidgets.QWidget()
 
         path = common.resources.get(
-            'itaxotools.concatenator.gui', 'docs/about.md')
-        with open(path) as file:
-            text = file.read()
+            'itaxotools.concatenator.gui', 'docs/about.html')
+        self.about = widgets.HtmlLabel(path)
 
-        self.label = QtWidgets.QLabel()
-        self.label.setTextFormat(QtCore.Qt.MarkdownText)
-        self.label.setOpenExternalLinks(True)
-        self.label.setText(text)
+        path = common.resources.get(
+            'itaxotools.concatenator.gui', 'docs/cite.html')
+        self.cite = widgets.HtmlLabel(path)
 
         layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(self.label)
+        layout.addWidget(self.about)
         layout.addStretch(1)
+        layout.addSpacing(24)
+        layout.addWidget(self.cite)
         layout.setSpacing(24)
-        layout.setContentsMargins(0, 0, 0, 32)
+        layout.setContentsMargins(0, 0, 0, 0)
         widget.setLayout(layout)
 
         return widget

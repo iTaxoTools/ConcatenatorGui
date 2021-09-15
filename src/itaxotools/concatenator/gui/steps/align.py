@@ -105,8 +105,8 @@ class AlignItem(widgets.WidgetItem):
         'action',
         'samples',
         'nucleotides',
-        'uniform',
         'missing',
+        'uniform',
         ]
     actions = {
         'Align': 'aligned',
@@ -176,12 +176,9 @@ class StepAlignOptions(ssm.StepState):
     def draw(self):
         widget = QtWidgets.QWidget()
 
-        text = ('Quisque tortor est, porttitor sed viverra ut, '
-                'pharetra at nunc. Aenean vel congue dui. '
-                'Vivamus auctor, quam se. \n'
-                'Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
-                )
-        label = QtWidgets.QLabel(text)
+        path = common.resources.get(
+            'itaxotools.concatenator.gui', 'docs/mafft.html')
+        label = widgets.HtmlLabel(path)
 
         available = QtWidgets.QLabel('Available strategies:')
 
@@ -205,6 +202,7 @@ class StepAlignOptions(ssm.StepState):
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(label)
+        layout.addSpacing(8)
         layout.addWidget(available)
         layout.addLayout(radios)
         layout.addStretch(1)
@@ -233,6 +231,10 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
         self.data = DataObject()
         self.add_dummy_contents()
 
+    def onEntry(self, event):
+        super().onEntry(event)
+        self.footer.next.setText('Align')
+
     def add_dummy_contents(self):
         count = randint(500, 2000)
         for i in range(0, count):
@@ -243,11 +245,9 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
     def draw(self):
         widget = QtWidgets.QWidget()
 
-        text = ('Quisque tortor est, porttitor sed viverra ut, '
-                'pharetra at nunc. Aenean vel congue dui. '
-                'Vivamus auctor, quam se. \n'
-                'Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
-                )
+        text = (
+            'Select character sets and use the buttons to mark them '
+            'for alignment. When ready, click "Align" to begin.')
         label = QtWidgets.QLabel(text)
 
         frame = self.draw_frame()
@@ -263,10 +263,10 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
     def draw_summary(self):
         sets = widgets.InfoLabel('Total Sets')
-        aligned = widgets.InfoLabel('Selected', 0)
+        aligned = widgets.InfoLabel('Marked', 0)
 
-        for item in [sets, aligned]:
-            item.setToolTip(lorem.words(randint(5, 15)))
+        sets.setToolTip('Total number of character sets.')
+        aligned.setToolTip('Number of character sets pending alignment.')
 
         summary = QtWidgets.QHBoxLayout()
         summary.addWidget(sets)
@@ -290,12 +290,15 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
         view.setColumnCount(6, 2)
         view.setHeaderLabels([
             'Name', 'Action', 'Samples',
-            'Nucleotides', 'Uniform', 'Missing'])
+            'Nucleotides', 'Missing', 'Uniform'])
 
         headerItem = view.headerItem()
-        headerItem.setToolTip(0, lorem.words(13))
-        for col in range(1, 6):
-            headerItem.setToolTip(col, lorem.words(randint(5, 15)))
+        headerItem.setToolTip(0, 'Character set name')
+        headerItem.setToolTip(1, 'Pending action')
+        headerItem.setToolTip(2, 'Total number of sequences')
+        headerItem.setToolTip(3, 'Total number of nucleotide characters')
+        headerItem.setToolTip(4, 'Proportion of missing data')
+        headerItem.setToolTip(5, 'Are all sequences of the same length?')
 
         all = common.widgets.PushButton('Align All', onclick=self.handleAll)
         align = common.widgets.PushButton('Align ', onclick=self.handleAlign)
@@ -403,7 +406,7 @@ class StepAlignSets(ssm.StepTriState):
         msgBox.setText('Nothing marked for alignment.\nContinue anyway?')
         msgBox.setStandardButtons(
             QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-        msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
+        msgBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
         res = msgBox.exec()
         return res == QtWidgets.QMessageBox.Yes
 

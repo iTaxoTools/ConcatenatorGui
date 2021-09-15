@@ -96,11 +96,9 @@ class StepExportEdit(ssm.StepTriStateEdit):
     def draw(self):
         widget = QtWidgets.QWidget()
 
-        text = ('Quisque tortor est, porttitor sed viverra ut, '
-                'pharetra at nunc. Aenean vel congue dui. '
-                'Vivamus auctor, quam se. \n'
-                'Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
-                )
+        text = (
+            'Please select the output file format and respective file '
+            'options, then click "Export" to save results:')
         label = QtWidgets.QLabel(text)
 
         layout = QtWidgets.QGridLayout()
@@ -264,6 +262,8 @@ class StepExport(ssm.StepTriState):
             FileCompression('Tar Archive', 'tar'),
             ]
         super().__init__(*args, **kwargs)
+        self.data.targetFile = None
+        self.data.file_count = 0
 
     def work(self):
         with self.states['wait'].redirect():
@@ -285,6 +285,7 @@ class StepExport(ssm.StepTriState):
             self.dialogFilter(format, compression))
         if len(fileName) > 0:
             self.data.targetFile = pathlib.Path(fileName)
+            self.data.file_count = randint(1, 99)
             return True
         return False
 

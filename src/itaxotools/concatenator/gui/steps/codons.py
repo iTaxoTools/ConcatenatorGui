@@ -62,7 +62,7 @@ class CodonItem(widgets.WidgetItem):
         'naming',
         ]
     actions = {
-        'Subset': 'subsetted',
+        'Split': 'subsetted',
         }
     values = {
         'naming': ['Default', 'Custom'],
@@ -101,9 +101,9 @@ class CodonItem(widgets.WidgetItem):
         self.clear()
 
     def subset(self):
-        if self.action == 'Subset':
+        if self.action == 'Split':
             return
-        self.setAction('Subset')
+        self.setAction('Split')
         self.setBold(True)
         self.naming = 'Default'
         self.frame = 'Auto-detect'
@@ -302,7 +302,7 @@ class OptionsDialog(QtWidgets.QDialog):
 
     def draw(self):
         header = QtWidgets.QLabel(
-            'Set the codon subset options for the selected character sets.')
+            'Set the codon subset options for all selected character sets.')
         name_desc = QtWidgets.QLabel(
             'Double asterisks (**) are replaced by the character set name.')
         self.label_char = QtWidgets.QLabel('Character Set:')
@@ -395,12 +395,16 @@ class OptionsDialog(QtWidgets.QDialog):
 
 class StepCodonsEdit(ssm.StepTriStateEdit):
 
-    description = 'Select which character sets to subset'
+    description = 'Select which character sets to split'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.data = DataObject()
         self.add_dummy_contents()
+
+    def onEntry(self, event):
+        super().onEntry(event)
+        self.footer.next.setText('Split')
 
     def add_dummy_contents(self):
         count = randint(500, 2000)
@@ -412,10 +416,9 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
     def draw(self):
         widget = QtWidgets.QWidget()
 
-        text = ('Quisque tortor est, porttitor sed viverra ut, '
-                'pharetra at nunc. Aenean vel congue dui. '
-                'Vivamus auctor, quam se. \n'
-                'Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
+        text = (
+            'Double-click an option field to edit individual sets. '
+            'Use the buttons to bulk editi and set codon names.'
                 )
         label = QtWidgets.QLabel(text)
 
@@ -432,10 +435,10 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
 
     def draw_summary(self):
         sets = widgets.InfoLabel('Total Sets')
-        subsetted = widgets.InfoLabel('Selected', 0)
+        subsetted = widgets.InfoLabel('Marked', 0)
 
-        for item in [sets, subsetted]:
-            item.setToolTip(lorem.words(randint(5, 15)))
+        sets.setToolTip('Total number of character sets.')
+        subsetted.setToolTip('Character sets pending a split.')
 
         summary = QtWidgets.QHBoxLayout()
         summary.addWidget(sets)
@@ -462,9 +465,11 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
             'Name', 'Action', 'Genetic Code', 'Reading Frame', 'Naming'])
 
         headerItem = view.headerItem()
-        headerItem.setToolTip(0, lorem.words(13))
-        for col in range(1, 5):
-            headerItem.setToolTip(col, lorem.words(randint(5, 15)))
+        headerItem.setToolTip(0, 'Character set name')
+        headerItem.setToolTip(1, 'Pending action')
+        headerItem.setToolTip(2, 'Genetic code variant (translation table)')
+        headerItem.setToolTip(3, 'Reading frame')
+        headerItem.setToolTip(4, 'Codon naming method')
 
         subset = common.widgets.PushButton('Subset', onclick=self.handleSubset)
         edit = common.widgets.PushButton('Edit', onclick=self.handleOptions)
@@ -572,6 +577,17 @@ class StepCodons(ssm.StepTriState):
     def skipWait(self):
         skip = self.states['edit'].subsetted.value == 0
         return bool(skip)
+
+    def filterSkip(self, event):
+        msgBox = QtWidgets.QMessageBox(self.machine().parent())
+        msgBox.setWindowTitle(self.machine().parent().title)
+        msgBox.setIcon(QtWidgets.QMessageBox.Warning)
+        msgBox.setText('Nothing marked for splitting.\nContinue anyway?')
+        msgBox.setStandardButtons(
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+        msgBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
+        res = msgBox.exec()
+        return res == QtWidgets.QMessageBox.Yes
 
     def filterCancel(self, event):
         msgBox = QtWidgets.QMessageBox(self.machine().parent())

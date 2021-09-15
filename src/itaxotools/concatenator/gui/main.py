@@ -52,7 +52,7 @@ class Main(common.widgets.ToolDialog):
         icon = QtGui.QIcon(common.resources.get('logos/ico/concatenator.ico'))
         self.setWindowIcon(icon)
         self.setWindowTitle(self.title)
-        self.resize(840, 540)
+        self.resize(840, 560)
 
         self.process = None
         self.machine = None
@@ -80,6 +80,7 @@ class Main(common.widgets.ToolDialog):
             'iron':   '#8b8d8a',
             'black':  '#454241',
             'red':    '#ee4e5f',
+            'red2':   '#da1025',
             'pink':   '#eb9597',
             'orange': '#eb6a4a',
             'brown':  '#655c5d',
@@ -109,7 +110,7 @@ class Main(common.widgets.ToolDialog):
                 QtGui.QPalette.ToolTipText: 'brown',
                 # These seem bugged anyway
                 QtGui.QPalette.BrightText: 'green',
-                QtGui.QPalette.Link: 'red',
+                QtGui.QPalette.Link: 'red2',
                 QtGui.QPalette.LinkVisited: 'pink',
                 },
             QtGui.QPalette.Disabled: {
@@ -228,7 +229,7 @@ class Main(common.widgets.ToolDialog):
         m.addStep('export', 'Export', 1, True, StepExport)
         m.addStep('done', 'Done', 1, False, StepDone)
 
-        m.setInitialState(m.states.about)
+        m.setInitialState(m.states.done)
         m.finished.connect(lambda: self.reject(force=True))
 
         self.machine = m

@@ -21,16 +21,19 @@
 from PySide6 import QtCore
 from PySide6 import QtWidgets
 
-from .. import step_state_machine as ssm
-
 from itaxotools import common
 import itaxotools.common.resources # noqa
+
+from .. import step_state_machine as ssm
+from .. import widgets
+
+from . import wait
 
 
 class StepDone(ssm.StepState):
 
-    title = 'Concatenation Complete'
-    description = 'Successfully exported output'
+    title = 'Results exported successfully'
+    description = 'Concatenation complete'
 
     def cog(self):
         super().cog()
@@ -43,21 +46,33 @@ class StepDone(ssm.StepState):
     def draw(self):
         widget = QtWidgets.QWidget()
 
-        path = common.resources.get(
-            'itaxotools.concatenator.gui', 'docs/done.md')
-        with open(path) as file:
-            text = file.read()
+        self.progress = wait.ProgressBar()
+        self.progress.bar.setMaximum(1)
+        self.progress.bar.setValue(1)
 
-        self.label = QtWidgets.QLabel()
-        self.label.setTextFormat(QtCore.Qt.MarkdownText)
-        self.label.setOpenExternalLinks(True)
-        self.label.setText(text)
+        self.confirm = self.progress.label
+        self.confirm.setTextFormat(QtCore.Qt.RichText)
+        self.confirm.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+        self.updateLabels()
+
+        path = common.resources.get(
+            'itaxotools.concatenator.gui', 'docs/done.html')
+        self.label = widgets.HtmlLabel(path)
 
         layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self.progress)
         layout.addWidget(self.label)
         layout.addStretch(1)
-        layout.setSpacing(24)
+        layout.setSpacing(16)
         layout.setContentsMargins(0, 0, 0, 32)
         widget.setLayout(layout)
 
         return widget
+
+    def updateLabels(self):
+        files = self.machine().states.export.data.file_count
+        self.confirm.setText(f'<b>Successfully exported {files} files.</b>')
+
+    def onEntry(self, event):
+        super().onEntry(event)
+        self.updateLabels()

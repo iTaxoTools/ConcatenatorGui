@@ -98,6 +98,19 @@ class InfoLabel(QtWidgets.QLabel):
         self.setText(f'{self.prefix}: {value}')
 
 
+class HtmlLabel(QtWidgets.QLabel):
+    def __init__(self, path):
+        with open(path) as file:
+            text = file.read()
+        super().__init__(text)
+        self.setTextFormat(QtCore.Qt.RichText)
+        self.setOpenExternalLinks(True)
+        self.setTextInteractionFlags(
+            QtCore.Qt.TextSelectableByMouse |
+            QtCore.Qt.LinksAccessibleByMouse)
+        self.setWordWrap(True)
+
+
 class _WidgetItem_meta(type(QtWidgets.QTreeWidgetItem)):
     def __init__(cls, *args, **kwargs):
         super().__init__(*args, **kwargs)

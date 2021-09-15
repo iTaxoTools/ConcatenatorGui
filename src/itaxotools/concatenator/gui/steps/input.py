@@ -59,8 +59,8 @@ class FileItem(widgets.WidgetItem):
         'format',
         'samples',
         'nucleotides',
-        'uniform',
         'missing',
+        'uniform',
         ]
 
     def __init__(self, *args, **kwargs):
@@ -85,8 +85,8 @@ class SetItem(widgets.WidgetItem):
         'format',
         'samples',
         'nucleotides',
-        'uniform',
         'missing',
+        'uniform',
         ]
 
     def __init__(self, *args, **kwargs):
@@ -202,19 +202,15 @@ class StepInput(ssm.StepState):
     def draw(self):
         widget = QtWidgets.QWidget()
 
-        text = ('Quisque tortor est, porttitor sed viverra ut, '
-                'pharetra at nunc. Aenean vel congue dui. '
-                'Vivamus auctor, quam se. \n'
-                'Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
-                )
+        text = (
+            'Import sequence files by using the button or by drag-and-drop. '
+            'Double-click them to inspect their contents.')
+
         label = QtWidgets.QLabel(text)
+        label.setWordWrap(True)
 
         frame = self.draw_frame()
         overlay = self.draw_overlay()
-
-        # effect = QtWidgets.QGraphicsOpacityEffect(self)
-        # effect.setOpacity(0.7)
-        # overlay.setGraphicsEffect(effect)
 
         stack = QtWidgets.QStackedLayout()
         stack.setStackingMode(QtWidgets.QStackedLayout.StackAll)
@@ -236,8 +232,14 @@ class StepInput(ssm.StepState):
         samples = widgets.InfoLabel('Unique Samples')
         nucleotides = widgets.InfoLabel('Nucleotides')
 
-        for item in [files, sets, samples, nucleotides]:
-            item.setToolTip(lorem.words(randint(5, 15)))
+        files.setToolTip(
+            'The total number of imported files.')
+        sets.setToolTip(
+            'The total number of character sets contained in all files.')
+        samples.setToolTip(
+            'The number of unique samples across all character sets.')
+        nucleotides.setToolTip(
+            'The total number of nucleotide characters across all files.')
 
         summary = QtWidgets.QHBoxLayout()
         summary.addWidget(files)
@@ -262,12 +264,15 @@ class StepInput(ssm.StepState):
         view.setColumnCount(6, 2)
         view.setHeaderLabels([
             'Name', 'Format', 'Samples',
-            'Nucleotides', 'Uniform', 'Missing'])
+            'Nucleotides', 'Missing', 'Uniform'])
 
         headerItem = view.headerItem()
-        headerItem.setToolTip(0, lorem.words(13))
-        for col in range(1, 6):
-            headerItem.setToolTip(col, lorem.words(randint(5, 15)))
+        headerItem.setToolTip(0, 'Input filename or character set name')
+        headerItem.setToolTip(1, 'Sequence file format')
+        headerItem.setToolTip(2, 'Total number of sequences')
+        headerItem.setToolTip(3, 'Total number of nucleotide characters')
+        headerItem.setToolTip(4, 'Proportion of missing data')
+        headerItem.setToolTip(5, 'Are all sequences of the same length?')
 
         frame = InputFrame(self)
 
