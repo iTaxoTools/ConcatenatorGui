@@ -36,7 +36,7 @@ from .wait import StepWaitBar
 def dummy_work(state, count, max, lines, period):
     print('')
     while True:
-        # if count == 101:
+        # if count == 3:
         #     raise Exception('ohno')
         now = lorem.words(3)
         print(f'\nFile {count}/{max} {now}')
@@ -59,10 +59,6 @@ class FileFormat:
     many_files: bool = False
     order_matters: bool = True
     extension: str = None
-
-    def dialogFilter(self):
-        glob = f'*.{self.extension}' if not self.many_files else '*'
-        return f'{self.text} ({glob})'
 
 
 @dataclass
@@ -177,9 +173,9 @@ class StepExportEdit(ssm.StepTriStateEdit):
         layout = QtWidgets.QVBoxLayout()
 
         mark = QtWidgets.QRadioButton(
-            'Write codon sets in output information block.')
+            'Write codon sets within output information block.')
         mark.setToolTip((
-            'Codon sets will be written at:' + '\n'
+            'Codon sets will be written within:' + '\n'
             '- the sets block for Interleaved Nexus' + '\n'
             '- the cfg file for Partitionfinder'
             ))
@@ -264,8 +260,8 @@ class StepExport(ssm.StepTriState):
             ]
         self.fileCompressions = [
             FileCompression('None', None),
-            FileCompression('Zip', 'zip'),
-            FileCompression('Tar', 'tar'),
+            FileCompression('Zip Archive', 'zip'),
+            FileCompression('Tar Archive', 'tar'),
             ]
         super().__init__(*args, **kwargs)
 
@@ -273,13 +269,20 @@ class StepExport(ssm.StepTriState):
         with self.states['wait'].redirect():
             return dummy_work(self, 2, 10, 2, 80)
 
+    def dialogFilter(self, format, compression):
+        if compression.extension is not None:
+            return f'{compression.text} (*.{compression.extension})'
+        glob = f'*.{format.extension}' if not format.many_files else '*'
+        return f'{format.text} ({glob})'
+
     def filterNext(self):
         format = self.states.edit.format.currentData()
+        compression = self.states.edit.compression.currentData()
         (fileName, _) = QtWidgets.QFileDialog.getSaveFileName(
             self.machine().parent(),
             self.machine().parent().title + ' - Export',
-            QtCore.QDir.currentPath() + '/concatenated',
-            format.dialogFilter())
+            QtCore.QDir.currentPath() + '/output',
+            self.dialogFilter(format, compression))
         if len(fileName) > 0:
             self.data.targetFile = pathlib.Path(fileName)
             return True

@@ -99,7 +99,7 @@ class Active(AbstractStatus):
         """Highlight text"""
         painter.setPen(QtGui.QPen(palette.bold, 2, QtCore.Qt.SolidLine))
         font = painter.font()
-        size = font.pointSize()
+        # size = font.pointSize()
         font.setBold(True)
         font.setUnderline(True)
         # font.setPointSize(size + 1)

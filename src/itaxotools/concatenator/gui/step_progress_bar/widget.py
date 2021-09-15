@@ -256,7 +256,7 @@ class StepProgressBar(QtWidgets.QWidget):
             painter.restore()
 
     def drawStepLines(self, steps, painter, lineY):
-        if  self.active >= len(self.steps):
+        if self.active >= len(self.steps):
             x = self.size().width()
         elif step := self.getVisibleActiveStep():
             x = step.pos

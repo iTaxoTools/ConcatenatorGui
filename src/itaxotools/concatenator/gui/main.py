@@ -234,7 +234,7 @@ class Main(common.widgets.ToolDialog):
         m.addStep('export', 'Export', 1, True, StepExport)
         m.addStep('done', 'Done', 1, False, StepDone)
 
-        m.setInitialState(m.states.input)
+        m.setInitialState(m.states.codons)
 
         self.machine = m
         self.machine.start()

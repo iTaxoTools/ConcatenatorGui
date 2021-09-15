@@ -47,8 +47,12 @@ class ProgressBar(QtWidgets.QWidget):
                 border-radius: 0px;
                 text-align: center;
             }
-            QProgressBar::chunk {
+            QProgressBar::chunk:enabled {
                 background-color: Palette(Highlight);
+                width: 1px;
+            }
+            QProgressBar::chunk:!enabled {
+                background-color: Palette(Mid);
                 width: 1px;
             }""")
         layout = QtWidgets.QVBoxLayout()
@@ -66,6 +70,7 @@ class StepWaitBar(ssm.StepTriStateWait):
         widget = QtWidgets.QWidget()
 
         self.progress = ProgressBar()
+        widget.progress = self.progress
 
         self.logger = common.widgets.TextEditLogger()
         self.logger.setFont(QtGui.QFontDatabase.systemFont(
@@ -83,8 +88,15 @@ class StepWaitBar(ssm.StepTriStateWait):
         return widget
 
     def onEntry(self, event):
-        super().onEntry(event)
+        self.widget.progress.bar.setEnabled(True)
         self.logger.clear()
+        super().onEntry(event)
+
+    def onExit(self, event):
+        action = ssm.NavigateEvent(event).action()
+        enabled = (action != ssm.NavigateAction.Fail)
+        self.widget.progress.bar.setEnabled(enabled)
+        super().onExit(event)
 
     def update(self, val=None, max=None, text=None):
         if max is not None:

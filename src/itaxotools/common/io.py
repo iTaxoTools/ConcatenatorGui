@@ -20,7 +20,9 @@
 """IO redirection and file-likes"""
 
 from contextlib import contextmanager
-import io, os, sys
+import sys
+import os
+import io
 
 
 @contextmanager
