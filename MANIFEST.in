@@ -13,4 +13,4 @@ include setup.py
 recursive-include src/itaxotools/**/resources *
 
 # Include data files
-include src/itaxotools/fasttreepy/gui/docs/*.html
+include src/itaxotools/concatenator/gui/docs/*.html
