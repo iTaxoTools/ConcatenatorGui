@@ -109,7 +109,7 @@ class AlignItem(widgets.WidgetItem):
         'uniform',
         ]
     actions = {
-        'Align': 'aligned',
+        'Align': 'marked',
         }
 
     def __init__(self, *args, **kwargs):
@@ -233,7 +233,7 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
     def onEntry(self, event):
         super().onEntry(event)
-        self.footer.next.setText('Align')
+        self.updateFooter()
 
     def add_dummy_contents(self):
         count = randint(500, 2000)
@@ -246,8 +246,8 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Select character sets and use the buttons to mark them '
-            'for alignment. When ready, click "Align" to begin.')
+            'Select character sets and click "Align" to mark them '
+            'for alignment. When ready, click "Start".')
         label = QtWidgets.QLabel(text)
 
         frame = self.draw_frame()
@@ -263,20 +263,20 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
     def draw_summary(self):
         sets = widgets.InfoLabel('Total Sets')
-        aligned = widgets.InfoLabel('Marked', 0)
+        marked = widgets.InfoLabel('Marked', 0)
 
         sets.setToolTip('Total number of character sets.')
-        aligned.setToolTip('Number of character sets pending alignment.')
+        marked.setToolTip('Number of character sets pending alignment.')
 
         summary = QtWidgets.QHBoxLayout()
         summary.addWidget(sets)
-        summary.addWidget(aligned)
+        summary.addWidget(marked)
         summary.addStretch(1)
         summary.setSpacing(24)
         summary.setContentsMargins(4, 0, 4, 0)
 
         self.sets = sets
-        self.aligned = aligned
+        self.marked = marked
 
         return summary
 
@@ -352,6 +352,14 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
     def handleSummaryUpdate(self, field, change):
         item = getattr(self, field)
         item.setValue(item.value + change)
+        if field == 'marked':
+            self.updateFooter()
+
+    def updateFooter(self):
+        if self.marked.value == 0:
+            self.footer.next.setText('&Skip >')
+        else:
+            self.footer.next.setText('&Start')
 
 
 class StepAlignSetsWait(StepWaitBar):
@@ -396,19 +404,8 @@ class StepAlignSets(ssm.StepTriState):
         return bool(skip)
 
     def skipWait(self):
-        skip = self.states['edit'].aligned.value == 0
+        skip = self.states['edit'].marked.value == 0
         return bool(skip)
-
-    def filterSkip(self, event):
-        msgBox = QtWidgets.QMessageBox(self.machine().parent())
-        msgBox.setWindowTitle(self.machine().parent().title)
-        msgBox.setIcon(QtWidgets.QMessageBox.Warning)
-        msgBox.setText('Nothing marked for alignment.\nContinue anyway?')
-        msgBox.setStandardButtons(
-            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-        msgBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
-        res = msgBox.exec()
-        return res == QtWidgets.QMessageBox.Yes
 
     def filterCancel(self, event):
         msgBox = QtWidgets.QMessageBox(self.machine().parent())

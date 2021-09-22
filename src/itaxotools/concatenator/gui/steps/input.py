@@ -203,7 +203,7 @@ class StepInput(ssm.StepState):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Import sequence files by using the button or by drag-and-drop. '
+            'Add sequence files clicking "Import" or by drag-and-drop. '
             'Double-click them to inspect their contents.')
 
         label = QtWidgets.QLabel(text)

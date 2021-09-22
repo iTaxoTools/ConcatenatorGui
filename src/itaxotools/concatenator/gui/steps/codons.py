@@ -62,7 +62,7 @@ class CodonItem(widgets.WidgetItem):
         'naming',
         ]
     actions = {
-        'Split': 'subsetted',
+        'Split': 'marked',
         }
     values = {
         'naming': ['Default', 'Custom'],
@@ -404,7 +404,7 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
 
     def onEntry(self, event):
         super().onEntry(event)
-        self.footer.next.setText('Split')
+        self.updateFooter()
 
     def add_dummy_contents(self):
         count = randint(500, 2000)
@@ -417,8 +417,8 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Double-click an option field to edit individual sets. '
-            'Use the buttons to bulk editi and set codon names.'
+            'Double-click an option field to change it. '
+            'Click "Edit" to set codon names and bulk editing.'
                 )
         label = QtWidgets.QLabel(text)
 
@@ -435,20 +435,20 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
 
     def draw_summary(self):
         sets = widgets.InfoLabel('Total Sets')
-        subsetted = widgets.InfoLabel('Marked', 0)
+        marked = widgets.InfoLabel('Marked', 0)
 
         sets.setToolTip('Total number of character sets.')
-        subsetted.setToolTip('Character sets pending a split.')
+        marked.setToolTip('Character sets pending a split.')
 
         summary = QtWidgets.QHBoxLayout()
         summary.addWidget(sets)
-        summary.addWidget(subsetted)
+        summary.addWidget(marked)
         summary.addStretch(1)
         summary.setSpacing(24)
         summary.setContentsMargins(4, 0, 4, 0)
 
         self.sets = sets
-        self.subsetted = subsetted
+        self.marked = marked
 
         return summary
 
@@ -527,6 +527,14 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
     def handleSummaryUpdate(self, field, change):
         item = getattr(self, field)
         item.setValue(item.value + change)
+        if field == 'marked':
+            self.updateFooter()
+
+    def updateFooter(self):
+        if self.marked.value == 0:
+            self.footer.next.setText('&Skip >')
+        else:
+            self.footer.next.setText('&Start')
 
 
 class StepCodonsWait(StepWaitBar):
@@ -541,10 +549,10 @@ class StepCodonsDone(ssm.StepTriStateDone):
 
     def onEntry(self, event):
         super().onEntry(event)
-        subsetted = self.parent().states['edit'].subsetted.value
-        s = 's' if subsetted > 1 else ''
+        marked = self.parent().states['edit'].marked.value
+        s = 's' if marked > 1 else ''
         self.parent().update(
-            text=f'Successfully split {subsetted} character set{s}.')
+            text=f'Successfully split {marked} character set{s}.')
 
 
 class StepCodonsFail(ssm.StepTriStateFail):
@@ -575,19 +583,8 @@ class StepCodons(ssm.StepTriState):
             return dummy_work(self, 42, 100, 10, 20)
 
     def skipWait(self):
-        skip = self.states['edit'].subsetted.value == 0
+        skip = self.states['edit'].marked.value == 0
         return bool(skip)
-
-    def filterSkip(self, event):
-        msgBox = QtWidgets.QMessageBox(self.machine().parent())
-        msgBox.setWindowTitle(self.machine().parent().title)
-        msgBox.setIcon(QtWidgets.QMessageBox.Warning)
-        msgBox.setText('Nothing marked for splitting.\nContinue anyway?')
-        msgBox.setStandardButtons(
-            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-        msgBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
-        res = msgBox.exec()
-        return res == QtWidgets.QMessageBox.Yes
 
     def filterCancel(self, event):
         msgBox = QtWidgets.QMessageBox(self.machine().parent())

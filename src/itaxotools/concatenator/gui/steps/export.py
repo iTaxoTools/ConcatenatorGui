@@ -91,7 +91,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
 
     def onEntry(self, event):
         super().onEntry(event)
-        self.footer.next.setText('Export')
+        self.footer.next.setText('&Export')
 
     def draw(self):
         widget = QtWidgets.QWidget()

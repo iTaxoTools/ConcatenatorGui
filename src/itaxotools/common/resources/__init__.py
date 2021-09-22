@@ -37,7 +37,7 @@ def package_path_importlib(package):
 
 
 try:
-    import importlib.resources2
+    import importlib.resources.files
     package_path = package_path_importlib
 except ModuleNotFoundError:
     if hasattr(sys, '_MEIPASS'):
