@@ -1,14 +1,30 @@
-# This must be a package for importlib.resources and pyinstaller
-# to detect and import the contained data files.
+# -----------------------------------------------------------------------------
+# Commons - Utility classes for iTaxoTools modules
+# Copyright (C) 2021  Patmanidis Stefanos
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# -----------------------------------------------------------------------------
+
+"""Get resource paths for Python3.8+"""
+
 
 import pathlib
 import sys
 import os
 
-__all__ = ['package_path', 'get_common', 'get_local', 'get']
 
-
-def package_path_pyinstaller(package):
+def _package_path_pyinstaller(package):
     if isinstance(package, str):
         parts = package.split('.')
     elif isinstance(package, type(sys)):
@@ -21,7 +37,7 @@ def package_path_pyinstaller(package):
     return path
 
 
-def package_path_file(package):
+def _package_path_file(package):
     if isinstance(package, str):
         file = sys.modules[package].__file__
     elif isinstance(package, type(sys)):
@@ -32,18 +48,18 @@ def package_path_file(package):
     return path
 
 
-def package_path_importlib(package):
+def _package_path_importlib(package):
     return importlib.resources.files(package)
 
 
 try:
     import importlib.resources.files
-    package_path = package_path_importlib
+    package_path = _package_path_importlib
 except ModuleNotFoundError:
     if hasattr(sys, '_MEIPASS'):
-        package_path = package_path_pyinstaller
+        package_path = _package_path_pyinstaller
     else:
-        package_path = package_path_file
+        package_path = _package_path_file
 
 _resource_path = package_path(__package__)
 

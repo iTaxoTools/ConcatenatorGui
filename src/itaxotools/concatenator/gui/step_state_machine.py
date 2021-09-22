@@ -183,7 +183,9 @@ class StepSubState(QtStateMachine.QState):
         self.footer = parent.footer
         self.widget = self.draw()
         self.stack.addWidget(self.widget)
-        self.header.showTask(self.title, self.description)
+        self.header.showTask(
+            title=self.title,
+            description=self.description)
         self.header.updateLabelWidth()
 
     def draw(self):
@@ -197,7 +199,9 @@ class StepSubState(QtStateMachine.QState):
         if self.title is None and self.description is None:
             self.header.showTool()
         else:
-            self.header.showTask(self.title, self.description)
+            self.header.showTask(
+                title=self.title,
+                description=self.description)
         if self.navMode:
             self.footer.setMode(self.navMode, backwards)
         if self.progStatus:

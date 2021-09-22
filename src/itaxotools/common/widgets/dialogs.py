@@ -17,261 +17,16 @@
 # -----------------------------------------------------------------------------
 
 
-"""Custom PySide6 widgets for iTaxoTools"""
+"""Widgets for dialog windows"""
+
 
 from PySide6 import QtCore
 from PySide6 import QtWidgets
-from PySide6 import QtGui
-from PySide6 import QtSvg
 
 import enum
-import re
 
+from .graphics import ScalingImage
 
-##############################################################################
-# Logging
-
-class TextEditLogger(QtWidgets.QPlainTextEdit):
-    """Thread-safe log display in a QPlainTextEdit"""
-    _appendSignal = QtCore.Signal(object)
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setReadOnly(True)
-        self._appendSignal.connect(self._appendTextInline)
-
-    @QtCore.Slot(object)
-    def _appendTextInline(self, text):
-        """Using signals ensures thread safety"""
-        self.moveCursor(QtGui.QTextCursor.End)
-        self.insertPlainText(text)
-        sb = self.verticalScrollBar()
-        sb.setValue(sb.maximum())
-        self.moveCursor(QtGui.QTextCursor.End)
-
-    def append(self, text):
-        """Call this to append text to the widget"""
-        self._appendSignal.emit(str(text))
-
-
-##############################################################################
-# Layout
-
-class TabWidget(QtWidgets.QGroupBox):
-    """Tab-like to be used as corner widget of QTabWidget"""
-    def __init__(self, widget):
-        """Add widget to self"""
-        super().__init__()
-        layout = QtWidgets.QHBoxLayout()
-        layout.addWidget(widget)
-        layout.setContentsMargins(0, 0, 0, 0)
-        self.setLayout(layout)
-        self.setStyleSheet(
-            """
-            QGroupBox {
-                border: 1px solid palette(dark);
-                border-bottom: none;
-                border-top-left-radius: 4px;
-                border-top-right-radius: 4px;
-                min-width: 1ex;
-                padding: 2px;
-                margin: 0px;
-            }
-            QGroupBox:enabled  {
-                background: palette(Light);
-            }
-            QGroupBox:!enabled  {
-                background: palette(Window);
-            }
-            """)
-
-
-class SearchWidget(QtWidgets.QLineEdit):
-    """Embedded line edit with search button"""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setPlaceholderText('Search')
-        self.setStyleSheet(
-            """
-            SearchWidget {
-                padding: 4px;
-                padding-left: 4px;
-                border: 1px solid Palette(Mid);
-                border-radius: 0;
-                min-width: 160px;
-                }
-            SearchWidget:focus {
-                border: 1px solid Palette(Highlight);
-                }
-            """)
-
-    def setSearchAction(self, action):
-        """Bind a QAction to the widget"""
-        self.returnPressed.connect(action.trigger)
-        self.addAction(action, QtWidgets.QLineEdit.TrailingPosition)
-
-    def focusInEvent(self, event):
-        super().focusInEvent(event)
-        QtCore.QTimer.singleShot(0, self.selectAll)
-
-
-##############################################################################
-# Vector Graphics
-
-class VectorPixmap(QtGui.QPixmap):
-    """A colored vector pixmap"""
-    def __init__(self, fileName, size=None, colormap=None):
-        """
-        Load an SVG resource file and replace colors according to
-        provided dictionary `colormap`. Only fill and stroke is replaced.
-        Also scales the pixmap if a QSize is provided.
-        """
-        data = self.loadAndMap(fileName, colormap)
-
-        renderer = QtSvg.QSvgRenderer(data)
-        size = renderer.defaultSize() if size is None else size
-        super().__init__(size)
-        self.fill(QtCore.Qt.transparent)
-        painter = QtGui.QPainter(self)
-        renderer.render(painter)
-        painter.end()
-
-    @staticmethod
-    def loadAndMap(fileName, colormap):
-        file = QtCore.QFile(fileName)
-        if not file.open(QtCore.QIODevice.ReadOnly):
-            raise FileNotFoundError('Vector resource not found: ' + fileName)
-        text = file.readAll().data().decode()
-        file.close()
-
-        # old code that also checks prefixes
-        # if colormap is not None:
-        #     # match options fill|stroke followed by a key color
-        #     regex = '(?P<prefix>(fill|stroke)\:)(?P<color>' + \
-        #         '|'.join(map(re.escape, colormap.keys()))+')'
-        #     # replace just the color according to colormap
-        #     print(regex)
-        #     text = re.sub(regex, lambda mo:
-        #         mo.group('prefix') + colormap[mo.group('color')], text)
-
-        if colormap is not None:
-            regex = '(?P<color>'
-            regex += '|'.join(map(re.escape, colormap.keys()))+')'
-            text = re.sub(regex, lambda mo: colormap[mo.group('color')], text)
-
-        return QtCore.QByteArray(text.encode())
-
-
-class VectorIcon(QtGui.QIcon):
-    """A colored vector icon"""
-    def __init__(self, fileName, colormap_modes):
-        """Create pixmaps with colormaps matching the dictionary modes"""
-        super().__init__()
-        for mode in colormap_modes.keys():
-            pixmap = VectorPixmap(fileName, colormap=colormap_modes[mode])
-            self.addPixmap(pixmap, mode)
-
-
-##############################################################################
-# Helpful widgets
-
-class Frame(QtWidgets.QFrame):
-    """A slightly darker than the background frame"""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setFrameStyle(QtWidgets.QFrame.StyledPanel)
-        self.setStyleSheet("""
-            Frame {
-                background: rgba(0, 0, 0, 4);
-                border: 1px solid rgba(0, 0, 0, 24);
-            }""")
-
-
-class VLineSeparator(QtWidgets.QFrame):
-    """Vertical line separator"""
-    def __init__(self, width=2):
-        super().__init__()
-        self.setFixedWidth(width)
-        self.setFrameShape(QtWidgets.QFrame.VLine)
-        self.setFrameShadow(QtWidgets.QFrame.Plain)
-        self.setStyleSheet("""
-            background: palette(Mid);
-            border: none;
-            margin: 4px;
-            """)
-
-
-class HLineSeparator(QtWidgets.QFrame):
-    """Vertical line separator"""
-    def __init__(self, height=2):
-        super().__init__()
-        self.setFixedHeight(height)
-        self.setFrameShape(QtWidgets.QFrame.HLine)
-        self.setFrameShadow(QtWidgets.QFrame.Plain)
-        self.setStyleSheet("""
-            background: palette(Mid);
-            border: none;
-            margin: 4px;
-            """)
-
-
-class ScalingImage(QtWidgets.QLabel):
-    """Keep aspect ratio, width adjusts with height"""
-    def __init__(self, pixmap=None):
-        """Remember given pixmap and ratio"""
-        super().__init__()
-        self.setScaledContents(False)
-        self._polished = False
-        self._logo = None
-        self._ratio = 0
-        if pixmap is not None:
-            self.logo = pixmap
-
-    @property
-    def logo(self):
-        return self._logo
-
-    @logo.setter
-    def logo(self, logo):
-        """Accepts logo as a new pixmap to show"""
-        self._logo = logo
-        self._ratio = logo.width()/logo.height()
-        self._scale()
-
-    def _scale(self):
-        """Create new pixmap to match new sizes"""
-        if self._logo is None:
-            return
-        h = self.height()
-        w = h * self._ratio
-        self.setPixmap(self._logo.scaled(
-            w, h, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
-
-    def minimumSizeHint(self):
-        return QtCore.QSize(1, 1)
-
-    def sizeHint(self):
-        if self._polished is True and self._ratio != 0:
-            h = self.height()
-            return QtCore.QSize(h * self._ratio, h)
-        else:
-            return QtCore.QSize(1, 1)
-
-    def resizeEvent(self, event):
-        self._scale()
-        super().resizeEvent(event)
-
-    def event(self, ev):
-        """Let sizeHint know that sizes are now real"""
-        if ev.type() == QtCore.QEvent.PolishRequest:
-            self._polished = True
-            self.updateGeometry()
-        return super().event(ev)
-
-
-##############################################################################
-# Taxotool Layout
 
 class PushButton(QtWidgets.QPushButton):
     """A larger button with square borders"""
@@ -322,41 +77,13 @@ class PushButton(QtWidgets.QPushButton):
         }""")
 
 
-class Header(QtWidgets.QFrame):
-    """
-    The Taxotools toolbar, with space for a title, description,
-    citations and two logos.
-    """
-    def __init__(self):
-        """ """
-        super().__init__()
+class _HeaderLabels(QtWidgets.QWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-        self.dictTool = {'title': '', 'citation': '', 'description': ''}
-        self.dictTask = {'title': '', 'description': ''}
-        self._logoTool = None
-
-        self.logoSize = 64
-
-        self.draw()
-
-    def draw(self):
-        """ """
-        self.setStyleSheet("""
-            Header {
-                background: palette(Light);
-                border-top: 1px solid palette(Mid);
-                border-bottom: 1px solid palette(Dark);
-                }
-            """)
-        self.setSizePolicy(
-            QtWidgets.QSizePolicy.Policy.Minimum,
-            QtWidgets.QSizePolicy.Policy.Maximum)
-
-        self.labels = QtWidgets.QWidget()
-
-        self.labelTool = QtWidgets.QLabel('TOOL')
-        self.labelTool.setAlignment(QtCore.Qt.AlignBottom)
-        self.labelTool.setStyleSheet("""
+        self.tool = QtWidgets.QLabel('TOOL')
+        self.tool.setAlignment(QtCore.Qt.AlignBottom)
+        self.tool.setStyleSheet("""
             color: palette(Text);
             font-size: 14px;
             letter-spacing: 1px;
@@ -364,26 +91,26 @@ class Header(QtWidgets.QFrame):
             text-decoration: underline;
             """)
 
-        self.labelCitation = QtWidgets.QLabel('CITATION')
-        self.labelCitation.setAlignment(QtCore.Qt.AlignBottom)
-        self.labelCitation.setStyleSheet("""
+        self.citation = QtWidgets.QLabel('CITATION')
+        self.citation.setAlignment(QtCore.Qt.AlignBottom)
+        self.citation.setStyleSheet("""
             color: palette(Shadow);
             font-size: 12px;
             font-style: italic;
             """)
 
-        self.labelTask = QtWidgets.QLabel('TASK')
-        self.labelTask.setAlignment(QtCore.Qt.AlignBottom)
-        self.labelTask.setStyleSheet("""
+        self.task = QtWidgets.QLabel('TASK')
+        self.task.setAlignment(QtCore.Qt.AlignBottom)
+        self.task.setStyleSheet("""
             color: palette(Shadow);
             font-size: 14px;
             font-weight: bold;
             letter-spacing: 1px;
             """)
 
-        self.labelDescription = QtWidgets.QLabel('DESCRIPTION')
-        self.labelDescription.setAlignment(QtCore.Qt.AlignTop)
-        self.labelDescription.setStyleSheet("""
+        self.description = QtWidgets.QLabel('DESCRIPTION')
+        self.description.setAlignment(QtCore.Qt.AlignTop)
+        self.description.setStyleSheet("""
             color: palette(Text);
             font-size: 12px;
             letter-spacing: 1px;
@@ -391,32 +118,31 @@ class Header(QtWidgets.QFrame):
 
         layout = QtWidgets.QGridLayout()
         layout.setRowStretch(0, 2)
-        layout.addWidget(self.labelTool, 1, 0)
-        layout.addWidget(self.labelCitation, 1, 1)
-        layout.addWidget(self.labelTask, 2, 0)
-        layout.addWidget(self.labelDescription, 3, 0, 1, 4)
+        layout.addWidget(self.tool, 1, 0, 1, 2)
+        layout.addWidget(self.citation, 1, 2)
+        layout.addWidget(self.task, 2, 0, 1, 2)
+        layout.addWidget(self.description, 3, 1, 1, 3)
         layout.setRowStretch(4, 2)
-        layout.setColumnStretch(2, 1)
+        layout.setColumnStretch(3, 1)
+        layout.setRowMinimumHeight(0, 6)
+        layout.setRowMinimumHeight(4, 6)
+        layout.setColumnMinimumWidth(0, 4)
         layout.setHorizontalSpacing(4)
         layout.setVerticalSpacing(4)
         layout.setContentsMargins(0, 0, 0, 4)
-        layout.setRowMinimumHeight(0, 6)
-        layout.setRowMinimumHeight(4, 6)
-        self.labels.setLayout(layout)
+        self.setLayout(layout)
 
-        self.labelLogoTool = QtWidgets.QLabel()
-        self.labelLogoTool.setAlignment(QtCore.Qt.AlignCenter)
 
-        self.labelLogoProject = ScalingImage()
-
-        self.toolbar = QtWidgets.QToolBar()
-        self.toolbar.setIconSize(QtCore.QSize(32, 32))
-        self.toolbar.setSizePolicy(
+class _HeaderToolBar(QtWidgets.QToolBar):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setIconSize(QtCore.QSize(32, 32))
+        self.setSizePolicy(
             QtWidgets.QSizePolicy.Policy.Minimum,
             QtWidgets.QSizePolicy.Policy.Minimum)
-        self.toolbar.setToolButtonStyle(
+        self.setToolButtonStyle(
             QtCore.Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
-        self.toolbar.setStyleSheet("""
+        self.setStyleSheet("""
             QToolBar {
                 spacing: 2px;
                 }
@@ -462,58 +188,77 @@ class Header(QtWidgets.QFrame):
                 }
             """)
 
+
+class Header(QtWidgets.QFrame):
+    """
+    The Taxotools toolbar, with space for a title, description,
+    citations and two logos.
+    """
+    def __init__(self):
+        super().__init__()
+        self.dictTool = {'title': '', 'citation': '', 'description': ''}
+        self.dictTask = {'title': '', 'description': ''}
+        self._logoTool = None
+        self.draw()
+
+    def draw(self):
+        self.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Minimum,
+            QtWidgets.QSizePolicy.Policy.Maximum)
+        self.setStyleSheet("""
+            Header {
+                background: palette(Light);
+                border-top: 1px solid palette(Mid);
+                border-bottom: 1px solid palette(Dark);
+                }
+            """)
+
+        self.labels = _HeaderLabels()
+        self.widgetLogoTool = QtWidgets.QLabel()
+        self.widgetLogoTool.setAlignment(QtCore.Qt.AlignCenter)
+        self.widgetLogoProject = ScalingImage()
+        self.toolbar = _HeaderToolBar()
         self.widget = QtWidgets.QWidget()
 
         layout = QtWidgets.QHBoxLayout()
         layout.addSpacing(8)
-        layout.addWidget(self.labelLogoTool)
+        layout.addWidget(self.widgetLogoTool)
         layout.addSpacing(8)
         layout.addWidget(self.labels, 0)
         layout.addSpacing(8)
         layout.addWidget(self.toolbar, 0)
         layout.addWidget(self.widget, 1)
         layout.addSpacing(12)
-        layout.addWidget(self.labelLogoProject)
+        layout.addWidget(self.widgetLogoProject)
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
 
         self.setLayout(layout)
 
     def setTool(self, title, citation, description):
-        self.showTool(title, citation, description)
+        self.showTool(title=title, citation=citation, description=description)
         self.updateLabelWidth()
 
-    def showTool(self, title=None, citation=None, description=None):
-        self.dictTool = {
-            'title': (self.dictTool['title']
-                      if title is None
-                      else title),
-            'citation': (self.dictTool['citation']
-                         if citation is None
-                         else citation),
-            'description': (self.dictTool['description']
-                            if description is None
-                            else ' ' + description)}
-        self.labelTool.setText(self.dictTool['title'])
-        self.labelCitation.setText(self.dictTool['citation'])
-        self.labelDescription.setText(self.dictTool['description'])
-        self.labelTask.setVisible(False)
-        self.labelTool.setVisible(True)
-        self.labelCitation.setVisible(True)
+    def showTool(self, **kwargs):
+        d = {k: v for k, v in kwargs.items() if v is not None}
+        d = {k: v for k, v in d.items() if k in self.dictTool.keys()}
+        self.dictTool.update(d)
+        self.labels.tool.setText(self.dictTool['title'])
+        self.labels.citation.setText(self.dictTool['citation'])
+        self.labels.description.setText(self.dictTool['description'])
+        self.labels.task.setVisible(False)
+        self.labels.tool.setVisible(True)
+        self.labels.citation.setVisible(True)
 
-    def showTask(self, title=None, description=None):
-        self.dictTask = {
-            'title': (self.dictTask['title']
-                      if title is None
-                      else title),
-            'description': (self.dictTask['description']
-                            if description is None
-                            else ' ' + description)}
-        self.labelTask.setText(self.dictTask['title'])
-        self.labelDescription.setText(self.dictTask['description'])
-        self.labelTool.setVisible(False)
-        self.labelCitation.setVisible(False)
-        self.labelTask.setVisible(True)
+    def showTask(self, **kwargs):
+        d = {k: v for k, v in kwargs.items() if v is not None}
+        d = {k: v for k, v in d.items() if k in self.dictTask.keys()}
+        self.dictTask.update(d)
+        self.labels.task.setText(self.dictTask['title'])
+        self.labels.description.setText(self.dictTask['description'])
+        self.labels.tool.setVisible(False)
+        self.labels.citation.setVisible(False)
+        self.labels.task.setVisible(True)
 
     def updateLabelWidth(self):
         width = max(self.labels.minimumWidth(), self.labels.sizeHint().width())
@@ -525,16 +270,16 @@ class Header(QtWidgets.QFrame):
 
     @logoTool.setter
     def logoTool(self, logo):
-        self.labelLogoTool.setPixmap(logo)
+        self.widgetLogoTool.setPixmap(logo)
         self._logoTool = logo
 
     @property
     def logoProject(self):
-        return self.labelLogoProject.logo
+        return self.logoProject.logo
 
     @logoProject.setter
     def logoProject(self, logo):
-        self.labelLogoProject.logo = logo
+        self.widgetLogoProject.logo = logo
 
 
 class Subheader(QtWidgets.QFrame):
