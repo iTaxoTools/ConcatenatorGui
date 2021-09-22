@@ -16,7 +16,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 # -----------------------------------------------------------------------------
 
-
 """IO redirection and file-likes"""
 
 from contextlib import contextmanager

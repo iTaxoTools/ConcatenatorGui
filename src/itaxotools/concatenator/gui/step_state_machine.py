@@ -26,83 +26,10 @@ from PySide6 import QtStateMachine
 import enum
 
 from itaxotools.common import widgets
+from itaxotools.common.threads import WorkerThread, CancelledError, FailedError
+from itaxotools.common.utility import AttrDict
 
 from . import step_progress_bar as spb
-
-
-class AttrDict(dict):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.__dict__ = self
-
-
-class FailedError(Exception):
-    def __init__(self, code=1):
-        super().__init__(f'Thread failed with code: {code}')
-        self.code = code
-
-
-class CancelledError(Exception):
-    def __init__(self, code=-1):
-        super().__init__(f'Thread cancelled with code: {code}')
-        self.code = code
-
-
-class TerminatedError(Exception):
-    def __init__(self):
-        super().__init__('Thread was forcibly terminated')
-
-
-class WorkerThread(QtCore.QThread):
-    done = QtCore.Signal(object)
-    fail = QtCore.Signal(object)
-    cancel = QtCore.Signal(object)
-
-    def __init__(self, function, *args, **kwargs):
-        super().__init__()
-        self.function = function
-        self.args = args
-        self.kwargs = kwargs
-        self.timeout = 1000
-
-    def run(self):
-        try:
-            result = self.function(*self.args, **self.kwargs)
-        except CancelledError as exception:
-            self.cancel.emit(exception)
-        except Exception as exception:
-            self.fail.emit(exception)
-        else:
-            self.done.emit(result)
-
-    def check(self):
-        """
-        Call this from within a worker thread to check if the thread
-        should exit by user request. If so, CancelledError is raised,
-        which should then be handled by WorkerThread.run().
-        """
-        if self.isInterruptionRequested():
-            raise CancelledError(-1)
-
-    def exit(self, code: int = 0):
-        """
-        Call this from within a worker thread to indicate the work is done.
-        Argument `code` determines transition behaviour: zero for success,
-        a positive value for failure, a negative value on interruption.
-        """
-        super().exit(code)
-
-    def terminate(self):
-        """
-        Attempt to cleanly exit, then forcibly terminate
-        after a short timeout (dangerous!)
-        """
-        self.requestInterruption()
-        self.exit(-1)
-        if not self.wait(self.timeout):
-            super().terminate()
-            self.wait()
-            self.cancel.emit(TerminatedError())
 
 
 class NavigateAction(enum.Enum):

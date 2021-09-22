@@ -16,7 +16,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 # -----------------------------------------------------------------------------
 
-
 """Miscellaneous widgets"""
 
 from PySide6 import QtCore
