@@ -94,14 +94,17 @@ class FilterItem(widgets.WidgetItem):
         else:
             self.setAction('-')
             self.setBold(False)
+        self.setStrikeOut(False)
 
     def delete(self):
         self.setAction('Delete')
+        self.setStrikeOut(True)
         self.setBold(True)
 
     def clear(self):
         self.name = self.name_original
         self.setAction('-')
+        self.setStrikeOut(False)
         self.setBold(False)
 
     def setAction(self, value):
@@ -116,6 +119,11 @@ class FilterItem(widgets.WidgetItem):
     def setBold(self, value):
         font = self.font(0)
         font.setBold(value)
+        self.setFont(0, font)
+
+    def setStrikeOut(self, value):
+        font = self.font(0)
+        font.setStrikeOut(value)
         self.setFont(0, font)
 
 
