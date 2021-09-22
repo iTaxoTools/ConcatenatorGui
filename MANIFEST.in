@@ -9,9 +9,6 @@ include LICENSE.txt
 # Include setup.py
 include setup.py
 
-# Recursively include all common resources
-recursive-include src/itaxotools/**/resources *
-
 # Include data files
 include src/itaxotools/concatenator/gui/docs/*
 include src/itaxotools/concatenator/gui/logos/*

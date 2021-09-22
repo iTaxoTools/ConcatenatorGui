@@ -1,4 +1,4 @@
-"""The setup module for ConcatenatorQt"""
+"""The setup module for ConcatenatorGui"""
 
 # Always prefer setuptools over distutils
 from setuptools import setup, find_namespace_packages
@@ -10,8 +10,8 @@ long_description = (here / 'README.md').read_text(encoding='utf-8')
 
 
 setup(
-    name='concatenator-qt',
-    version='0.1.0',
+    name='concatenator-gui',
+    version='0.2.dev0',
     description='A Qt GUI for Concatenator',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -19,7 +19,6 @@ setup(
     author_email='stefanpatman91@gmail.com',
     package_dir={'': 'src'},
     packages=find_namespace_packages(
-        # exclude=('itaxotools.common*',),
         include=('itaxotools*',),
         where='src',
     ),
@@ -27,6 +26,7 @@ setup(
     install_requires=[
         'pyside6>=6.1.1',
         'lorem_text>=1.5',
+        'itaxotools-common==0.2.0',
         ],
     extras_require={
         'dev': ['pyinstaller>=4.5.1'],
