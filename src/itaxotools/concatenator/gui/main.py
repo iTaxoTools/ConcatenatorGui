@@ -46,10 +46,9 @@ class Main(common.widgets.ToolDialog):
         super(Main, self).__init__(parent)
 
         self.title = 'Concatenator'
-        self._temp = None
-        self.temp = None
 
-        icon = QtGui.QIcon(common.resources.get('logos/ico/concatenator.ico'))
+        icon = QtGui.QIcon(common.resources.get(
+            'itaxotools.concatenator.gui', 'logos/concatenator.ico'))
         self.setWindowIcon(icon)
         self.setWindowTitle(self.title)
         self.resize(840, 560)
@@ -170,10 +169,11 @@ class Main(common.widgets.ToolDialog):
 
         self.header = common.widgets.Header()
         self.header.logoTool = common.widgets.VectorPixmap(
-            common.resources.get('logos/svg/concatenator.svg'),
+            common.resources.get(
+                'itaxotools.concatenator.gui', 'logos/concatenator.svg'),
             size=QtCore.QSize(44, 44), colormap=self.colormap_icon)
         self.header.logoProject = QtGui.QPixmap(
-            common.resources.get('logos/png/itaxotools-logo-64px.png'))
+            common.resources.get('logos/itaxotools-logo-64px.png'))
         self.header.setMinimumHeight(66)
 
         self.header.setTool(
