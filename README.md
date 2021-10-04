@@ -17,7 +17,7 @@ _This GUI is a development prototype and is not yet connected to the Concatenato
 ## Quick start
 
 ```
-$ pip install .
+$ pip install . -f packages.html
 $ concatenator-gui
 ```
 
@@ -27,6 +27,6 @@ It is advised to do this inside a virtual environment using a tool such as pipen
 
 ```
 $ pipenv shell
-$ pip install -e .[dev]
+$ pip install -e ".[dev]"
 $ pyinstaller scripts/concatenator.spec
 ```

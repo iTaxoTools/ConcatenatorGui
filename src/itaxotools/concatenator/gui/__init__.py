@@ -2,9 +2,9 @@
 """GUI entry point"""
 
 
-def main():
+def run():
     """
-    Show the Concatenator main window.
+    Show the Concatenator window and enter the main event loop.
     Imports are made locally to optimize multiprocessing.
     """
 

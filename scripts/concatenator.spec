@@ -8,6 +8,7 @@ a = Analysis(['concatenator.py'],
              datas=[],
              hiddenimports=[],
              hookspath=[],
+             hooksconfig={},
              runtime_hooks=[],
              excludes=['matplotlib','tk','tkinter'],
              win_no_prefer_redirects=False,
@@ -16,6 +17,7 @@ a = Analysis(['concatenator.py'],
              noarchive=False)
 pyz = PYZ(a.pure, a.zipped_data,
              cipher=block_cipher)
+
 exe = EXE(pyz,
           a.scripts,
           a.binaries,
