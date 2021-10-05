@@ -33,6 +33,7 @@ import itaxotools.common.resources # noqa
 
 from itaxotools.common.threads import WorkerThread
 
+from .. import model
 from .. import widgets
 from .. import step_progress_bar as spb
 from .. import step_state_machine as ssm
@@ -104,8 +105,8 @@ class SetItem(widgets.WidgetItem):
         self.missing = randint(0, 9999) / 10000
 
 
-class DataObject(object):
-    pass
+# class DataObject(object):
+#     pass
 
 
 class StepInputIdle(QtStateMachine.QState):
@@ -151,7 +152,9 @@ class StepInput(ssm.StepState):
         self.worker.fail.connect(self.onFail)
         self.worker.cancel.connect(self.onCancel)
         self.machine().installWorker(self.worker)
-        self.data = DataObject()
+        # self.data = DataObject()
+        self.data = model.Concatenation()
+
         self.clear()
 
     def onDone(self, result):
