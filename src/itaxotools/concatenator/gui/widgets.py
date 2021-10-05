@@ -139,14 +139,20 @@ class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
 
     def __setattr__(self, attr, value):
         super().__setattr__(attr, value)
-        if attr in self.map:
+        self.updateField(attr)
+
+    def updateField(self, field):
+        if field in self.fields:
+            value = getattr(self, field)
             if isinstance(value, int):
                 value = f'{value:,}'
             elif isinstance(value, float):
                 value *= 100
                 value = f'{value:.2f}%'
-            self.setText(self.map[attr], str(value))
-            if self.map[attr] == 0:
+            elif isinstance(value, set):
+                value = len(value)
+            self.setText(self.map[field], str(value))
+            if self.map[field] == 0:
                 self.setToolTip(0, str(value))
 
     def __lt__(self, other):
@@ -156,6 +162,9 @@ class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
         if isinstance(this, str) and isinstance(that, str):
             this = this.casefold()
             that = that.casefold()
+        if isinstance(this, set) and isinstance(that, set):
+            this = len(this)
+            that = len(that)
         return this < that
 
     def setData(self, column, role, value):

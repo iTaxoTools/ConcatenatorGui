@@ -66,23 +66,29 @@ class FileItem(widgets.WidgetItem):
         'uniform',
         ]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, parent, file):
+        super().__init__(parent)
+        self.file = file
+        for field in self.fields:
+            self.updateField(field)
         self.setFlags(QtCore.Qt.ItemIsSelectable |
                       QtCore.Qt.ItemIsEnabled)
-        self.file = None
         font = self.font(0)
         font.setBold(True)
         self.setFont(0, font)
-        self.name = lorem.words(randint(2, 6)).replace(' ', '_')
-        self.format = ['Fasta', 'Phylip', 'Nexus'][randint(0, 2)]
-        self.samples = randint(6, 300)
-        self.nucleotides = randint(200, 3000000)
-        self.uniform = ['Yes', 'No'][randint(0, 1)]
-        self.missing = randint(0, 9999) / 10000
+
+    def __setattr__(self, attr, value):
+        super().__setattr__(attr, value)
+        if attr in self.fields:
+            setattr(self.file, attr, value)
+
+    def __getattr__(self, attr):
+        if attr in self.fields:
+            return getattr(self.file, attr)
+        return super().__getattr__(attr)
 
 
-class SetItem(widgets.WidgetItem):
+class CharsetItem(widgets.WidgetItem):
     fields = [
         'name',
         'format',
@@ -92,21 +98,26 @@ class SetItem(widgets.WidgetItem):
         'uniform',
         ]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, parent, charset):
+        super().__init__(parent)
+        self.charset = charset
+        for field in self.fields:
+            self.updateField(field)
         self.setFlags(QtCore.Qt.ItemIsSelectable |
                       QtCore.Qt.ItemIsEnabled |
                       QtCore.Qt.ItemNeverHasChildren)
-        self.name = lorem.words(randint(2, 6)).replace(' ', '_')
-        self.format = '-'
-        self.samples = randint(6, 300)
-        self.nucleotides = randint(200, 3000000)
-        self.uniform = ['Yes', 'No'][randint(0, 1)]
-        self.missing = randint(0, 9999) / 10000
 
+    def __setattr__(self, attr, value):
+        super().__setattr__(attr, value)
+        if attr in self.fields:
+            setattr(self.charset, attr, value)
 
-# class DataObject(object):
-#     pass
+    def __getattr__(self, attr):
+        if attr == 'format':
+            return ''
+        if attr in self.fields:
+            return getattr(self.charset, attr)
+        return super().__getattr__(attr)
 
 
 class StepInputIdle(QtStateMachine.QState):
@@ -152,8 +163,9 @@ class StepInput(ssm.StepState):
         self.worker.fail.connect(self.onFail)
         self.worker.cancel.connect(self.onCancel)
         self.machine().installWorker(self.worker)
-        # self.data = DataObject()
         self.data = model.Concatenation()
+        self.files_queue = []
+        self.files_ready = []
 
         self.clear()
 
@@ -161,21 +173,19 @@ class StepInput(ssm.StepState):
         total_nucleotides = 0
         total_samples = 0
         total_sets = 0
-        while self.data.files_pending:
-            file = self.data.files_pending.pop()
-            if file in self.data.files:
-                continue
-            self.data.files.append(file)
-            item = FileItem(self.view)
-            item.file = file
-            item.name = file.name
-            for i in range(1, randint(100, 990)):
-                SetItem(item)
+        while self.files_ready:
+            file = self.files_ready.pop()
+            if file.path in self.data.files.keys():
+                raise NotImplementedError
+            self.data.files[file.path] = file
+            item = FileItem(self.view, file)
+            for charset in file.charsets.values():
+                CharsetItem(item, charset)
             nucleotides = 0
-            samples = item.samples
+            samples = len(item.samples)
             for i in range(0, item.childCount()):
                 nucleotides += item.child(i).nucleotides
-                samples = max(samples, item.child(i).samples)
+                samples = max(samples, len(item.child(i).samples))
                 total_sets += 1
             item.nucleotides = nucleotides
             item.samples = samples
@@ -188,6 +198,7 @@ class StepInput(ssm.StepState):
         self.signalDone.emit()
 
     def onFail(self, exception):
+        raise exception
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
         msgBox.setWindowTitle(self.machine().parent().title)
         msgBox.setIcon(QtWidgets.QMessageBox.Critical)
@@ -199,17 +210,36 @@ class StepInput(ssm.StepState):
         self.signalDone.emit()
 
     def onCancel(self, exception):
+        self.files_queue = []
+        self.files_ready = []
         self.signalDone.emit()
 
     def work(self):
-        time = randint(500, 2000)
-        for i in range(0, int(time/10)):
-            QtCore.QThread.msleep(10)
-            self.worker.check()
+        while self.files_queue:
+            path = self.files_queue.pop()
+            file = model.File(path)
+            file.format = ['Fasta', 'Phylip', 'Nexus'][randint(0, 2)]
+            file.nucleotides = randint(200, 3000000)
+            file.missing = randint(0, 9999) / 10000
+            file.uniform = ['Yes', 'No'][randint(0, 1)]
+            file.samples = set(range(randint(6, 300)))
+            for i in range(1, randint(1, 10)):
+                name = lorem.words(randint(2, 6)).replace(' ', '_')
+                charset = model.Charset(name)
+                charset.nucleotides = randint(200, 3000000)
+                charset.uniform = ['Yes', 'No'][randint(0, 1)]
+                charset.missing = randint(0, 9999) / 10000
+                charset.samples = set(range(randint(6, 300)))
+                file.charsets[name] = charset
+            self.files_ready.append(file)
+            time = randint(500, 2000)
+            for i in range(0, int(time/10)):
+                QtCore.QThread.msleep(10)
+                self.worker.check()
 
     def clear(self):
-        self.data.files = []
-        self.data.files_pending = []
+        self.data = model.Concatenation()
+        self.files_queue = []
         self.view.clear()
         self.files.setValue()
         self.sets.setValue()
@@ -416,7 +446,7 @@ class StepInput(ssm.StepState):
         if not filenames:
             return
         paths = [pathlib.Path(filename) for filename in filenames]
-        self.data.files_pending.extend(paths)
+        self.files_queue.extend(paths)
         self.signalAdd.emit()
 
     def handleRemove(self, checked=False):
