@@ -246,7 +246,11 @@ class StepTriState(StepState):
 
     def __init__(self, name, parent, stack):
         super().__init__(name, parent, stack)
-        parent.installWorker(self)
+        self.worker = WorkerThread(self.work)
+        self.worker.done.connect(self._onDone)
+        self.worker.fail.connect(self._onFail)
+        self.worker.cancel.connect(self.onCancel)
+        self.machine().installWorker(self.worker)
         self.data = self.DataObject()
 
     def draw(self):
@@ -420,7 +424,7 @@ class StepStateMachine(QtStateMachine.QStateMachine):
         stepProgressBar: spb.StepProgressBar,
         header: widgets.Header,
         footer: widgets.NavigationFooter,
-        stack: QtWidgets.QStackedLayout
+        stack: QtWidgets.QStackedLayout,
      ):
         super().__init__(parent)
         self.stepProgressBar = stepProgressBar
@@ -449,27 +453,19 @@ class StepStateMachine(QtStateMachine.QStateMachine):
     def _unsetWaiting(self):
         self.waiting = False
 
-    def installWorker(self, state):
-        """Add a WorkerThread to target state and configure signals"""
-        state.worker = WorkerThread(state.work)
-        onDone = getattr(state, '_onDone', state.onDone)
-        onFail = getattr(state, '_onFail', state.onFail)
-        onCancel = getattr(state, '_onCancel', state.onCancel)
-        state.worker.done.connect(onDone)
-        state.worker.fail.connect(onFail)
-        state.worker.cancel.connect(onCancel)
-        state.worker.started.connect(self._setWaiting)
-        state.worker.finished.connect(self._unsetWaiting)
-        self.terminateSignal.connect(state.worker.terminate)
+    def installWorker(self, worker):
+        """Connect a WorkerThread with the machine"""
+        worker.started.connect(self._setWaiting)
+        worker.finished.connect(self._unsetWaiting)
+        self.terminateSignal.connect(worker.terminate)
 
-    def eventGenerator(self, checked=False, action=None):
-        # This will be called by QPushButton.clicked,
-        # so `checked` will be the first kwarg.
+    def eventGenerator(self, action=None):
         def eventFunction():
             self.navigate(action)
         return eventFunction
 
     def addStep(self, name, text=None, weight=1, visible=True, cls=StepState):
+        """Add a new Step to the machine"""
         text = name if text is None else text
         state = cls(name, self, self.stack)
 
@@ -493,9 +489,10 @@ class StepStateMachine(QtStateMachine.QStateMachine):
         self.navigateSignal.emit(action)
 
     def navigateTransition(
-            self, action,
-            filter=lambda e: True,
-            function=lambda: None):
+        self, action,
+        filter=lambda e: True,
+        function=lambda: None,
+    ):
         return NavigateTransition(
             self.navigateSignal, action, filter, function)
 

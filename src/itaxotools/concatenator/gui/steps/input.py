@@ -31,6 +31,8 @@ from itaxotools import common
 import itaxotools.common.widgets
 import itaxotools.common.resources # noqa
 
+from itaxotools.common.threads import WorkerThread
+
 from .. import widgets
 from .. import step_progress_bar as spb
 from .. import step_state_machine as ssm
@@ -144,9 +146,13 @@ class StepInput(ssm.StepState):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.worker = WorkerThread(self.work)
+        self.worker.done.connect(self.onDone)
+        self.worker.fail.connect(self.onFail)
+        self.worker.cancel.connect(self.onCancel)
+        self.machine().installWorker(self.worker)
         self.data = DataObject()
         self.clear()
-        self.machine().installWorker(self)
 
     def onDone(self, result):
         total_nucleotides = 0
@@ -179,6 +185,14 @@ class StepInput(ssm.StepState):
         self.signalDone.emit()
 
     def onFail(self, exception):
+        msgBox = QtWidgets.QMessageBox(self.machine().parent())
+        msgBox.setWindowTitle(self.machine().parent().title)
+        msgBox.setIcon(QtWidgets.QMessageBox.Critical)
+        msgBox.setText('Import failed:')
+        msgBox.setInformativeText(str(exception))
+        msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        msgBox.setDefaultButton(QtWidgets.QMessageBox.Ok)
+        msgBox.exec()
         self.signalDone.emit()
 
     def onCancel(self, exception):

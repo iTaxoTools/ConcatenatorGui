@@ -57,7 +57,6 @@ class Main(common.widgets.ToolDialog):
         self.machine = None
         self.skin()
         self.draw()
-        self.act()
         self.cog()
 
         if init is not None:
@@ -211,9 +210,6 @@ class Main(common.widgets.ToolDialog):
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
-
-    def act(self):
-        pass
 
     def cog(self):
         """Initialize state machine"""
