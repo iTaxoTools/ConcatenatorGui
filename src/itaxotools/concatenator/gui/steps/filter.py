@@ -147,10 +147,10 @@ class StepFilter(ssm.StepState):
 
     def add_dummy_contents(self):
         count = randint(50, 301)
-        l = []
+        items = []
         for i in range(0, count):
-            l.append(FilterItem())
-        self.view.addTopLevelItems(l)
+            items.append(FilterItem())
+        self.view.addTopLevelItems(items)
         self.view.resizeColumnsToContents()
         self.sets.setValue(count)
 

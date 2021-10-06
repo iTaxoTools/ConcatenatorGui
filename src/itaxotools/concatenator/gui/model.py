@@ -7,6 +7,10 @@ from pathlib import Path
 
 
 class DataSet:
+    """
+    Defines a set of items on which subsets can be defined as DataGroups.
+    Efficient when the subsets overlap.
+    """
     def __init__(self):
         self.data: Dict[Hashable, int] = dict()
         self.groups: List[DataGroup] = list()
@@ -34,7 +38,14 @@ class DataSet:
             return new_index
 
     def remove(self, group: DataGroup):
-        ...
+        self.groups.remove(group)
+
+    def __len__(self):
+        all_indices = set()
+        for group in self.groups:
+            all_indices.update(group.indices)
+        all_data = [x for x in self.data if self.data[x] in all_indices]
+        return len(all_data)
 
 
 class DataGroup:
@@ -45,6 +56,11 @@ class DataGroup:
         self.index: int = dataset.index_next()
         self.update(items)
         dataset.groups.append(self)
+
+    def merge(self, groups: Iterable[DataGroup]):
+        for group in groups:
+            self.indices.update(group.indices)
+        self.length = len(self.data)
 
     def update(self, items: Iterable[Hashable]):
         queue: Dict[int, List[Hashable]] = dict()
@@ -57,7 +73,7 @@ class DataGroup:
             else:
                 self.length += 1
                 index = self.index
-            if not index in queue:
+            if index not in queue:
                 queue[index] = list()
             queue[index].append(item)
 
@@ -69,8 +85,9 @@ class DataGroup:
         return self.length
 
     @property
-    def data(self):
-        ...
+    def data(self) -> Set[Hashable]:
+        data = self.dataset.data
+        return [x for x in data if data[x] in self.indices]
 
 
 @dataclass(frozen=True)
@@ -91,7 +108,6 @@ class Charset:
 class File:
     path: Path  # key
     format: Optional[str] = None
-    nucleotides: int = 0
     missing: int = 0
     uniform: bool = False
     samples: Optional[DataGroup] = field(default=None, repr=False)
@@ -101,8 +117,18 @@ class File:
     def name(self):
         return self.path.name
 
+    @property
+    def nucleotides(self):
+        all = [cs.nucleotides for cs in self.charsets.values()]
+        return sum(all)
+
+
 class Concatenation:
     def __init__(self):
         self.files: Dict[Path, File] = dict()
         self.charsets: Dict[str, Charset] = dict()
-        self.samples: DataSet = set()
+        self.samples = DataSet()
+
+    def remove_file(self, file):
+        # memory assigned for samples is not cleared
+        del self.files[file.path]

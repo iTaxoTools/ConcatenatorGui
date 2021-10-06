@@ -21,6 +21,7 @@
 from PySide6 import QtCore
 from PySide6 import QtWidgets
 from PySide6 import QtStateMachine
+from PySide6 import QtGui
 
 import pathlib
 
@@ -56,68 +57,63 @@ class InputFrame(common.widgets.Frame):
         self.state.handleAdd(filenames=filenames)
 
 
-class FileItem(widgets.WidgetItem):
+class ModelItem(widgets.WidgetItem):
+    def __init__(self, parent, model):
+        super().__init__(parent)
+        self.model = model
+        for field in self.fields:
+            self.updateField(field)
+
+    def __setattr__(self, attr, value):
+        super().__setattr__(attr, value)
+        if attr in self.fields and hasattr(self.model, attr):
+            setattr(self.model, attr, value)
+
+    def __getattr__(self, attr):
+        if attr in self.fields and hasattr(self.model, attr):
+            return getattr(self.model, attr)
+        return super().__getattr__(attr)
+
+    @property
+    def samples_len(self):
+        return len(self.model.samples)
+
+
+class FileItem(ModelItem):
     fields = [
         'name',
         'format',
-        'samples',
+        'samples_len',
         'nucleotides',
         'missing',
         'uniform',
         ]
 
-    def __init__(self, parent, file):
-        super().__init__(parent)
-        self.file = file
-        for field in self.fields:
-            self.updateField(field)
+    def __init__(self, parent, file: model.File):
+        super().__init__(parent, file)
         self.setFlags(QtCore.Qt.ItemIsSelectable |
                       QtCore.Qt.ItemIsEnabled)
         font = self.font(0)
         font.setBold(True)
         self.setFont(0, font)
 
-    def __setattr__(self, attr, value):
-        super().__setattr__(attr, value)
-        if attr in self.fields:
-            setattr(self.file, attr, value)
 
-    def __getattr__(self, attr):
-        if attr in self.fields:
-            return getattr(self.file, attr)
-        return super().__getattr__(attr)
-
-
-class CharsetItem(widgets.WidgetItem):
+class CharsetItem(ModelItem):
     fields = [
         'name',
         'format',
-        'samples',
+        'samples_len',
         'nucleotides',
         'missing',
         'uniform',
         ]
+    format = ''
 
-    def __init__(self, parent, charset):
-        super().__init__(parent)
-        self.charset = charset
-        for field in self.fields:
-            self.updateField(field)
+    def __init__(self, parent, charset: model.Charset):
+        super().__init__(parent, charset)
         self.setFlags(QtCore.Qt.ItemIsSelectable |
                       QtCore.Qt.ItemIsEnabled |
                       QtCore.Qt.ItemNeverHasChildren)
-
-    def __setattr__(self, attr, value):
-        super().__setattr__(attr, value)
-        if attr in self.fields:
-            setattr(self.charset, attr, value)
-
-    def __getattr__(self, attr):
-        if attr == 'format':
-            return ''
-        if attr in self.fields:
-            return getattr(self.charset, attr)
-        return super().__getattr__(attr)
 
 
 class StepInputIdle(QtStateMachine.QState):
@@ -170,31 +166,17 @@ class StepInput(ssm.StepState):
         self.clear()
 
     def onDone(self, result):
-        total_nucleotides = 0
-        total_samples = 0
-        total_sets = 0
         while self.files_ready:
             file = self.files_ready.pop()
-            if file.path in self.data.files.keys():
-                raise NotImplementedError
+            if file.path in self.data.files:
+                item = self.view.findItems(
+                    file.name, QtCore.Qt.MatchExactly, 0)[0]
+                self.remove_item(item)
             self.data.files[file.path] = file
             item = FileItem(self.view, file)
             for charset in file.charsets.values():
                 CharsetItem(item, charset)
-            nucleotides = 0
-            samples = len(item.samples)
-            for i in range(0, item.childCount()):
-                nucleotides += item.child(i).nucleotides
-                samples = max(samples, len(item.child(i).samples))
-                total_sets += 1
-            item.nucleotides = nucleotides
-            item.samples = samples
-            total_nucleotides += nucleotides
-            total_samples += samples
-        self.nucleotides.setValue(total_nucleotides)
-        self.samples.setValue(total_samples)
-        self.sets.setValue(total_sets)
-
+        self.refresh_contents()
         self.signalDone.emit()
 
     def onFail(self, exception):
@@ -217,32 +199,31 @@ class StepInput(ssm.StepState):
     def work(self):
         while self.files_queue:
             path = self.files_queue.pop()
+            # file = ...
             file = model.File(path)
             file.format = ['Fasta', 'Phylip', 'Nexus'][randint(0, 2)]
-            file.nucleotides = randint(200, 3000000)
             file.missing = randint(0, 9999) / 10000
             file.uniform = ['Yes', 'No'][randint(0, 1)]
-            file.samples = set(range(randint(6, 300)))
-            for i in range(1, randint(1, 10)):
+            for i in range(1, randint(5, 20)):
                 name = lorem.words(randint(2, 6)).replace(' ', '_')
                 charset = model.Charset(name)
                 charset.nucleotides = randint(200, 3000000)
                 charset.uniform = ['Yes', 'No'][randint(0, 1)]
                 charset.missing = randint(0, 9999) / 10000
-                charset.samples = set(range(randint(6, 300)))
+                charset.samples = model.DataGroup(self.data.samples)
+                foobar = range(randint(0, 100), randint(50, 150))
+                charset.samples.update(foobar)
                 file.charsets[name] = charset
+            file.samples = model.DataGroup(self.data.samples)
+            file.samples.merge([cs.samples for cs in file.charsets.values()])
             self.files_ready.append(file)
-            time = randint(500, 2000)
-            for i in range(0, int(time/10)):
-                QtCore.QThread.msleep(10)
-                self.worker.check()
 
     def clear(self):
         self.data = model.Concatenation()
         self.files_queue = []
         self.view.clear()
         self.files.setValue()
-        self.sets.setValue()
+        self.charsets.setValue()
         self.samples.setValue()
         self.nucleotides.setValue()
 
@@ -298,7 +279,7 @@ class StepInput(ssm.StepState):
         summary.setContentsMargins(4, 0, 4, 0)
 
         self.files = files
-        self.sets = sets
+        self.charsets = sets
         self.samples = samples
         self.nucleotides = nucleotides
 
@@ -327,6 +308,8 @@ class StepInput(ssm.StepState):
         remove = common.widgets.PushButton('&Remove')
         remove.clicked.connect(self.handleRemove)
         remove.setEnabled(False)
+
+        QtGui.QShortcut(QtGui.QKeySequence.Delete, view, self.handleRemove)
 
         search = widgets.ViewSearchWidget(self, view)
 
@@ -433,8 +416,22 @@ class StepInput(ssm.StepState):
         self.transitions.cancel = transition
 
     def refresh_contents(self):
+        files = self.data.files.values()
+        nucleotides = sum([file.nucleotides for file in files])
+        charsets = set([cs for file in files for cs in file.charsets.keys()])
+        samples = model.DataGroup(self.data.samples)
+        samples.merge([file.samples for file in files])
         self.files.setValue(len(self.data.files))
+        self.nucleotides.setValue(nucleotides)
+        self.charsets.setValue(len(charsets))
+        self.samples.setValue(len(samples))
         self.view.resizeColumnsToContents()
+
+    def remove_item(self, item):
+        self.data.remove_file(item.model)
+        index = self.view.indexOfTopLevelItem(item)
+        if not index < 0:
+            self.view.takeTopLevelItem(index)
 
     def handleAdd(self, checked=False, filenames=[]):
         if not filenames:
@@ -453,10 +450,7 @@ class StepInput(ssm.StepState):
         items = [item for item in self.view.selectedItems()
                  if isinstance(item, FileItem)]
         for item in items:
-            self.data.files.remove(item.file)
-            index = self.view.indexOfTopLevelItem(item)
-            if not index < 0:
-                self.view.takeTopLevelItem(index)
+            self.remove_item(item)
         self.signalRefresh.emit()
 
     def handleItemSelectionChanged(self):
