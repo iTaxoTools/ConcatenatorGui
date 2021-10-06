@@ -32,7 +32,7 @@ from itaxotools import common
 import itaxotools.common.widgets
 import itaxotools.common.resources # noqa
 
-from itaxotools.common.threads import WorkerThread
+from itaxotools.common.threading import WorkerThread
 
 from .. import model
 from .. import widgets
@@ -199,7 +199,7 @@ class StepInput(ssm.StepState):
     def work(self):
         while self.files_queue:
             path = self.files_queue.pop()
-            # file = ...
+            # file = ...file_info_from_path(path)
             file = model.File(path)
             file.format = ['Fasta', 'Phylip', 'Nexus'][randint(0, 2)]
             file.missing = randint(0, 9999) / 10000
@@ -216,6 +216,7 @@ class StepInput(ssm.StepState):
                 file.charsets[name] = charset
             file.samples = model.DataGroup(self.data.samples)
             file.samples.merge([cs.samples for cs in file.charsets.values()])
+
             self.files_ready.append(file)
 
     def clear(self):

@@ -26,7 +26,7 @@ from PySide6 import QtStateMachine
 import enum
 
 from itaxotools.common import widgets
-from itaxotools.common.threads import WorkerThread, CancelledError, FailedError
+from itaxotools.common.threading import WorkerThread, CancelledError, FailedError
 from itaxotools.common.utility import AttrDict
 
 from . import step_progress_bar as spb

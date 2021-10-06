@@ -26,7 +26,8 @@ setup(
     install_requires=[
         'pyside6>=6.1.1',
         'lorem_text>=1.5',
-        'itaxotools-common==0.2.0',
+        'itaxotools-common==0.2.1',
+        'concatenator==0.1.0',
         ],
     extras_require={
         'dev': ['pyinstaller>=4.5.1'],
