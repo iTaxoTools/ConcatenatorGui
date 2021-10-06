@@ -1,0 +1,124 @@
+#NEXUS
+
+begin data;
+
+format datatype=DNA missing=N missing=? Gap=- Interleave=yes;
+
+dimensions Nchar=50 Ntax=19;
+
+matrix
+
+   sample_0_specimen_0_locality_0 CGTT-GATGG
+   sample_1_specimen_1_locality_1 CGAAGGGCTT
+   sample_2_specimen_2_locality_2 TAG-TCTATC
+   sample_3_specimen_3_locality_3 AAGTTG-CGG
+   sample_4_specimen_4_locality_4 CAA-CGACG-
+   sample_5_specimen_5_locality_5 ATAGA-ATCG
+   sample_6_specimen_6_locality_6 GG-ATGCC--
+   sample_7_specimen_7_locality_7 --AGATT-CG
+   sample_8_specimen_8_locality_8 ATT--GAA-G
+   sample_9_specimen_9_locality_9 AAG-AGA-C-
+sample_10_specimen_10_locality_10 C-GTT-TTGT
+sample_11_specimen_11_locality_11 -GGATAT-CA
+sample_12_specimen_12_locality_12 ATGC-GA-GA
+sample_13_specimen_13_locality_13 -G-CATGTA-
+sample_14_specimen_14_locality_14 T---AGGTAG
+sample_15_specimen_15_locality_15 A-AGGGGGTC
+sample_16_specimen_16_locality_16 GAGC-TA-T-
+sample_17_specimen_17_locality_17 AAGCAG--AG
+sample_18_specimen_18_locality_18 -A-ACCG-AC
+
+   sample_0_specimen_0_locality_0 AAATATGATA
+   sample_1_specimen_1_locality_1 GACG-GTACG
+   sample_2_specimen_2_locality_2 -ATTTATAAC
+   sample_3_specimen_3_locality_3 GA-GG----T
+   sample_4_specimen_4_locality_4 C--ATTCGGA
+   sample_5_specimen_5_locality_5 CT-CGATGTA
+   sample_6_specimen_6_locality_6 -ACTTAC-TA
+   sample_7_specimen_7_locality_7 T-CA--TA-A
+   sample_8_specimen_8_locality_8 T-AGTATAAA
+   sample_9_specimen_9_locality_9 CCTTGGTGG-
+sample_10_specimen_10_locality_10 GACTGT-ACA
+sample_11_specimen_11_locality_11 T-CGAT-CTT
+sample_12_specimen_12_locality_12 CG-G-ATG-T
+sample_13_specimen_13_locality_13 TTG-CCAGCG
+sample_14_specimen_14_locality_14 ACCAGT-TAC
+sample_15_specimen_15_locality_15 G-GA-TTAA-
+sample_16_specimen_16_locality_16 --TGACCCTG
+sample_17_specimen_17_locality_17 TCGGTAGACT
+sample_18_specimen_18_locality_18 -GTGTTGCGG
+
+   sample_0_specimen_0_locality_0 CAG--CCTC-
+   sample_1_specimen_1_locality_1 TGGTG-ATTA
+   sample_2_specimen_2_locality_2 TA------AC
+   sample_3_specimen_3_locality_3 CAGAATCCCC
+   sample_4_specimen_4_locality_4 A-TAT-ACCA
+   sample_5_specimen_5_locality_5 G-CC-CCCA-
+   sample_6_specimen_6_locality_6 AGGTA-GTCT
+   sample_7_specimen_7_locality_7 -CTCG--GG-
+   sample_8_specimen_8_locality_8 CAGGGAGAGT
+   sample_9_specimen_9_locality_9 AT-T----CT
+sample_10_specimen_10_locality_10 A-ACA-TG-C
+sample_11_specimen_11_locality_11 -GAGA-CTT-
+sample_12_specimen_12_locality_12 AGGGA-TAGA
+sample_13_specimen_13_locality_13 GAC-CACTT-
+sample_14_specimen_14_locality_14 TAACCCTTTG
+sample_15_specimen_15_locality_15 TGAGCGTCA-
+sample_16_specimen_16_locality_16 G--A-A-CGT
+sample_17_specimen_17_locality_17 C-TGC--TTC
+sample_18_specimen_18_locality_18 TAGTG--T-G
+
+   sample_0_specimen_0_locality_0 TGTCG--GTA
+   sample_1_specimen_1_locality_1 GA-GAT-T--
+   sample_2_specimen_2_locality_2 GCTGGAGG-A
+   sample_3_specimen_3_locality_3 CTT-TGTTA-
+   sample_4_specimen_4_locality_4 GCTCAAGAT-
+   sample_5_specimen_5_locality_5 TGGATTC--G
+   sample_6_specimen_6_locality_6 G-AGCACA-A
+   sample_7_specimen_7_locality_7 -TGAGGT---
+   sample_8_specimen_8_locality_8 GC-CGCGC-C
+   sample_9_specimen_9_locality_9 CAATGTGC-A
+sample_10_specimen_10_locality_10 T-CT-G--CT
+sample_11_specimen_11_locality_11 TTAA-TT-GT
+sample_12_specimen_12_locality_12 -GTAT-GA-T
+sample_13_specimen_13_locality_13 -CGGGCTTAG
+sample_14_specimen_14_locality_14 A-T-TG--TC
+sample_15_specimen_15_locality_15 CCTCTACATA
+sample_16_specimen_16_locality_16 GC-TAA-CCT
+sample_17_specimen_17_locality_17 C-AT-TCA-C
+sample_18_specimen_18_locality_18 -C-CATG-GA
+
+   sample_0_specimen_0_locality_0 GGTCG-ACGC
+   sample_1_specimen_1_locality_1 ACTAGTATT-
+   sample_2_specimen_2_locality_2 GCTC-ATCAC
+   sample_3_specimen_3_locality_3 GCT-CCAT-G
+   sample_4_specimen_4_locality_4 -C-GTTCTCA
+   sample_5_specimen_5_locality_5 ACGT-T-CGT
+   sample_6_specimen_6_locality_6 C-AGCTAGA-
+   sample_7_specimen_7_locality_7 TCA-C-G-GG
+   sample_8_specimen_8_locality_8 TTTT-A--TC
+   sample_9_specimen_9_locality_9 -TCT-AAGTA
+sample_10_specimen_10_locality_10 -ACTG-A-TG
+sample_11_specimen_11_locality_11 AGATAA-TCT
+sample_12_specimen_12_locality_12 CCCGCT-ATC
+sample_13_specimen_13_locality_13 AGT-AC-CGG
+sample_14_specimen_14_locality_14 -TATCCA-T-
+sample_15_specimen_15_locality_15 -GA-CT-C--
+sample_16_specimen_16_locality_16 ATAGA-T-GA
+sample_17_specimen_17_locality_17 CTATGCAGCC
+sample_18_specimen_18_locality_18 ATGCCGT-A-
+
+;
+end;
+
+
+
+begin sets;
+
+charset charset_0 = 1-10;
+charset charset_1 = 11-20;
+charset charset_2 = 21-30;
+charset charset_3 = 31-40;
+charset charset_4 = 41-50;
+
+end;
