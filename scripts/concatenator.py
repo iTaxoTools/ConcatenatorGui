@@ -4,7 +4,7 @@
 """Launch the Concatenator GUI"""
 
 import multiprocessing
-from itaxotools.concatenator.gui import main
+from itaxotools.concatenator_gui import main
 
 if __name__ == '__main__':
     multiprocessing.freeze_support()

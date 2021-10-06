@@ -56,7 +56,7 @@ class StepDone(ssm.StepState):
         self.updateLabels()
 
         path = common.resources.get(
-            'itaxotools.concatenator.gui', 'docs/done.html')
+            'itaxotools.concatenator_gui', 'docs/done.html')
         self.label = widgets.HtmlLabel(path)
 
         layout = QtWidgets.QVBoxLayout()

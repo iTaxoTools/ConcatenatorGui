@@ -177,7 +177,7 @@ class StepAlignOptions(ssm.StepState):
         widget = QtWidgets.QWidget()
 
         path = common.resources.get(
-            'itaxotools.concatenator.gui', 'docs/mafft.html')
+            'itaxotools.concatenator_gui', 'docs/mafft.html')
         label = widgets.HtmlLabel(path)
 
         available = QtWidgets.QLabel('Available strategies:')

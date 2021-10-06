@@ -34,7 +34,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'concatenator-gui = itaxotools.concatenator.gui:run',
+            'concatenator-gui = itaxotools.concatenator_gui:run',
         ],
         'pyinstaller40': [
           'hook-dirs = itaxotools.__pyinstaller:get_hook_dirs',

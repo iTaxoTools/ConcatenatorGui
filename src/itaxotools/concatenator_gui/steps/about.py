@@ -33,11 +33,11 @@ class StepAbout(ssm.StepState):
         widget = QtWidgets.QWidget()
 
         path = common.resources.get(
-            'itaxotools.concatenator.gui', 'docs/about.html')
+            'itaxotools.concatenator_gui', 'docs/about.html')
         self.about = widgets.HtmlLabel(path)
 
         path = common.resources.get(
-            'itaxotools.concatenator.gui', 'docs/cite.html')
+            'itaxotools.concatenator_gui', 'docs/cite.html')
         self.cite = widgets.HtmlLabel(path)
 
         layout = QtWidgets.QVBoxLayout()
