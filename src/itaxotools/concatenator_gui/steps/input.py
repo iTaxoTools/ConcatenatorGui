@@ -23,8 +23,7 @@ from PySide6 import QtWidgets
 from PySide6 import QtStateMachine
 from PySide6 import QtGui
 
-import pathlib
-
+from pathlib import Path
 from lorem_text import lorem
 from random import randint
 
@@ -34,10 +33,56 @@ import itaxotools.common.resources # noqa
 
 from itaxotools.common.threading import WorkerThread
 
+from itaxotools.concatenator.library.detect_file_type import autodetect
+from itaxotools.concatenator.library.file_types import FileType
+
 from .. import model
 from .. import widgets
 from .. import step_progress_bar as spb
 from .. import step_state_machine as ssm
+
+
+type_short = {
+    FileType.TabFile: 'Tabfile',
+    FileType.NexusFile: 'Nexus',
+    FileType.FastaFile: 'Fasta',
+    FileType.PhylipFile: 'Phylip',
+    FileType.ConcatTabFile: 'Tabfile',
+    FileType.ConcatFasta: 'Fasta',
+    FileType.ConcatPhylip: 'Phylip',
+    FileType.MultiFastaOutput: 'Fasta (zip)',
+    FileType.MultiPhylipOutput: 'Phylip (zip)',
+    FileType.MultiAliOutput: 'Ali (zip)',
+    FileType.MultiFastaInput: 'Fasta (zip)',
+    FileType.MultiPhylipInput: 'Phylip (zip)',
+    FileType.MultiAliInput: 'Ali (zip)',
+    FileType.PartitionFinderOutput: 'PartitionFinder',
+    FileType.CodonTab: 'CodonTab',
+}
+
+
+def file_info_from_path(
+    path: Path,
+    samples: model.DataSet
+) -> model.File:
+    type = autodetect(path)
+    file = model.File(path)
+    file.format = type_short[type]
+    file.missing = randint(0, 9999) / 10000
+    file.uniform = ['Yes', 'No'][randint(0, 1)]
+    for i in range(1, randint(5, 20)):
+        name = lorem.words(randint(2, 6)).replace(' ', '_')
+        charset = model.Charset(name)
+        charset.nucleotides = randint(200, 3000000)
+        charset.uniform = ['Yes', 'No'][randint(0, 1)]
+        charset.missing = randint(0, 9999) / 10000
+        charset.samples = model.DataGroup(samples)
+        foobar = range(randint(0, 100), randint(50, 150))
+        charset.samples.update(foobar)
+        file.charsets[name] = charset
+    file.samples = model.DataGroup(samples)
+    file.samples.merge([cs.samples for cs in file.charsets.values()])
+    return file
 
 
 class InputFrame(common.widgets.Frame):
@@ -176,11 +221,9 @@ class StepInput(ssm.StepState):
             item = FileItem(self.view, file)
             for charset in file.charsets.values():
                 CharsetItem(item, charset)
-        self.refresh_contents()
         self.signalDone.emit()
 
     def onFail(self, exception):
-        raise exception
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
         msgBox.setWindowTitle(self.machine().parent().title)
         msgBox.setIcon(QtWidgets.QMessageBox.Critical)
@@ -189,6 +232,8 @@ class StepInput(ssm.StepState):
         msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
         msgBox.setDefaultButton(QtWidgets.QMessageBox.Ok)
         msgBox.exec()
+        self.files_queue = []
+        self.files_ready = []
         self.signalDone.emit()
 
     def onCancel(self, exception):
@@ -199,24 +244,7 @@ class StepInput(ssm.StepState):
     def work(self):
         while self.files_queue:
             path = self.files_queue.pop()
-            # file = ...file_info_from_path(path)
-            file = model.File(path)
-            file.format = ['Fasta', 'Phylip', 'Nexus'][randint(0, 2)]
-            file.missing = randint(0, 9999) / 10000
-            file.uniform = ['Yes', 'No'][randint(0, 1)]
-            for i in range(1, randint(5, 20)):
-                name = lorem.words(randint(2, 6)).replace(' ', '_')
-                charset = model.Charset(name)
-                charset.nucleotides = randint(200, 3000000)
-                charset.uniform = ['Yes', 'No'][randint(0, 1)]
-                charset.missing = randint(0, 9999) / 10000
-                charset.samples = model.DataGroup(self.data.samples)
-                foobar = range(randint(0, 100), randint(50, 150))
-                charset.samples.update(foobar)
-                file.charsets[name] = charset
-            file.samples = model.DataGroup(self.data.samples)
-            file.samples.merge([cs.samples for cs in file.charsets.values()])
-
+            file = file_info_from_path(path, self.data.samples)
             self.files_ready.append(file)
 
     def clear(self):
@@ -443,7 +471,7 @@ class StepInput(ssm.StepState):
                 'All Files (*)')
         if not filenames:
             return
-        paths = [pathlib.Path(filename) for filename in filenames]
+        paths = [Path(filename) for filename in filenames]
         self.files_queue.extend(paths)
         self.signalAdd.emit()
 

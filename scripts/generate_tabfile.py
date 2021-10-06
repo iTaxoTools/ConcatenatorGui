@@ -4,14 +4,17 @@ from random import choices, randint
 
 import sys
 
+
 def fetch(list, index, default):
     try:
         return list[index]
     except IndexError:
         return default
 
+
 def sequence(low=10, high=10):
     return ''.join(choices('AGCT-', k=randint(low, high)))
+
 
 def main():
     sample_count = int(fetch(sys.argv, 1, randint(10, 20)))
@@ -30,6 +33,7 @@ def main():
         for charset in range(charset_count):
             print(f'\t{sequence()}', end='')
         print()
+
 
 if __name__ == '__main__':
     main()
