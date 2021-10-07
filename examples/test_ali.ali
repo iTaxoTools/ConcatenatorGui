@@ -1,0 +1,42 @@
+#Number of positions: 10
+#Number of OTUs: 19
+#Percent of ?: 0.0
+#
+>sample_0_specimen_0_locality_0
+CGTT*GATGG
+>sample_1_specimen_1_locality_1
+CGAAGGGCTT
+>sample_2_specimen_2_locality_2
+TAG*TCTATC
+>sample_3_specimen_3_locality_3
+AAGTTG*CGG
+>sample_4_specimen_4_locality_4
+CAA*CGACG*
+>sample_5_specimen_5_locality_5
+ATAGA*ATCG
+>sample_6_specimen_6_locality_6
+GG*ATGCC**
+>sample_7_specimen_7_locality_7
+**AGATT*CG
+>sample_8_specimen_8_locality_8
+ATT**GAA*G
+>sample_9_specimen_9_locality_9
+AAG*AGA*C*
+>sample_10_specimen_10_locality_10
+C*GTT*TTGT
+>sample_11_specimen_11_locality_11
+*GGATAT*CA
+>sample_12_specimen_12_locality_12
+ATGC*GA*GA
+>sample_13_specimen_13_locality_13
+*G*CATGTA*
+>sample_14_specimen_14_locality_14
+T***AGGTAG
+>sample_15_specimen_15_locality_15
+A*AGGGGGTC
+>sample_16_specimen_16_locality_16
+GAGC*TA*T*
+>sample_17_specimen_17_locality_17
+AAGCAG**AG
+>sample_18_specimen_18_locality_18
+*A*ACCG*AC

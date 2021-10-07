@@ -46,27 +46,47 @@ def readNexusFile(path: Path) -> pd.DataFrame:
 def _readSeries(
     path: Path,
     func: Callable[[TextIO], pd.Series]
-) -> pd.DataFrame:
+) -> pd.Series:
     with path.open() as file:
         series = func(file)
-    data = pd.DataFrame(series)
-    data.columns = [path.stem]
-    return data
+    series.name = path.stem
+    return series
+
+
+def readAliSeries(path: Path) -> pd.Series:
+    series = _readSeries(path, ali_reader)
+    return series.str.replace('_', '-', regex=False)
+
+
+def readFastaSeries(path: Path) -> pd.Series:
+    return _readSeries(path, fasta_reader)
+
+
+def readPhylipSeries(path: Path) -> pd.Series:
+    return _readSeries(path, phylip_reader)
+
+
+def _readData(
+    path: Path,
+    func: Callable[[TextIO], pd.Series]
+) -> pd.DataFrame:
+    series = _readSeries(path, func)
+    return pd.DataFrame(series)
 
 
 # @reader(FileType.AliFile)
 # def readAliFile(path: Path) -> pd.DataFrame:
-#     return _readSeries(path, ali_reader)
+#     return _readData(path, ali_reader)
 
 
 @type_reader(FileType.FastaFile)
 def readFastaFile(path: Path) -> pd.DataFrame:
-    return _readSeries(path, fasta_reader)
+    return _readData(path, fasta_reader)
 
 
 @type_reader(FileType.PhylipFile)
 def readPhylipFile(path: Path) -> pd.DataFrame:
-    return _readSeries(path, phylip_reader)
+    return _readData(path, phylip_reader)
 
 
 class ReaderNotFound(Exception):
