@@ -14,17 +14,17 @@ from itaxotools.concatenator.library.phylip import column_reader as phylip_reade
 
 CallableReader = Callable[[Path], pd.DataFrame]
 
-type_reader: Dict[FileType, CallableReader] = dict()
+type_readers: Dict[FileType, CallableReader] = dict()
 
 
-def reader(type: FileType) -> CallableReader:
+def type_reader(type: FileType) -> CallableReader:
     def decorator(func: CallableReader) -> CallableReader:
-        type_reader[type] = func
+        type_readers[type] = func
         return func
     return decorator
 
 
-@reader(FileType.TabFile)
+@type_reader(FileType.TabFile)
 def readTabFile(path: Path) -> pd.DataFrame:
     data = pd.read_csv(path, sep='\t', dtype=str, keep_default_na=False)
     data.drop(columns=['specimen-voucher', 'locality'], inplace=True)
@@ -34,7 +34,7 @@ def readTabFile(path: Path) -> pd.DataFrame:
     return data
 
 
-@reader(FileType.NexusFile)
+@type_reader(FileType.NexusFile)
 def readNexusFile(path: Path) -> pd.DataFrame:
     with path.open() as file:
         data = nexus_read(file)
@@ -59,12 +59,12 @@ def _readSeries(
 #     return _readSeries(path, ali_reader)
 
 
-@reader(FileType.FastaFile)
+@type_reader(FileType.FastaFile)
 def readFastaFile(path: Path) -> pd.DataFrame:
     return _readSeries(path, fasta_reader)
 
 
-@reader(FileType.PhylipFile)
+@type_reader(FileType.PhylipFile)
 def readPhylipFile(path: Path) -> pd.DataFrame:
     return _readSeries(path, phylip_reader)
 
@@ -78,7 +78,7 @@ class ReaderNotFound(Exception):
 def dataframe_from_path(path: Path) -> pd.DataFrame:
     """Species as index, sequences as columns"""
     type = autodetect(path)
-    if type not in type_reader:
+    if type not in type_readers:
         raise ReaderNotFound(type)
-    data = type_reader[type](path)
+    data = type_readers[type](path)
     return data
