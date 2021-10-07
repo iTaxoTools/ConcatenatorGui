@@ -1,12 +1,10 @@
 
 from pathlib import Path
-from random import randint
-from lorem_text import lorem
 
 from itaxotools.concatenator.library.detect_file_type import autodetect
 from itaxotools.concatenator.library.file_types import FileType
 
-from itaxotools.concatenator_gui.reader import dataframe_from_path
+from itaxotools.concatenator_gui.file_iterator import iterator_from_path
 
 from . import model
 
@@ -36,19 +34,20 @@ def file_info_from_path(
 ) -> model.File:
 
     type = autodetect(path)
-    data = dataframe_from_path(path)
+    data = iterator_from_path(path)
     file = model.File(path)
     all_characters = 0
     all_characters_missing = 0
     all_uniform = []
 
-    for seq in data:
-        lengths = data[seq].str.len()
-        missing = data[seq].str.count('-')
-        len_test = len(data[seq][0])
-        uniform = all(data[seq].str.len() == len_test)
+    for series in data:
+        seq = series.name
+        lengths = series.str.len()
+        missing = series.str.count('-')
+        len_test = len(series[0])
+        uniform = all(series.str.len() == len_test)
         mask = (lengths - missing != 0)
-        species = data.index[mask]
+        species = series.index[mask]
 
         charset = model.Charset(seq)
         charset.characters = sum(lengths)

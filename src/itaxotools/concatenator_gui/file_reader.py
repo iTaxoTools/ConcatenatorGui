@@ -7,8 +7,9 @@ import pandas as pd
 from itaxotools.concatenator.library.file_types import FileType
 from itaxotools.concatenator.library.detect_file_type import autodetect
 from itaxotools.concatenator.library.nexus import read as nexus_read
-from itaxotools.concatenator.library.fasta import column_reader as fasta_read
-from itaxotools.concatenator.library.phylip import column_reader as phylip_read
+from itaxotools.concatenator.library.ali import column_reader as ali_reader
+from itaxotools.concatenator.library.fasta import column_reader as fasta_reader
+from itaxotools.concatenator.library.phylip import column_reader as phylip_reader  # noqa
 
 
 CallableReader = Callable[[Path], pd.DataFrame]
@@ -53,14 +54,19 @@ def _readSeries(
     return data
 
 
+# @reader(FileType.AliFile)
+# def readAliFile(path: Path) -> pd.DataFrame:
+#     return _readSeries(path, ali_reader)
+
+
 @reader(FileType.FastaFile)
 def readFastaFile(path: Path) -> pd.DataFrame:
-    return _readSeries(path, fasta_read)
+    return _readSeries(path, fasta_reader)
 
 
 @reader(FileType.PhylipFile)
 def readPhylipFile(path: Path) -> pd.DataFrame:
-    return _readSeries(path, phylip_read)
+    return _readSeries(path, phylip_reader)
 
 
 class ReaderNotFound(Exception):
@@ -72,7 +78,7 @@ class ReaderNotFound(Exception):
 def dataframe_from_path(path: Path) -> pd.DataFrame:
     """Species as index, sequences as columns"""
     type = autodetect(path)
-    if not type in type_reader:
+    if type not in type_reader:
         raise ReaderNotFound(type)
     data = type_reader[type](path)
     return data

@@ -24,8 +24,6 @@ from PySide6 import QtStateMachine
 from PySide6 import QtGui
 
 from pathlib import Path
-from lorem_text import lorem
-from random import randint
 
 from itaxotools import common
 import itaxotools.common.widgets
