@@ -23,7 +23,9 @@ def reader(type: FileType) -> CallableReader:
 
 @reader(FileType.TabFile)
 def readTabFile(path: Path) -> pd.DataFrame:
-    data = pd.read_csv(path, sep='\t')
+    data = pd.read_csv(path, sep='\t', dtype=str, keep_default_na=False)
+    data.drop(columns=['specimen-voucher', 'locality'], inplace=True)
+    data.columns = [c.removeprefix('sequence_') for c in data.columns]
     return data
 
 
@@ -41,6 +43,7 @@ class ReaderNotFound(Exception):
 
 
 def dataframe_from_path(path: Path) -> pd.DataFrame:
+    """First column must be the species name, the rest are sequence data"""
     type = autodetect(path)
     if not type in type_reader:
         raise ReaderNotFound(type)

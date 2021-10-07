@@ -98,17 +98,26 @@ class Sample:
 @dataclass
 class Charset:
     name: str  # key
-    nucleotides: int = 0
-    missing: int = 0
+    characters: int = 0
+    characters_missing: int = 0
     uniform: bool = False
     samples: Optional[DataGroup] = field(default=None, repr=False)
+
+    @property
+    def nucleotides(self):
+        return self.characters - self.characters_missing
+
+    @property
+    def missing(self):
+        return self.characters_missing / self.characters
 
 
 @dataclass
 class File:
     path: Path  # key
     format: Optional[str] = None
-    missing: int = 0
+    characters: int = 0
+    characters_missing: int = 0
     uniform: bool = False
     samples: Optional[DataGroup] = field(default=None, repr=False)
     charsets: Dict[str, Charset] = field(default_factory=dict, repr=False)
@@ -119,8 +128,11 @@ class File:
 
     @property
     def nucleotides(self):
-        all = [cs.nucleotides for cs in self.charsets.values()]
-        return sum(all)
+        return self.characters - self.characters_missing
+
+    @property
+    def missing(self):
+        return self.characters_missing / self.characters
 
 
 class Concatenation:
