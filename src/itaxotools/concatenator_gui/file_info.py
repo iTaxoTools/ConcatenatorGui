@@ -42,13 +42,13 @@ def file_info_from_path(
     all_characters_missing = 0
     all_uniform = []
 
-    for seq in data.iloc[:, 1:]:
+    for seq in data:
         lengths = data[seq].str.len()
         missing = data[seq].str.count('-')
         len_test = len(data[seq][0])
         uniform = all(data[seq].str.len() == len_test)
         mask = (lengths - missing != 0)
-        species = data.iloc[:, 0][mask]
+        species = data.index[mask]
 
         charset = model.Charset(seq)
         charset.characters = sum(lengths)
