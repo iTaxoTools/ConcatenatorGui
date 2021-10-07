@@ -2,6 +2,9 @@
 from typing import Callable, Dict, Iterator
 from pathlib import Path
 
+from zipfile import ZipFile, is_zipfile
+from zipp import Path as ZipPath  # BUGFIX: backport from Python 3.9.1
+
 import pandas as pd
 
 from itaxotools.concatenator.library.file_types import FileType
@@ -20,14 +23,6 @@ def type_iterator(type: FileType) -> CallableIterator:
         return func
     return decorator
 
-
-@type_iterator(FileType.MultiFastaInput)
-def iterateMultiFasta(path: Path) -> Iterator[pd.Series]:
-    with path.open() as file:
-        data = nexus_read(file)
-    data.set_index(data.loc[:, 'seqid'])
-    data.drop(columns=['seqid'], inplace=True)
-    return data
 
 class IteratorNotFound(Exception):
     def __init__(self, type: FileType):

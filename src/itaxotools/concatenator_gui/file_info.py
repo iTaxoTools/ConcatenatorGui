@@ -44,8 +44,9 @@ def file_info_from_path(
         seq = series.name
         lengths = series.str.len()
         missing = series.str.count('-')
-        len_test = len(series[0])
-        uniform = all(series.str.len() == len_test)
+        len_max = max(series.str.len())
+        nonempty_lengths = series.str.len()[series.astype(bool)]
+        uniform = all(nonempty_lengths == len_max)
         mask = (lengths - missing != 0)
         species = series.index[mask]
 
