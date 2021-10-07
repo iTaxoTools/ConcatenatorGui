@@ -29,7 +29,7 @@ def readTabFile(path: Path) -> pd.DataFrame:
     data = pd.read_csv(path, sep='\t', dtype=str, keep_default_na=False)
     data.drop(columns=['specimen-voucher', 'locality'], inplace=True)
     data.set_index(data.loc[:, 'species'])
-    data.drop(columns=['species'])
+    data.drop(columns=['species'], inplace=True)
     data.columns = [c.removeprefix('sequence_') for c in data.columns]
     return data
 
@@ -39,7 +39,7 @@ def readNexusFile(path: Path) -> pd.DataFrame:
     with path.open() as file:
         data = nexus_read(file)
     data.set_index(data.loc[:, 'seqid'])
-    data.drop(columns=['seqid'])
+    data.drop(columns=['seqid'], inplace=True)
     return data
 
 
