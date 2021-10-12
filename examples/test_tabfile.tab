@@ -1,6 +1,6 @@
 species	specimen-voucher	locality	sequence_charset_0	sequence_charset_1	sequence_charset_2	sequence_charset_3	sequence_charset_4
 sample_0	specimen_0	locality_0	CGTT-GATGG	AAATATGATA		TGTCG--GTA	GGTCG-ACGC
-sample_1	specimen_1	locality_1	CGAAGGGCTT	GACG-GTACG	TGGTG-ATTA	GA-GATT--	ACTAGTATT-
+sample_1	specimen_1	locality_1	CGAAGGGCTT	G?CG-GTACG	TGGTG-ATTA	GA-GATT--	ACTAGTATT-
 sample_2	specimen_2	locality_2	TAG-TCTATC	-ATTTATAAC	TA------AC	GCTGGAGG-A	GCTC-ATCAC
 sample_3	specimen_3	locality_3	AAGTTG-CGG	GA-GG----T	CAGAATCCCC	CTT-TGTTA-	GCT-CCAT-G
 sample_4	specimen_4	locality_4	CAA-CGACG-	C--ATTCGGA	A-TAT-ACCA	GCTCAAGAT-	-C-GTTCTCA

@@ -10,5 +10,5 @@ include LICENSE.txt
 include setup.py
 
 # Include data files
-include src/itaxotools/concatenator/gui/docs/*
-include src/itaxotools/concatenator/gui/logos/*
+include src/itaxotools/concatenator_gui/docs/*
+include src/itaxotools/concatenator_gui/logos/*
