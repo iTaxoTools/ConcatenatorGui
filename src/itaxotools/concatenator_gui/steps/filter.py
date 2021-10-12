@@ -22,7 +22,6 @@ from PySide6 import QtCore
 from PySide6 import QtWidgets
 from PySide6 import QtGui
 
-from lorem_text import lorem
 from random import randint
 
 from itaxotools import common
@@ -50,7 +49,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
 
 class FilterItem(widgets.ModelItem):
     fields = [
-        'name',
+        'name_new',
         'action',
         'samples_len',
         'nucleotides',
@@ -61,7 +60,6 @@ class FilterItem(widgets.ModelItem):
         'Delete': 'deleted',
         'Rename': 'renamed',
         }
-    action = '-'
 
     def __init__(self, parent, charset: model.Charset):
         super().__init__(parent, charset)
@@ -69,7 +67,8 @@ class FilterItem(widgets.ModelItem):
                       QtCore.Qt.ItemIsEnabled |
                       QtCore.Qt.ItemIsEditable |
                       QtCore.Qt.ItemNeverHasChildren)
-        self.name_original = self.name
+        self.action = '-'
+        self.name_new = self.name
 
     def setData(self, column, role, value):
         if role == QtCore.Qt.ItemDataRole.EditRole:
@@ -77,13 +76,13 @@ class FilterItem(widgets.ModelItem):
                 raise RuntimeError(f'Cannot edit FilterItem column: {column}')
             if not value:
                 return False
-            if value != self.name:
+            if value != self.name_new:
                 self.rename(value)
         return super().setData(column, role, value)
 
     def rename(self, value):
-        self.name = value
-        if self.name != self.name_original:
+        self.name_new = value
+        if self.name_new != self.name:
             self.setAction('Rename')
             self.setBold(True)
         else:
@@ -97,7 +96,7 @@ class FilterItem(widgets.ModelItem):
         self.setBold(True)
 
     def clear(self):
-        self.name = self.name_original
+        self.name_new = self.name
         self.setAction('-')
         self.setStrikeOut(False)
         self.setBold(False)

@@ -112,11 +112,11 @@ class HtmlLabel(QtWidgets.QLabel):
 
 
 class _WidgetItem_meta(type(QtWidgets.QTreeWidgetItem)):
-    def __init__(cls, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if hasattr(cls, 'fields') and isinstance(cls.fields, list):
-            cls.map = {v: i for i, v in enumerate(cls.fields)}
-            cls.unmap = {v: k for k, v in cls.map.items()}
+    def __new__(cls, name, bases, cdict):
+        if 'fields' in cdict and isinstance(cdict['fields'], list):
+            cdict['map'] = {v: i for i, v in enumerate(cdict['fields'])}
+            cdict['unmap'] = {v: k for k, v in cdict['map'].items()}
+        return super().__new__(cls, name, bases, cdict)
 
 
 class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
@@ -175,21 +175,23 @@ class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
 
 
 class ModelItem(WidgetItem):
+    # Is it really needed to link model attibutes like this?
     def __init__(self, parent, model):
         super().__init__(parent)
-        self.model = model
-        for field in self.fields:
+        super().__setattr__('model', model)
+        model_fields = [f for f in self.fields if hasattr(model, f)]
+        for field in model_fields:
             self.updateField(field)
 
     def __setattr__(self, attr, value):
         super().__setattr__(attr, value)
-        if attr in self.fields and hasattr(self.model, attr):
+        if hasattr(self.model, attr):
             setattr(self.model, attr, value)
 
     def __getattr__(self, attr):
-        if attr in self.fields and hasattr(self.model, attr):
+        if hasattr(self.model, attr):
             return getattr(self.model, attr)
-        return super().__getattr__(attr)
+        return super().__getattribute__(attr)
 
     @property
     def samples_len(self):
