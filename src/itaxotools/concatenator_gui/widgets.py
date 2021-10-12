@@ -174,6 +174,28 @@ class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
             self.treeWidget().scrollToItem(self)
 
 
+class ModelItem(WidgetItem):
+    def __init__(self, parent, model):
+        super().__init__(parent)
+        self.model = model
+        for field in self.fields:
+            self.updateField(field)
+
+    def __setattr__(self, attr, value):
+        super().__setattr__(attr, value)
+        if attr in self.fields and hasattr(self.model, attr):
+            setattr(self.model, attr, value)
+
+    def __getattr__(self, attr):
+        if attr in self.fields and hasattr(self.model, attr):
+            return getattr(self.model, attr)
+        return super().__getattr__(attr)
+
+    @property
+    def samples_len(self):
+        return len(self.model.samples)
+
+
 class HeaderView(QtWidgets.QHeaderView):
 
     indicator_polygon = QtGui.QPolygon([

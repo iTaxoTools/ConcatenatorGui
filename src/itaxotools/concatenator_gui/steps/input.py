@@ -56,29 +56,7 @@ class InputFrame(common.widgets.Frame):
         self.state.handleAdd(filenames=filenames)
 
 
-class ModelItem(widgets.WidgetItem):
-    def __init__(self, parent, model):
-        super().__init__(parent)
-        self.model = model
-        for field in self.fields:
-            self.updateField(field)
-
-    def __setattr__(self, attr, value):
-        super().__setattr__(attr, value)
-        if attr in self.fields and hasattr(self.model, attr):
-            setattr(self.model, attr, value)
-
-    def __getattr__(self, attr):
-        if attr in self.fields and hasattr(self.model, attr):
-            return getattr(self.model, attr)
-        return super().__getattr__(attr)
-
-    @property
-    def samples_len(self):
-        return len(self.model.samples)
-
-
-class FileItem(ModelItem):
+class FileItem(widgets.ModelItem):
     fields = [
         'name',
         'format',
@@ -97,7 +75,7 @@ class FileItem(ModelItem):
         self.setFont(0, font)
 
 
-class CharsetItem(ModelItem):
+class CharsetItem(widgets.ModelItem):
     fields = [
         'name',
         'format',
@@ -175,6 +153,9 @@ class StepInput(ssm.StepState):
             item = FileItem(self.view, file)
             for charset in file.charsets.values():
                 CharsetItem(item, charset)
+        self.data.charsets = {
+            k: v for file in self.data.files.values()
+            for k, v in file.charsets.items()}
         self.signalDone.emit()
 
     def onFail(self, exception):
@@ -402,12 +383,11 @@ class StepInput(ssm.StepState):
     def refresh_contents(self):
         files = self.data.files.values()
         nucleotides = sum([file.nucleotides for file in files])
-        charsets = set([cs for file in files for cs in file.charsets.keys()])
         samples = model.DataGroup(self.data.samples)
         samples.merge([file.samples for file in files])
         self.files.setValue(len(self.data.files))
         self.nucleotides.setValue(nucleotides)
-        self.charsets.setValue(len(charsets))
+        self.charsets.setValue(len(self.data.charsets))
         self.samples.setValue(len(samples))
         self.view.resizeColumnsToContents()
 

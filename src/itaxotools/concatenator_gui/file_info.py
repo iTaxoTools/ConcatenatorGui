@@ -73,5 +73,5 @@ def file_info_from_path(
     else:
         file.uniform = 'Mixed'
     file.samples = model.DataGroup(samples)
-    file.samples.merge([cs.samples for cs in file.charsets.values()])
+    file.samples.merge(cs.samples for cs in file.charsets.values())
     return file

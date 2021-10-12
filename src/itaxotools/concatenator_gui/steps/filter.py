@@ -29,6 +29,7 @@ from itaxotools import common
 import itaxotools.common.widgets
 import itaxotools.common.resources # noqa
 
+from .. import model
 from .. import widgets
 from .. import step_state_machine as ssm
 
@@ -47,11 +48,11 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
             return None
 
 
-class FilterItem(widgets.WidgetItem):
+class FilterItem(widgets.ModelItem):
     fields = [
         'name',
         'action',
-        'samples',
+        'samples_len',
         'nucleotides',
         'missing',
         'uniform',
@@ -60,21 +61,15 @@ class FilterItem(widgets.WidgetItem):
         'Delete': 'deleted',
         'Rename': 'renamed',
         }
+    action = '-'
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, parent, charset: model.Charset):
+        super().__init__(parent, charset)
         self.setFlags(QtCore.Qt.ItemIsSelectable |
                       QtCore.Qt.ItemIsEnabled |
                       QtCore.Qt.ItemIsEditable |
                       QtCore.Qt.ItemNeverHasChildren)
-        self.file = None
-        self.name = lorem.words(randint(2, 6)).replace(' ', '_')
         self.name_original = self.name
-        self.action = '-'
-        self.samples = randint(6, 300)
-        self.nucleotides = randint(200, 3000000)
-        self.uniform = ['Yes', 'No'][randint(0, 1)]
-        self.missing = randint(0, 9999) / 10000
 
     def setData(self, column, role, value):
         if role == QtCore.Qt.ItemDataRole.EditRole:
@@ -143,16 +138,20 @@ class StepFilter(ssm.StepState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.data = DataObject()
-        self.add_dummy_contents()
 
-    def add_dummy_contents(self):
-        count = randint(50, 301)
+    def onEntry(self, event):
+        super().onEntry(event)
+        self.populate_view()
+
+    def populate_view(self):
+        charsets = self.machine().states.input.data.charsets
+        self.view.clear()
         items = []
-        for i in range(0, count):
-            items.append(FilterItem())
+        for charset in charsets.values():
+            items.append(FilterItem(None, charset))
         self.view.addTopLevelItems(items)
         self.view.resizeColumnsToContents()
-        self.sets.setValue(count)
+        self.sets.setValue(len(items))
 
     def work(self):
         time = randint(500, 2000)
