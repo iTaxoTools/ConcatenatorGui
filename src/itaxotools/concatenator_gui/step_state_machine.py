@@ -108,6 +108,7 @@ class StepSubState(QtStateMachine.QState):
         self.stepProgressBar = parent.stepProgressBar
         self.header = parent.header
         self.footer = parent.footer
+        self._timestamp = -1
         self.widget = self.draw()
         self.stack.addWidget(self.widget)
         self.header.showTask(
@@ -133,6 +134,13 @@ class StepSubState(QtStateMachine.QState):
             self.footer.setMode(self.navMode, backwards)
         if self.progStatus:
             self.stepProgressBar.setStatus(self.progStatus)
+
+    def timestamp_set(self):
+        self._timestamp = self.machine().timestamp_next()
+        return self._timestamp
+
+    def timestamp_get(self):
+        return self._timestamp
 
     def clear(self):
         """Virtual. Override should reset local data and widgets"""
@@ -427,6 +435,7 @@ class StepStateMachine(QtStateMachine.QStateMachine):
         stack: QtWidgets.QStackedLayout,
      ):
         super().__init__(parent)
+        self._timestamp = -1
         self.stepProgressBar = stepProgressBar
         self.header = header
         self.footer = footer
@@ -499,6 +508,10 @@ class StepStateMachine(QtStateMachine.QStateMachine):
     def navigateTransitionClear(self):
         return self.navigateTransition(
             NavigateAction.New, function=self.clear)
+
+    def timestamp_next(self):
+        self._timestamp += 1
+        return self._timestamp
 
     def clear(self):
         """Clears local data for all states"""

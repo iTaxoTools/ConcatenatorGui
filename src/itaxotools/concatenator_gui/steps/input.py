@@ -156,6 +156,7 @@ class StepInput(ssm.StepState):
         self.data.charsets = {
             k: v for file in self.data.files.values()
             for k, v in file.charsets.items()}
+        self.timestamp_set()
         self.signalDone.emit()
 
     def onFail(self, exception):

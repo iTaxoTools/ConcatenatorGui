@@ -140,7 +140,10 @@ class StepFilter(ssm.StepState):
 
     def onEntry(self, event):
         super().onEntry(event)
-        self.populate_view()
+        last_input_update = self.machine().states.input.timestamp_get()
+        if last_input_update > self.timestamp_get():
+            self.populate_view()
+            self.timestamp_set()
 
     def populate_view(self):
         charsets = self.machine().states.input.data.charsets
@@ -151,12 +154,6 @@ class StepFilter(ssm.StepState):
         self.view.addTopLevelItems(items)
         self.view.resizeColumnsToContents()
         self.sets.setValue(len(items))
-
-    def work(self):
-        time = randint(500, 2000)
-        for i in range(0, int(time/10)):
-            QtCore.QThread.msleep(10)
-            self.worker.check()
 
     def draw(self):
         widget = QtWidgets.QWidget()
@@ -280,3 +277,4 @@ class StepFilter(ssm.StepState):
     def handleSummaryUpdate(self, field, change):
         item = getattr(self, field)
         item.setValue(item.value + change)
+        self.timestamp_set()
