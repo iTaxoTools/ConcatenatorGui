@@ -28,6 +28,7 @@ setup(
         'lorem_text>=1.5',
         'itaxotools-common==0.2.1',
         'concatenator==0.1.0',
+        'MAFFTpy==0.1.1',
         ],
     extras_require={
         'dev': ['pyinstaller>=4.5.1'],
@@ -42,7 +43,7 @@ setup(
         ]
     },
     classifiers=[
-        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)', # noqa
+        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',  # noqa
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
