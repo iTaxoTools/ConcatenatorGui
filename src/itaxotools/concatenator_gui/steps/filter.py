@@ -125,10 +125,6 @@ class TreeWidget(widgets.TreeWidget):
     signalSummaryUpdate = QtCore.Signal(str, int)
 
 
-class DataObject(object):
-    pass
-
-
 class StepFilter(ssm.StepState):
 
     title = 'Filter Character Sets'
@@ -136,13 +132,25 @@ class StepFilter(ssm.StepState):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.data = DataObject()
+        self.translation = dict()
 
     def onEntry(self, event):
         super().onEntry(event)
         last_input_update = self.machine().states.input.timestamp_get()
         if last_input_update > self.timestamp_get():
             self.populate_view()
+            self.timestamp_set()
+
+    def onExit(self, event):
+        super().onEntry(event)
+        translation = dict()
+        for item in self.view.iterate():
+            if item.action == 'Rename':
+                translation[item.name] = item.name_new
+            elif item.action == 'Delete':
+                translation[item.name] = None
+        if translation != self.translation:
+            self.translation = translation
             self.timestamp_set()
 
     def populate_view(self):
@@ -277,4 +285,3 @@ class StepFilter(ssm.StepState):
     def handleSummaryUpdate(self, field, change):
         item = getattr(self, field)
         item.setValue(item.value + change)
-        self.timestamp_set()

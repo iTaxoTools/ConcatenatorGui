@@ -338,7 +338,10 @@ class TreeWidget(QtWidgets.QTreeWidget):
             index = 0
         return self.topLevelItem(index)
 
-    def iterate(self, start, end=None):
+    def iterate(self, start=None, end=None):
+        assert self.topLevelItemCount() > 0
+        if start is None:
+            start = self.topLevelItem(0)
         if end is None:
             end = start
         self.check_item(start)
