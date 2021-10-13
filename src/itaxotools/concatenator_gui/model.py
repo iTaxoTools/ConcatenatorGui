@@ -141,9 +141,14 @@ class File:
 class Concatenation:
     def __init__(self):
         self.files: Dict[Path, File] = dict()
-        self.charsets: Dict[str, Charset] = dict()
         self.samples = DataSet()
 
     def remove_file(self, file):
         # memory assigned for samples is not cleared
         del self.files[file.path]
+
+    @property
+    def charsets(self) -> Dict[str, Charset]:
+        return {
+            k: v for file in self.files.values()
+            for k, v in file.charsets.items()}

@@ -155,14 +155,11 @@ class StepInput(ssm.StepState):
             item = FileItem(self.view, file)
             for charset in file.charsets.values():
                 CharsetItem(item, charset)
-        self.data.charsets = {
-            k: v for file in self.data.files.values()
-            for k, v in file.charsets.items()}
         self.timestamp_set()
         self.signalDone.emit()
 
     def onFail(self, exception):
-        raise exception
+        # raise exception
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
         msgBox.setWindowTitle(self.machine().parent().title)
         msgBox.setIcon(QtWidgets.QMessageBox.Critical)
@@ -181,9 +178,16 @@ class StepInput(ssm.StepState):
         self.signalDone.emit()
 
     def work(self):
+        paths = (f for f in self.data.files if f not in self.files_queue)
+        charsets = {
+            k for path in paths
+            for k in self.data.files[path].charsets.keys()}
         while self.files_queue:
             path = self.files_queue.pop()
             file = file_info_from_path(path, self.data.samples)
+            if any(x in charsets for x in file.charsets):
+                raise NotImplementedError(f'Duplicate charsets from "{path}"')
+            charsets.update(file.charsets.keys())
             self.files_ready.append(file)
 
     def clear(self):
