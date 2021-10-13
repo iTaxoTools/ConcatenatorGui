@@ -127,6 +127,8 @@ class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.copyTextAlignment()
+        for field in self.fields:
+            self.updateField(field)
 
     def copyTextAlignment(self, widget=None):
         if widget is None:
@@ -144,18 +146,21 @@ class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
         self.updateField(attr)
 
     def updateField(self, field):
-        if field in self.fields:
-            value = getattr(self, field)
-            if isinstance(value, int):
-                value = f'{value:,}'
-            elif isinstance(value, float):
-                value *= 100
-                value = f'{value:.2f}%'
-            elif isinstance(value, set):
-                value = len(value)
-            self.setText(self.map[field], str(value))
-            if self.map[field] == 0:
-                self.setToolTip(0, str(value))
+        if field not in self.fields:
+            return
+        if not hasattr(self, field):
+            return
+        value = getattr(self, field)
+        if isinstance(value, int):
+            value = f'{value:,}'
+        elif isinstance(value, float):
+            value *= 100
+            value = f'{value:.2f}%'
+        elif isinstance(value, set):
+            value = len(value)
+        self.setText(self.map[field], str(value))
+        if self.map[field] == 0:
+            self.setToolTip(0, str(value))
 
     def __lt__(self, other):
         col = self.treeWidget().sortColumn()
@@ -172,18 +177,15 @@ class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
     def setData(self, column, role, value):
         super().setData(column, role, value)
         if role == QtCore.Qt.EditRole and column in self.unmap:
-            setattr(self, self.unmap[column], value)
+            # setattr(self, self.unmap[column], value)
             self.treeWidget().scrollToItem(self)
 
 
 class ModelItem(WidgetItem):
     # Is it really needed to link model attibutes like this?
     def __init__(self, parent, model):
-        super().__init__(parent)
         super().__setattr__('model', model)
-        model_fields = [f for f in self.fields if hasattr(model, f)]
-        for field in model_fields:
-            self.updateField(field)
+        super().__init__(parent)
 
     def __setattr__(self, attr, value):
         super().__setattr__(attr, value)

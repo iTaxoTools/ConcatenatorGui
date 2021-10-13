@@ -422,6 +422,7 @@ class StepInput(ssm.StepState):
                  if isinstance(item, FileItem)]
         for item in items:
             self.remove_item(item)
+        self.timestamp_set()
         self.signalRefresh.emit()
 
     def handleItemSelectionChanged(self):

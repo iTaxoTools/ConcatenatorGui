@@ -105,6 +105,11 @@ class Charset:
     characters_missing: int = 0
     uniform: bool = False
     samples: Optional[DataGroup] = field(default=None, repr=False)
+    translation: str = None
+    align: bool = False
+
+    def __post_init__(self):
+        self.translation = self.name
 
     @property
     def nucleotides(self):

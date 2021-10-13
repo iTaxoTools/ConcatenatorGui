@@ -47,7 +47,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
 
 class FilterItem(widgets.ModelItem):
     fields = [
-        'name_new',
+        'display_name',
         'action',
         'samples_len',
         'nucleotides',
@@ -66,8 +66,7 @@ class FilterItem(widgets.ModelItem):
                       QtCore.Qt.ItemIsEditable |
                       QtCore.Qt.ItemNeverHasChildren)
         self.samples_len = len(self.model.samples)
-        self.name_new = self.name
-        self.action = '-'
+        self.refresh()
 
     def setData(self, column, role, value):
         if role == QtCore.Qt.ItemDataRole.EditRole:
@@ -75,39 +74,34 @@ class FilterItem(widgets.ModelItem):
                 raise RuntimeError(f'Cannot edit FilterItem column: {column}')
             if not value:
                 return False
-            if value != self.name_new:
+            if value != self.display_name:
                 self.rename(value)
         return super().setData(column, role, value)
 
     def rename(self, value):
-        self.name_new = value
-        if self.name_new != self.name:
-            self.setAction('Rename')
-            self.setBold(True)
-        else:
-            self.setAction('-')
-            self.setBold(False)
-        self.setStrikeOut(False)
+        self.translation = value
+        self.refresh()
 
     def delete(self):
-        self.setAction('Delete')
-        self.setStrikeOut(True)
-        self.setBold(True)
+        self.translation = None
+        self.refresh()
 
     def clear(self):
-        self.name_new = self.name
-        self.setAction('-')
-        self.setStrikeOut(False)
-        self.setBold(False)
+        self.translation = self.name
+        self.refresh()
 
-    def setAction(self, value):
-        signal = self.treeWidget().signalSummaryUpdate
-        if self.action != value:
-            if self.action in self.actions:
-                signal.emit(self.actions[self.action], -1)
-            if value in self.actions:
-                signal.emit(self.actions[value], 1)
-        self.action = value
+    def refresh(self):
+        self.updateField('display_name')
+        self.updateField('action')
+        if self.translation is None:
+            self.setBold(True)
+            self.setStrikeOut(True)
+        elif self.translation == self.name:
+            self.setBold(False)
+            self.setStrikeOut(False)
+        else:
+            self.setBold(True)
+            self.setStrikeOut(False)
 
     def setBold(self, value):
         font = self.font(0)
@@ -118,6 +112,20 @@ class FilterItem(widgets.ModelItem):
         font = self.font(0)
         font.setStrikeOut(value)
         self.setFont(0, font)
+
+    @property
+    def display_name(self):
+        if self.translation is None or self.translation == self.name:
+            return self.name
+        return self.translation
+
+    @property
+    def action(self):
+        if self.translation is None:
+            return 'Delete'
+        elif self.translation == self.name:
+            return '-'
+        return 'Rename'
 
 
 class TreeWidget(widgets.TreeWidget):
@@ -142,12 +150,10 @@ class StepFilter(ssm.StepState):
 
     def onExit(self, event):
         super().onEntry(event)
-        translation = dict()
-        for item in self.view.iterate():
-            if item.action == 'Rename':
-                translation[item.name] = item.name_new
-            elif item.action == 'Delete':
-                translation[item.name] = None
+        translation = {
+            item.name: item.translation
+            for item in self.view.iterate()
+            if item.translation != item.name}
         if translation != self.translation:
             self.translation = translation
             self.timestamp_set()
