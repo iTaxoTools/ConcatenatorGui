@@ -106,7 +106,7 @@ class Charset:
     uniform: bool = False
     samples: Optional[DataGroup] = field(default=None, repr=False)
     translation: str = None
-    align: bool = False
+    aligned: bool = False
 
     def __post_init__(self):
         self.translation = self.name

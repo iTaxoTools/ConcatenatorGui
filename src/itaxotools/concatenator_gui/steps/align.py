@@ -29,6 +29,7 @@ from itaxotools import common
 import itaxotools.common.widgets
 import itaxotools.common.resources # noqa
 
+from .. import model
 from .. import widgets
 from .. import step_state_machine as ssm
 
@@ -99,11 +100,11 @@ class RichRadioButton(QtWidgets.QRadioButton):
         return size
 
 
-class AlignItem(widgets.WidgetItem):
+class AlignItem(widgets.ModelItem):
     fields = [
-        'name',
+        'display_name',
         'action',
-        'samples',
+        'samples_len',
         'nucleotides',
         'missing',
         'uniform',
@@ -112,47 +113,53 @@ class AlignItem(widgets.WidgetItem):
         'Align': 'marked',
         }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, parent, charset: model.Charset):
+        super().__init__(parent, charset)
         self.setFlags(QtCore.Qt.ItemIsSelectable |
                       QtCore.Qt.ItemIsEnabled |
                       QtCore.Qt.ItemNeverHasChildren)
-        self.file = None
-        self.name = lorem.words(randint(2, 6)).replace(' ', '_')
-        self.action = '-'
-        self.samples = randint(6, 300)
-        self.nucleotides = randint(200, 3000000)
-        self.uniform = ['Yes', 'No'][randint(0, 1)]
-        self.missing = randint(0, 9999) / 10000
+        self.samples_len = len(self.model.samples)
+        self.updateField('display_name')
+        self.refresh()
 
     def align(self):
-        self.setAction('Align')
-        self.setBold(True)
+        self.aligned = True
+        self.refresh()
 
     def clear(self):
-        self.setAction('-')
-        self.setBold(False)
+        self.aligned = False
+        self.refresh()
 
     def toggle(self):
-        if self.action == '-':
-            self.align()
-        else:
-            self.clear()
+        self.aligned = not self.aligned
+        self.refresh()
 
-    def setAction(self, value):
-        if self.treeWidget():
-            signal = self.treeWidget().signalSummaryUpdate
-            if self.action != value:
-                if self.action in self.actions:
-                    signal.emit(self.actions[self.action], -1)
-                if value in self.actions:
-                    signal.emit(self.actions[value], 1)
-        self.action = value
+    def refresh(self):
+        self.updateField('action')
+        self.setBold(self.aligned)
 
     def setBold(self, value):
         font = self.font(0)
         font.setBold(value)
         self.setFont(0, font)
+
+    @property
+    def display_name(self):
+        return self.translation
+
+    @property
+    def action(self):
+        return 'Align' if self.aligned else '-'
+
+    # def setAction(self, value):
+    #     if self.treeWidget():
+    #         signal = self.treeWidget().signalSummaryUpdate
+    #         if self.action != value:
+    #             if self.action in self.actions:
+    #                 signal.emit(self.actions[self.action], -1)
+    #             if value in self.actions:
+    #                 signal.emit(self.actions[value], 1)
+    #     self.action = value
 
 
 class TreeWidget(widgets.TreeWidget):
@@ -229,18 +236,23 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.data = DataObject()
-        self.add_dummy_contents()
 
     def onEntry(self, event):
         super().onEntry(event)
         self.updateFooter()
+        last_filter_update = self.machine().states.filter.timestamp_get()
+        if last_filter_update > self.timestamp_get():
+            self.populate_view()
+            self.timestamp_set()
 
-    def add_dummy_contents(self):
-        count = randint(5, 20)
-        for i in range(0, count):
-            AlignItem(self.view)
+    def populate_view(self):
+        self.view.clear()
+        charsets = self.machine().states.input.data.charsets
+        for charset in charsets.values():
+            if charset.translation is not None:
+                AlignItem(self.view, charset)
         self.view.resizeColumnsToContents()
-        self.sets.setValue(count)
+        self.sets.setValue(len(charsets))
 
     def draw(self):
         widget = QtWidgets.QWidget()
