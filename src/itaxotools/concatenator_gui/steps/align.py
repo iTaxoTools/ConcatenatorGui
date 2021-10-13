@@ -236,7 +236,7 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
         self.updateFooter()
 
     def add_dummy_contents(self):
-        count = randint(500, 2000)
+        count = randint(5, 20)
         for i in range(0, count):
             AlignItem(self.view)
         self.view.resizeColumnsToContents()

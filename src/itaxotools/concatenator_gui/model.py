@@ -1,7 +1,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Set, Hashable, Iterable, Optional
+from typing import Dict, List, Set, Hashable, Iterable, Iterator, Optional
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -40,12 +40,17 @@ class DataSet:
     def remove(self, group: DataGroup):
         self.groups.remove(group)
 
+    def iterate(self, group: DataGroup = None) -> Iterator[Hashable]:
+        if group is None:
+            indices = set()
+            for group in self.groups:
+                indices.update(group.indices)
+        else:
+            indices = group.indices
+        return (x for x in self.data if self.data[x] in indices)
+
     def __len__(self):
-        all_indices = set()
-        for group in self.groups:
-            all_indices.update(group.indices)
-        all_data = [x for x in self.data if self.data[x] in all_indices]
-        return len(all_data)
+        return sum(1 for x in self.iterate())
 
 
 class DataGroup:
@@ -60,7 +65,7 @@ class DataGroup:
     def merge(self, groups: Iterable[DataGroup]):
         for group in groups:
             self.indices.update(group.indices)
-        self.length = len(self.data)
+        self.length = sum(1 for x in self.iterate())
 
     def update(self, items: Iterable[Hashable]):
         queue: Dict[int, List[Hashable]] = dict()
@@ -81,13 +86,11 @@ class DataGroup:
             real_index = self.dataset.update(index, queue[index])
             self.indices.add(real_index)
 
+    def iterate(self) -> Iterator[Hashable]:
+        return (x for x in self.dataset.iterate(self))
+
     def __len__(self):
         return self.length
-
-    @property
-    def data(self) -> Set[Hashable]:
-        data = self.dataset.data
-        return [x for x in data if data[x] in self.indices]
 
 
 @dataclass(frozen=True)

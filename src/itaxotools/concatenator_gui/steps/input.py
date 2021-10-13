@@ -70,6 +70,7 @@ class FileItem(widgets.ModelItem):
         super().__init__(parent, file)
         self.setFlags(QtCore.Qt.ItemIsSelectable |
                       QtCore.Qt.ItemIsEnabled)
+        self.samples_len = len(self.model.samples)
         font = self.font(0)
         font.setBold(True)
         self.setFont(0, font)
@@ -91,6 +92,7 @@ class CharsetItem(widgets.ModelItem):
         self.setFlags(QtCore.Qt.ItemIsSelectable |
                       QtCore.Qt.ItemIsEnabled |
                       QtCore.Qt.ItemNeverHasChildren)
+        self.samples_len = len(self.model.samples)
 
 
 class StepInputIdle(QtStateMachine.QState):
@@ -160,7 +162,7 @@ class StepInput(ssm.StepState):
         self.signalDone.emit()
 
     def onFail(self, exception):
-        # raise exception
+        raise exception
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
         msgBox.setWindowTitle(self.machine().parent().title)
         msgBox.setIcon(QtWidgets.QMessageBox.Critical)

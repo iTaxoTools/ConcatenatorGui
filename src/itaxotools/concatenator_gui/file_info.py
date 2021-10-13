@@ -49,14 +49,14 @@ def file_info_from_path(
         missing = series.str.count('[?-]')
         uniform = has_uniform_length(series)
         mask = (lengths - missing != 0)
-        species = series.index[mask]
+        samples_new = series.index[mask]
 
         charset = model.Charset(seq)
         charset.characters = sum(lengths)
         charset.characters_missing = sum(missing)
         charset.uniform = 'Yes' if uniform else 'No'
         charset.samples = model.DataGroup(samples)
-        charset.samples.update(species)
+        charset.samples.update(samples_new)
 
         file.charsets[seq] = charset
         all_characters += charset.characters

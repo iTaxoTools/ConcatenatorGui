@@ -22,8 +22,6 @@ from PySide6 import QtCore
 from PySide6 import QtWidgets
 from PySide6 import QtGui
 
-from random import randint
-
 from itaxotools import common
 import itaxotools.common.widgets
 import itaxotools.common.resources # noqa
@@ -67,8 +65,9 @@ class FilterItem(widgets.ModelItem):
                       QtCore.Qt.ItemIsEnabled |
                       QtCore.Qt.ItemIsEditable |
                       QtCore.Qt.ItemNeverHasChildren)
-        self.action = '-'
+        self.samples_len = len(self.model.samples)
         self.name_new = self.name
+        self.action = '-'
 
     def setData(self, column, role, value):
         if role == QtCore.Qt.ItemDataRole.EditRole:
@@ -156,12 +155,18 @@ class StepFilter(ssm.StepState):
     def populate_view(self):
         charsets = self.machine().states.input.data.charsets
         self.view.clear()
-        items = []
+        # Adding all at once is faster?
+        # items = []
+        # for charset in charsets.values():
+        #     item = FilterItem(None, charset)
+        #     item.copyTextAlignment(self.view)
+        #     items.append(item)
+        # self.view.addTopLevelItems(items)
         for charset in charsets.values():
-            items.append(FilterItem(None, charset))
-        self.view.addTopLevelItems(items)
+            FilterItem(self.view, charset)
         self.view.resizeColumnsToContents()
-        self.sets.setValue(len(items))
+        # self.sets.setValue(len(items))
+        self.sets.setValue(len(charsets))
 
     def draw(self):
         widget = QtWidgets.QWidget()

@@ -128,10 +128,12 @@ class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
         super().__init__(*args, **kwargs)
         self.copyTextAlignment()
 
-    def copyTextAlignment(self):
-        if not self.treeWidget():
-            return
-        headerItem = self.treeWidget().headerItem()
+    def copyTextAlignment(self, widget=None):
+        if widget is None:
+            widget = self.treeWidget()
+            if widget is None:
+                return
+        headerItem = widget.headerItem()
         if not headerItem:
             return
         for column in range(0, headerItem.columnCount()):
@@ -192,10 +194,6 @@ class ModelItem(WidgetItem):
         if hasattr(self.model, attr):
             return getattr(self.model, attr)
         return super().__getattribute__(attr)
-
-    @property
-    def samples_len(self):
-        return len(self.model.samples)
 
 
 class HeaderView(QtWidgets.QHeaderView):
