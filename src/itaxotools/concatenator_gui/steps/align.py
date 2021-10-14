@@ -109,9 +109,6 @@ class AlignItem(widgets.ModelItem):
         'missing',
         'uniform',
         ]
-    actions = {
-        'Align': 'marked',
-        }
 
     def __init__(self, parent, charset: model.Charset):
         super().__init__(parent, charset)
@@ -120,6 +117,7 @@ class AlignItem(widgets.ModelItem):
                       QtCore.Qt.ItemNeverHasChildren)
         self.samples_len = len(self.model.samples)
         self.updateField('display_name')
+        self.tag_new('aligned')
         self.refresh()
 
     def align(self):
@@ -136,6 +134,8 @@ class AlignItem(widgets.ModelItem):
 
     def refresh(self):
         self.updateField('action')
+        self.tag_set('aligned', self.aligned)
+        self.treeWidget().signalTagUpdate.emit()
         self.setBold(self.aligned)
 
     def setBold(self, value):
@@ -150,20 +150,6 @@ class AlignItem(widgets.ModelItem):
     @property
     def action(self):
         return 'Align' if self.aligned else '-'
-
-    # def setAction(self, value):
-    #     if self.treeWidget():
-    #         signal = self.treeWidget().signalSummaryUpdate
-    #         if self.action != value:
-    #             if self.action in self.actions:
-    #                 signal.emit(self.actions[self.action], -1)
-    #             if value in self.actions:
-    #                 signal.emit(self.actions[value], 1)
-    #     self.action = value
-
-
-class TreeWidget(widgets.TreeWidget):
-    signalSummaryUpdate = QtCore.Signal(str, int)
 
 
 class DataObject(object):
@@ -239,7 +225,7 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
     def onEntry(self, event):
         super().onEntry(event)
-        self.updateFooter()
+        self.updateSummaryAndFooter()
         last_filter_update = self.machine().states.filter.timestamp_get()
         if last_filter_update > self.timestamp_get():
             self.populate_view()
@@ -253,6 +239,7 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
                 AlignItem(self.view, charset)
         self.view.resizeColumnsToContents()
         self.sets.setValue(len(charsets))
+        self.updateSummaryAndFooter()
 
     def draw(self):
         widget = QtWidgets.QWidget()
@@ -275,7 +262,7 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
     def draw_summary(self):
         sets = widgets.InfoLabel('Total Sets')
-        marked = widgets.InfoLabel('Marked', 0)
+        marked = widgets.InfoLabel('Checked', 0)
 
         sets.setToolTip('Total number of character sets.')
         marked.setToolTip('Number of character sets pending alignment.')
@@ -295,8 +282,8 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
     def draw_frame(self):
         frame = common.widgets.Frame()
 
-        view = TreeWidget()
-        view.signalSummaryUpdate.connect(self.handleSummaryUpdate)
+        view = widgets.TreeWidget()
+        view.signalTagUpdate.connect(self.updateSummaryAndFooter)
         view.itemActivated.connect(self.handleActivated)
         view.setIndentation(0)
         view.setColumnCount(6, 2)
@@ -343,12 +330,21 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
         return frame
 
+    def updateSummaryAndFooter(self):
+        self.marked.setValue(self.view.tag_get('aligned'))
+        if self.marked.value == 0:
+            self.footer.next.setText('&Skip >')
+        else:
+            self.footer.next.setText('&Start')
+
     def handleAlign(self, checked=False):
+        item = None
         for item in self.view.selectedItems():
             item.align()
         self.view.scrollToItem(item)
 
     def handleClear(self, checked=False):
+        item = None
         for item in self.view.selectedItems():
             item.clear()
         self.view.scrollToItem(item)
@@ -360,18 +356,6 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
     def handleActivated(self, item, column):
         item.toggle()
         self.view.scrollToItem(item)
-
-    def handleSummaryUpdate(self, field, change):
-        item = getattr(self, field)
-        item.setValue(item.value + change)
-        if field == 'marked':
-            self.updateFooter()
-
-    def updateFooter(self):
-        if self.marked.value == 0:
-            self.footer.next.setText('&Skip >')
-        else:
-            self.footer.next.setText('&Start')
 
 
 class StepAlignSetsWait(StepWaitBar):

@@ -185,6 +185,7 @@ class ModelItem(WidgetItem):
     # Is it really needed to link model attibutes like this?
     def __init__(self, parent, model):
         super().__setattr__('model', model)
+        super().__setattr__('_tags', dict())
         super().__init__(parent)
 
     def __setattr__(self, attr, value):
@@ -196,6 +197,15 @@ class ModelItem(WidgetItem):
         if hasattr(self.model, attr):
             return getattr(self.model, attr)
         return super().__getattribute__(attr)
+
+    def tag_new(self, tag: str):
+        self._tags[tag] = False
+
+    def tag_set(self, tag: str, value: bool):
+        if tag in self._tags and self._tags[tag] == value:
+            return
+        self.treeWidget().tag_update(tag, value)
+        self._tags[tag] = value
 
 
 class HeaderView(QtWidgets.QHeaderView):
@@ -266,6 +276,7 @@ class HeaderView(QtWidgets.QHeaderView):
 
 
 class TreeWidget(QtWidgets.QTreeWidget):
+    signalTagUpdate = QtCore.Signal()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -296,6 +307,7 @@ class TreeWidget(QtWidgets.QTreeWidget):
                 color: Palette(Light);
                 }
             """)
+        self._tags = dict()
 
     def showEvent(self, event):
         item = self.topLevelItem(0)
@@ -365,6 +377,17 @@ class TreeWidget(QtWidgets.QTreeWidget):
     def resizeColumnsToContents(self):
         for column in range(1, self.header().count()):
             self.resizeColumnToContents(column)
+
+    def tag_update(self, tag: str, up: bool):
+        if tag not in self._tags:
+            self._tags[tag] = 0
+        diff = 1 if up else -1
+        self._tags[tag] += diff
+
+    def tag_get(self, tag: str):
+        if tag not in self._tags:
+            return 0
+        return self._tags[tag]
 
 
 class ViewSearchWidget(common.widgets.SearchWidget):

@@ -54,10 +54,6 @@ class FilterItem(widgets.ModelItem):
         'missing',
         'uniform',
         ]
-    actions = {
-        'Delete': 'deleted',
-        'Rename': 'renamed',
-        }
 
     def __init__(self, parent, charset: model.Charset):
         super().__init__(parent, charset)
@@ -66,6 +62,8 @@ class FilterItem(widgets.ModelItem):
                       QtCore.Qt.ItemIsEditable |
                       QtCore.Qt.ItemNeverHasChildren)
         self.samples_len = len(self.model.samples)
+        self.tag_new('deleted')
+        self.tag_new('renamed')
         self.refresh()
 
     def setData(self, column, role, value):
@@ -76,6 +74,7 @@ class FilterItem(widgets.ModelItem):
                 return False
             if value != self.display_name:
                 self.rename(value)
+            self.treeWidget().signalTagUpdate.emit()
         return super().setData(column, role, value)
 
     def rename(self, value):
@@ -96,12 +95,18 @@ class FilterItem(widgets.ModelItem):
         if self.translation is None:
             self.setBold(True)
             self.setStrikeOut(True)
+            self.tag_set('deleted', True)
+            self.tag_set('renamed', False)
         elif self.translation == self.name:
             self.setBold(False)
             self.setStrikeOut(False)
+            self.tag_set('deleted', False)
+            self.tag_set('renamed', False)
         else:
             self.setBold(True)
             self.setStrikeOut(False)
+            self.tag_set('deleted', False)
+            self.tag_set('renamed', True)
 
     def setBold(self, value):
         font = self.font(0)
@@ -126,10 +131,6 @@ class FilterItem(widgets.ModelItem):
         elif self.translation == self.name:
             return '-'
         return 'Rename'
-
-
-class TreeWidget(widgets.TreeWidget):
-    signalSummaryUpdate = QtCore.Signal(str, int)
 
 
 class StepFilter(ssm.StepState):
@@ -173,6 +174,7 @@ class StepFilter(ssm.StepState):
         self.view.resizeColumnsToContents()
         # self.sets.setValue(len(items))
         self.sets.setValue(len(charsets))
+        self.updateSummary()
 
     def draw(self):
         widget = QtWidgets.QWidget()
@@ -220,9 +222,9 @@ class StepFilter(ssm.StepState):
     def draw_frame(self):
         frame = common.widgets.Frame()
 
-        view = TreeWidget()
+        view = widgets.TreeWidget()
         view.setItemDelegate(ItemDelegate(view))
-        view.signalSummaryUpdate.connect(self.handleSummaryUpdate)
+        view.signalTagUpdate.connect(self.updateSummary)
         view.itemActivated.connect(self.handleActivated)
         view.setIndentation(0)
         view.setColumnCount(6, 2)
@@ -274,25 +276,29 @@ class StepFilter(ssm.StepState):
 
         return frame
 
+    def updateSummary(self):
+        self.renamed.setValue(self.view.tag_get('renamed'))
+        self.deleted.setValue(self.view.tag_get('deleted'))
+
     def handleRename(self, checked=False):
         index = self.view.currentIndex().siblingAtColumn(0)
         self.view.edit(index)
         self.view.scrollToItem(self.view.itemFromIndex(index))
 
     def handleDelete(self, checked=False):
+        item = None
         for item in self.view.selectedItems():
             item.delete()
         self.view.scrollToItem(item)
+        self.updateSummary()
 
     def handleClear(self, checked=False):
+        item = None
         for item in self.view.selectedItems():
             item.clear()
         self.view.scrollToItem(item)
+        self.updateSummary()
 
     def handleActivated(self, item, column):
         index = self.view.indexFromItem(item).siblingAtColumn(0)
         self.view.edit(index)
-
-    def handleSummaryUpdate(self, field, change):
-        item = getattr(self, field)
-        item.setValue(item.value + change)

@@ -18,14 +18,14 @@ formats_short = {
         FileFormat.Phylip: 'Phylip',
     },
     FileType.Directory: {
-        FileFormat.Ali: 'MultiAli',
-        FileFormat.Fasta: 'MultiFasta',
-        FileFormat.Phylip: 'MultiPhylip',
+        FileFormat.Ali: 'Multi-Ali',
+        FileFormat.Fasta: 'Multi-Fasta',
+        FileFormat.Phylip: 'Multi-Phylip',
     },
     FileType.ZipArchive: {
-        FileFormat.Ali: 'MultiAli (zip)',
-        FileFormat.Fasta: 'MultiFasta (zip)',
-        FileFormat.Phylip: 'MultiPhylip (zip)',
+        FileFormat.Ali: 'Multi-Ali',
+        FileFormat.Fasta: 'Multi-Fasta',
+        FileFormat.Phylip: 'Multi-Phylip',
     },
 }
 

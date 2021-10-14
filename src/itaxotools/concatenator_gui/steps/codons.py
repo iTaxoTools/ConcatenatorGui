@@ -503,11 +503,13 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
         return frame
 
     def handleSubset(self, checked=False):
+        item = None
         for item in self.view.selectedItems():
             item.subset()
         self.view.scrollToItem(item)
 
     def handleClear(self, checked=False):
+        item = None
         for item in self.view.selectedItems():
             item.clear()
         self.view.scrollToItem(item)
