@@ -46,13 +46,13 @@ from .. import step_state_machine as ssm
 from .wait import StepWaitBar
 
 
-def work_process(input, output, strategy):
+def work_mafft(input, output, strategy):
     from sys import stdout
-    alignment = MultipleSequenceAlignment(input)
-    alignment.params.general.strategy = strategy
-    alignment.log = stdout
-    alignment.run()
-    alignment.fetch(output)
+    align = MultipleSequenceAlignment(input)
+    align.params.general.strategy = strategy
+    align.log = stdout
+    align.run()
+    align.fetch(output)
 
 
 class RichRadioButton(QtWidgets.QRadioButton):
@@ -452,7 +452,7 @@ class StepAlignSets(ssm.StepTriState):
 
             loop = QtCore.QEventLoop()
             self.process = common.threading.Process(
-                work_process, input, output, strategy)
+                work_mafft, input, output, strategy)
             self.process.setStream(self.states.wait.logio)
             self.process.done.connect(loop.quit)
             self.process.fail.connect(self.worker.fail)
