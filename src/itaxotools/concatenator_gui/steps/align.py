@@ -27,20 +27,32 @@ from pathlib import Path
 
 from itaxotools import common
 import itaxotools.common.widgets
+import itaxotools.common.threading
 import itaxotools.common.resources # noqa
+
+from itaxotools.common.utility import AttrDict
 
 from itaxotools.concatenator import (
     FileType, FileFormat, read_from_path, write_from_stream)
 from itaxotools.concatenator.library.operators import (
     OpFilterSequences)
 
-from itaxotools.mafftpy import quick as mafft_align
+from itaxotools.mafftpy import MultipleSequenceAlignment
 
 from .. import model
 from .. import widgets
 from .. import step_state_machine as ssm
 
 from .wait import StepWaitBar
+
+
+def work_process(input, output, strategy):
+    from sys import stdout
+    alignment = MultipleSequenceAlignment(input)
+    alignment.params.general.strategy = strategy
+    alignment.log = stdout
+    alignment.run()
+    alignment.fetch(output)
 
 
 class RichRadioButton(QtWidgets.QRadioButton):
@@ -139,10 +151,6 @@ class AlignItem(widgets.ModelItem):
         return 'Align' if self.aligned else '-'
 
 
-class DataObject(object):
-    pass
-
-
 class StepAlignOptions(ssm.StepState):
 
     title = 'Align Sequences'
@@ -150,8 +158,9 @@ class StepAlignOptions(ssm.StepState):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.data = DataObject()
+        self.data = AttrDict()
         self.data.skip = False
+        self.data.last = None
 
     def draw(self):
         widget = QtWidgets.QWidget()
@@ -190,25 +199,31 @@ class StepAlignOptions(ssm.StepState):
         layout.setContentsMargins(0, 0, 0, 32)
         widget.setLayout(layout)
 
-        self.auto = auto
-        self.fftns1 = fftns1
-        self.ginsi = ginsi
+        self.radios = AttrDict()
+        self.radios.auto = auto
+        self.radios.fftns1 = fftns1
+        self.radios.ginsi = ginsi
         self.skip = skip
 
         return widget
 
+    def get_strategy(self):
+        for strategy in self.radios:
+            if self.radios[strategy].isChecked():
+                return strategy
+
     def onExit(self, event):
         super().onExit(event)
         self.data.skip = self.skip.isChecked()
+        strategy = self.get_strategy()
+        if self.data.last != strategy:
+            self.data.last = strategy
+            self.timestamp_set()
 
 
 class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
     description = 'Select which character sets to align'
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.data = DataObject()
 
     def onEntry(self, event):
         super().onEntry(event)
@@ -354,8 +369,12 @@ class StepAlignSetsDone(ssm.StepTriStateDone):
 
     def onEntry(self, event):
         super().onEntry(event)
-        self.parent().update(
-            text=f'Successfully aligned {str(self.result)} sequences.')
+        if self.result:
+            self.parent().update(
+                text=f'Successfully aligned {str(self.result)} sequences.')
+        else:
+            self.parent().update(
+                text='Successfully aligned sequences.')
 
 
 class StepAlignSetsFail(ssm.StepTriStateFail):
@@ -381,11 +400,14 @@ class StepAlignSets(ssm.StepTriState):
         self.temp_prep = None
         self.temp_cache = None
         self.charsets_cached = set()
+        self.process = None
 
     def onEntry(self, event):
         super().onEntry(event)
-        last_input_update = self.machine().states.input.timestamp_get()
-        if last_input_update > self.timestamp_get():
+        input_update = self.machine().states.input.timestamp_get()
+        options_update = self.machine().states.align_options.timestamp_get()
+        last_update = max(input_update, options_update)
+        if last_update > self.timestamp_get():
             self.temp_cache = TemporaryDirectory(prefix='concat_mafft_cache_')
             self.charsets_cached = set()
 
@@ -399,38 +421,59 @@ class StepAlignSets(ssm.StepTriState):
             if any(cs.name in charsets for cs in f.charsets.values())]
         with self.states.wait.redirect():
             self.work_prep(files, charsets)
-            return self.work_align(charsets)
+            self.work_align(charsets)
+        self.timestamp_set()
+        return len(charsets)
 
     def work_prep(self, files, charsets):
         self.temp_prep = TemporaryDirectory(prefix='concat_mafft_prep_')
         path = Path(self.temp_prep.name)
         seq_filter = OpFilterSequences(charsets).to_filter
-        print('Preparing files for selected charsets...')
+        print('Preparing files for selected charsets...\n')
         self.update(0, 0, 'Preparing files...')
         for count, file in enumerate(files):
-            text = f'Preparing file {count + 1}/{len(files)}: {file.path.name}'
+            text = f'Preparing file {count + 1}/{len(files)}: {file.name}'
+            print(text)
             self.update(0, 0, text)
             stream = read_from_path(file.path)
             write_from_stream(
                 seq_filter(stream), path,
                 FileType.Directory, FileFormat.Fasta)
-            QtCore.QThread.msleep(3000)
             self.worker.check()
-        print('Done preparing files')
+        print('\nDone preparing files')
+        print(f'\n{"-"*20}\n')
 
     def work_align(self, charsets):
+        # We are currently starting double the threads than necessary
+        # We could also benefit from the use of a process pool
+        # and running the mafft workers in parallel
+        strategy = self.machine().states.align_options.get_strategy()
         print(f'Starting alignment for {len(charsets)} sequences '
-              f'({len(self.charsets_cached)} already cached)')
+              f'({len(self.charsets_cached)} already cached)...')
+        print(f'Selected strategy: {strategy}\n')
         files = Path(self.temp_prep.name).glob('*')
-        for count, file in enumerate(files):
-            self.update(count, len(charsets), 'Done')
-            print(f'DUMMAFT {file}')
-            QtCore.QThread.msleep(1000)
-            self.charsets_cached.add(file.stem)
-            print(f'ADDED {file}')
+        outdir = Path(self.temp_cache.name)
+        for count, input in enumerate(files):
+            charset = input.stem
+            text = f'Aligning sequence {count + 1}/{len(charsets)}: {charset}'
+            self.update(count, len(charsets), text)
+            print(text + '\n')
+            output = outdir / input.name
+
+            loop = QtCore.QEventLoop()
+            self.process = common.threading.Process(
+                work_process, input, output, strategy)
+            self.process.setStream(self.states.wait.logio)
+            self.process.done.connect(loop.quit)
+            self.process.start()
+            loop.exec()
+
+            self.charsets_cached.add(charset)
+            print(f'\nAligned {charset}')
+            print(f'\n{"-"*20}\n')
             self.worker.check()
         self.update(1, 1, 'Done')
-        return len(charsets)
+        print('Done aligning sequences')
 
     def skipAll(self):
         skip = self.machine().states['align_options'].data.skip
