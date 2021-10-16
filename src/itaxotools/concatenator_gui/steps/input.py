@@ -52,8 +52,8 @@ class InputFrame(common.widgets.Frame):
 
     def dropEvent(self, event):
         urls = event.mimeData().urls()
-        filenames = [url.toLocalFile() for url in urls]
-        self.state.handleAdd(filenames=filenames)
+        files = [url.toLocalFile() for url in urls]
+        self.state.handleAdd(files=files)
 
 
 class FileItem(widgets.ModelItem):
@@ -404,16 +404,16 @@ class StepInput(ssm.StepState):
         if not index < 0:
             self.view.takeTopLevelItem(index)
 
-    def handleAdd(self, checked=False, filenames=[]):
-        if not filenames:
-            (filenames, _) = QtWidgets.QFileDialog.getOpenFileNames(
+    def handleAdd(self, checked=False, files=[]):
+        if not files:
+            (files, _) = QtWidgets.QFileDialog.getOpenFileNames(
                 self.machine().parent(),
                 self.machine().parent().title + ' - Open File',
                 QtCore.QDir.currentPath(),
                 'All Files (*)')
-        if not filenames:
+        if not files:
             return
-        paths = [Path(filename) for filename in filenames]
+        paths = [Path(file) for file in files]
         self.files_queue.extend(paths)
         self.signalAdd.emit()
 

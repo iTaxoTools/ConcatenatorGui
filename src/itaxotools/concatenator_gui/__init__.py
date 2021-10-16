@@ -15,7 +15,8 @@ def run():
 
     app = QtWidgets.QApplication(sys.argv)
     app.setStyle('Fusion')
-    main = Main()
+    files = (file for file in sys.argv[1:])
+    main = Main(files=files)
     main.setWindowFlags(QtCore.Qt.Window)
     main.setModal(True)
     main.show()

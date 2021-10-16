@@ -42,7 +42,7 @@ from .steps.done import StepDone
 class Main(common.widgets.ToolDialog):
     """Main window, handles everything"""
 
-    def __init__(self, parent=None, init=None):
+    def __init__(self, parent=None, files=[]):
         super(Main, self).__init__(parent)
 
         self.title = 'Concatenator'
@@ -59,8 +59,12 @@ class Main(common.widgets.ToolDialog):
         self.draw()
         self.cog()
 
-        if init is not None:
-            self.machine.started.connect(init)
+        if files:
+            self.machine.setInitialState(self.machine.states.input)
+            self.machine.started.connect(
+                lambda: self.machine.states.input.handleAdd(files=files))
+
+        self.machine.start()
 
     def __getstate__(self):
         return (None,)
@@ -229,7 +233,6 @@ class Main(common.widgets.ToolDialog):
         m.finished.connect(lambda: self.reject(force=True))
 
         self.machine = m
-        self.machine.start()
 
     def filterReject(self):
         if self.machine.states.done in self.machine.configuration():

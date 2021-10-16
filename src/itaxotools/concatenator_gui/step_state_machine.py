@@ -433,7 +433,7 @@ class StepStateMachine(QtStateMachine.QStateMachine):
         header: widgets.Header,
         footer: widgets.NavigationFooter,
         stack: QtWidgets.QStackedLayout,
-     ):
+    ):
         super().__init__(parent)
         self._timestamp = -1
         self.stepProgressBar = stepProgressBar
