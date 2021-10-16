@@ -222,7 +222,6 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
     def onEntry(self, event):
         super().onEntry(event)
-        self.updateSummaryAndFooter()
         last_filter_update = self.machine().states.filter.timestamp_get()
         if last_filter_update > self.timestamp_get():
             self.populate_view()
@@ -236,7 +235,7 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
                 AlignItem(self.view, charset)
         self.view.resizeColumnsToContents()
         self.sets.setValue(len(charsets))
-        self.updateSummaryAndFooter()
+        self.updateSummary()
 
     def draw(self):
         widget = QtWidgets.QWidget()
@@ -280,7 +279,7 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
         frame = common.widgets.Frame()
 
         view = widgets.TreeWidget()
-        view.signalTagUpdate.connect(self.updateSummaryAndFooter)
+        view.signalTagUpdate.connect(self.updateSummary)
         view.itemActivated.connect(self.handleActivated)
         view.setIndentation(0)
         view.setColumnCount(6, 2)
@@ -327,7 +326,7 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
         return frame
 
-    def updateSummaryAndFooter(self):
+    def updateSummary(self):
         self.marked.setValue(self.view.tag_get('aligned'))
 
     def handleAlign(self, checked=False):

@@ -107,6 +107,7 @@ class Charset:
     samples: Optional[DataGroup] = field(default=None, repr=False)
     translation: str = None
     aligned: bool = False
+    split: bool = False
 
     def __post_init__(self):
         self.translation = self.name

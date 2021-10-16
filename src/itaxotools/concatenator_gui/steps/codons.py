@@ -29,6 +29,7 @@ from itaxotools import common
 import itaxotools.common.widgets
 import itaxotools.common.resources # noqa
 
+from .. import model
 from .. import widgets
 from .. import step_state_machine as ssm
 
@@ -53,17 +54,14 @@ def dummy_work(state, count, max, lines, period):
     return max
 
 
-class CodonItem(widgets.WidgetItem):
+class CodonItem(widgets.ModelItem):
     fields = [
-        'name',
+        'display_name',
         'action',
         'code',
         'frame',
         'naming',
         ]
-    actions = {
-        'Split': 'marked',
-        }
     values = {
         'naming': ['Default', 'Custom'],
         'frame': {
@@ -89,49 +87,43 @@ class CodonItem(widgets.WidgetItem):
         3: '**_3rd',
         }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, parent, charset: model.Charset):
+        super().__init__(parent, charset)
         self.setFlags(QtCore.Qt.ItemIsSelectable |
                       QtCore.Qt.ItemIsEnabled |
                       QtCore.Qt.ItemIsEditable |
                       QtCore.Qt.ItemNeverHasChildren)
-        self.file = None
-        self.name = lorem.words(randint(2, 6)).replace(' ', '_')
-        self.action = None
+        self.tag_new('split')
         self.clear()
+        self.refresh()
 
     def subset(self):
-        if self.action == 'Split':
-            return
-        self.setAction('Split')
-        self.setBold(True)
+        self.split = True
         self.naming = 'Default'
         self.frame = 'Auto-detect'
         self.code = 'Auto-detect'
+        self.refresh()
 
     def clear(self):
-        self.setAction('-')
-        self.setBold(False)
+        self.split = False
         self.naming = ''
         self.frame = ''
         self.code = ''
         self.names = dict(self.defaults)
+        self.refresh()
 
     def toggle(self):
-        if self.action == '-':
+        if not self.split:
             self.subset()
         else:
             self.clear()
 
-    def setAction(self, value):
+    def refresh(self):
+        self.updateField('action')
+        self.tag_set('split', self.split)
         if self.treeWidget():
-            signal = self.treeWidget().signalSummaryUpdate
-            if self.action != value:
-                if self.action in self.actions:
-                    signal.emit(self.actions[self.action], -1)
-                if value in self.actions:
-                    signal.emit(self.actions[value], 1)
-        self.action = value
+            self.treeWidget().signalTagUpdate.emit()
+        self.setBold(self.split)
 
     def setBold(self, value):
         font = self.font(0)
@@ -156,6 +148,10 @@ class CodonItem(widgets.WidgetItem):
             self.naming = 'Default'
         else:
             self.naming = 'Custom'
+
+    @property
+    def action(self):
+        return 'Split' if self.split else '-'
 
     @classmethod
     def populateComboBox(cls, combo, field):
@@ -273,7 +269,7 @@ class OptionsDialog(QtWidgets.QDialog):
             self.label_char.setText('Character Sets:')
             self.char.setText(f'{len(items)} items selected')
 
-            item = CodonItem(None)
+            item = CodonItem(None, model.Charset(''))
             item.code = self.get_common_attr(items, 'code')
             item.frame = self.get_common_attr(items, 'frame')
             names = {}
@@ -397,17 +393,22 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
 
     description = 'Select which character sets to split'
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.data = DataObject()
-        self.add_dummy_contents()
+    def onEntry(self, event):
+        super().onEntry(event)
+        last_filter_update = self.machine().states.filter.timestamp_get()
+        if last_filter_update > self.timestamp_get():
+            self.populate_view()
+            self.timestamp_set()
 
-    def add_dummy_contents(self):
-        count = randint(5, 20)
-        for i in range(0, count):
-            CodonItem(self.view)
+    def populate_view(self):
+        self.view.clear()
+        charsets = self.machine().states.input.data.charsets
+        for charset in charsets.values():
+            if charset.translation is not None:
+                CodonItem(self.view, charset)
         self.view.resizeColumnsToContents()
-        self.sets.setValue(count)
+        self.sets.setValue(len(charsets))
+        self.updateSummary()
 
     def draw(self):
         widget = QtWidgets.QWidget()
@@ -431,7 +432,7 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
 
     def draw_summary(self):
         sets = widgets.InfoLabel('Total Sets')
-        marked = widgets.InfoLabel('Marked', 0)
+        marked = widgets.InfoLabel('Checked', 0)
 
         sets.setToolTip('Total number of character sets.')
         marked.setToolTip('Character sets pending a split.')
@@ -453,7 +454,7 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
 
         view = TreeWidget()
         view.setItemDelegate(CodonItemDelegate(view))
-        view.signalSummaryUpdate.connect(self.handleSummaryUpdate)
+        view.signalTagUpdate.connect(self.updateSummary)
         view.itemActivated.connect(self.handleActivated)
         view.setIndentation(0)
         view.setColumnCount(5, 5)
@@ -498,6 +499,9 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
 
         return frame
 
+    def updateSummary(self):
+        self.marked.setValue(self.view.tag_get('split'))
+
     def handleSubset(self, checked=False):
         item = None
         for item in self.view.selectedItems():
@@ -521,10 +525,6 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
     def handleActivated(self, item, column):
         item.toggle()
         self.view.scrollToItem(item)
-
-    def handleSummaryUpdate(self, field, change):
-        item = getattr(self, field)
-        item.setValue(item.value + change)
 
 
 class StepCodonsWait(StepWaitBar):
