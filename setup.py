@@ -28,7 +28,7 @@ setup(
         'lorem_text>=1.5',
         'itaxotools-common==0.2.1',
         'concatenator==0.1.0',
-        'MAFFTpy==0.1.1',
+        'MAFFTpy==0.1.dev2',
         ],
     extras_require={
         'dev': ['pyinstaller>=4.5.1'],

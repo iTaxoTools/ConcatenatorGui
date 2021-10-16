@@ -30,9 +30,11 @@ import itaxotools.common.widgets
 import itaxotools.common.resources # noqa
 
 from itaxotools.concatenator import (
-    FileType, FileFormat, autodetect, read_from_path, write_from_stream)
+    FileType, FileFormat, read_from_path, write_from_stream)
 from itaxotools.concatenator.library.operators import (
-    OpDropEmpty, OpFilterSequences)
+    OpFilterSequences)
+
+from itaxotools.mafftpy import quick as mafft_align
 
 from .. import model
 from .. import widgets
@@ -361,6 +363,7 @@ class StepAlignSetsFail(ssm.StepTriStateFail):
 
     def onEntry(self, event):
         super().onEntry(event)
+        raise self.exception
         self.parent().update(
             text=f'Sequence alignment failed: {str(self.exception)}')
 
@@ -376,31 +379,57 @@ class StepAlignSets(ssm.StepTriState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.temp_prep = None
+        self.temp_cache = None
+        self.charsets_cached = set()
+
+    def onEntry(self, event):
+        super().onEntry(event)
+        last_input_update = self.machine().states.input.timestamp_get()
+        if last_input_update > self.timestamp_get():
+            self.temp_cache = TemporaryDirectory(prefix='concat_mafft_cache_')
+            self.charsets_cached = set()
 
     def work(self):
-        with self.states.wait.redirect():
-            return self.work_prep()
-
-    def work_prep(self):
-        self.temp_prep = TemporaryDirectory(prefix='concatenator_mafft_prep_')
-        path = Path(self.temp_prep.name)
         charsets = {
             k for k, v in self.machine().states.input.data.charsets.items()
-            if v.aligned and v.translation is not None}
-        files = self.machine().states.input.data.files.values()
+            if v.aligned and v.translation is not None
+            and v.name not in self.charsets_cached}
+        files = [
+            f for f in self.machine().states.input.data.files.values()
+            if any(cs.name in charsets for cs in f.charsets.values())]
+        with self.states.wait.redirect():
+            self.work_prep(files, charsets)
+            return self.work_align(charsets)
+
+    def work_prep(self, files, charsets):
+        self.temp_prep = TemporaryDirectory(prefix='concat_mafft_prep_')
+        path = Path(self.temp_prep.name)
         seq_filter = OpFilterSequences(charsets).to_filter
         print('Preparing files for selected charsets...')
+        self.update(0, 0, 'Preparing files...')
         for count, file in enumerate(files):
-            text = f'Preparing file {count}/{len(files)}: {file.path.name}'
-            self.update(count, len(files), text)
-            if not any(cs.aligned for cs in file.charsets.values()):
-                continue
+            text = f'Preparing file {count + 1}/{len(files)}: {file.path.name}'
+            self.update(0, 0, text)
             stream = read_from_path(file.path)
-            write_from_stream(seq_filter(stream), path,
+            write_from_stream(
+                seq_filter(stream), path,
                 FileType.Directory, FileFormat.Fasta)
+            QtCore.QThread.msleep(3000)
             self.worker.check()
-        self.update(len(files), len(files), 'Done')
         print('Done preparing files')
+
+    def work_align(self, charsets):
+        print(f'Starting alignment for {len(charsets)} sequences '
+              f'({len(self.charsets_cached)} already cached)')
+        files = Path(self.temp_prep.name).glob('*')
+        for count, file in enumerate(files):
+            self.update(count, len(charsets), 'Done')
+            print(f'DUMMAFT {file}')
+            QtCore.QThread.msleep(1000)
+            self.charsets_cached.add(file.stem)
+            print(f'ADDED {file}')
+            self.worker.check()
+        self.update(1, 1, 'Done')
         return len(charsets)
 
     def skipAll(self):
