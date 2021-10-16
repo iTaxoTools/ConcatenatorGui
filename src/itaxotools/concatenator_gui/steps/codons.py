@@ -402,10 +402,6 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
         self.data = DataObject()
         self.add_dummy_contents()
 
-    def onEntry(self, event):
-        super().onEntry(event)
-        self.updateFooter()
-
     def add_dummy_contents(self):
         count = randint(5, 20)
         for i in range(0, count):
@@ -529,14 +525,6 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
     def handleSummaryUpdate(self, field, change):
         item = getattr(self, field)
         item.setValue(item.value + change)
-        if field == 'marked':
-            self.updateFooter()
-
-    def updateFooter(self):
-        if self.marked.value == 0:
-            self.footer.next.setText('&Skip >')
-        else:
-            self.footer.next.setText('&Start')
 
 
 class StepCodonsWait(StepWaitBar):

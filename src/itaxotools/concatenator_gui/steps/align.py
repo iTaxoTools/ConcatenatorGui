@@ -248,7 +248,7 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
         text = (
             'Select character sets and click "Align" to mark them '
-            'for alignment. When ready, click "Start".')
+            'for alignment.')
         label = QtWidgets.QLabel(text)
 
         frame = self.draw_frame()
@@ -334,10 +334,6 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
     def updateSummaryAndFooter(self):
         self.marked.setValue(self.view.tag_get('aligned'))
-        if self.marked.value == 0:
-            self.footer.next.setText('&Skip >')
-        else:
-            self.footer.next.setText('&Start')
 
     def handleAlign(self, checked=False):
         item = None
