@@ -373,7 +373,6 @@ class StepAlignSetsFail(ssm.StepTriStateFail):
 
     def onEntry(self, event):
         super().onEntry(event)
-        raise self.exception
         self.parent().update(
             text=f'Sequence alignment failed: {str(self.exception)}')
 
@@ -456,15 +455,30 @@ class StepAlignSets(ssm.StepTriState):
                 work_process, input, output, strategy)
             self.process.setStream(self.states.wait.logio)
             self.process.done.connect(loop.quit)
+            self.process.fail.connect(self.worker.fail)
             self.process.start()
             loop.exec()
 
+            self.worker.check()
             self.charsets_cached.add(charset)
             print(f'\nAligned {charset}')
             print(f'\n{"-"*20}\n')
-            self.worker.check()
         self.update(1, 1, 'Done')
         print('Done aligning sequences')
+
+    def onCancel(self, exception):
+        self.process.quit()
+
+    def onFail(self, exception):
+        self.states.wait.logio.writeline('')
+        self.states.wait.logio.writeline(str(exception))
+        msgBox = QtWidgets.QMessageBox(self.machine().parent())
+        msgBox.setWindowTitle(self.machine().parent().title)
+        msgBox.setIcon(QtWidgets.QMessageBox.Critical)
+        msgBox.setText('Alignment failed:')
+        msgBox.setInformativeText(str(exception))
+        msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        self.machine().parent().msgShow(msgBox)
 
     def skipAll(self):
         skip = self.machine().states['align_options'].data.skip
@@ -482,5 +496,5 @@ class StepAlignSets(ssm.StepTriState):
         msgBox.setStandardButtons(
             QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
         msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
-        res = msgBox.exec()
+        res = self.machine().parent().msgShow(msgBox)
         return res == QtWidgets.QMessageBox.Yes

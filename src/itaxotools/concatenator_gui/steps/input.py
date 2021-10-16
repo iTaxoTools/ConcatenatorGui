@@ -166,8 +166,7 @@ class StepInput(ssm.StepState):
         msgBox.setText('Import failed:')
         msgBox.setInformativeText(str(exception))
         msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
-        msgBox.setDefaultButton(QtWidgets.QMessageBox.Ok)
-        msgBox.exec()
+        self.machine().parent().msgShow(msgBox)
         self.files_queue = []
         self.files_ready = []
         self.signalDone.emit()

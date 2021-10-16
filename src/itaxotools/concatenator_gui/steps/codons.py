@@ -584,5 +584,5 @@ class StepCodons(ssm.StepTriState):
         msgBox.setStandardButtons(
             QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
         msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
-        res = msgBox.exec()
+        res = self.machine().parent().msgShow(msgBox)
         return res == QtWidgets.QMessageBox.Yes
