@@ -22,38 +22,23 @@ from PySide6 import QtCore
 from PySide6 import QtWidgets
 from PySide6 import QtGui
 
-from lorem_text import lorem
-from random import randint
+from tempfile import TemporaryDirectory
+from pathlib import Path
 
 from itaxotools import common
 import itaxotools.common.widgets
 import itaxotools.common.resources # noqa
+
+from itaxotools.concatenator import (
+    FileType, FileFormat, autodetect, read_from_path, write_from_stream)
+from itaxotools.concatenator.library.operators import (
+    OpDropEmpty, OpFilterSequences)
 
 from .. import model
 from .. import widgets
 from .. import step_state_machine as ssm
 
 from .wait import StepWaitBar
-
-
-def dummy_work(state, count, max, lines, period):
-    print('')
-    while True:
-        # if count == 101:
-        #     raise Exception('ohno')
-        now = lorem.words(3)
-        print(f'\nStep {count}/{max} {now}')
-        for i in range(1, lines):
-            print(lorem.words(randint(3, 12)))
-        text = f'Sequence {count}/{max}: {now}'
-        state.update(count, max, text)
-        if count >= max:
-            break
-        for i in range(0, int(period/10)):
-            QtCore.QThread.msleep(10)
-            state.worker.check()
-        count += 1
-    return max
 
 
 class RichRadioButton(QtWidgets.QRadioButton):
@@ -359,10 +344,7 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
 
 class StepAlignSetsWait(StepWaitBar):
-    def onEntry(self, event):
-        super().onEntry(event)
-        for i in range(1, 50):
-            self.logio.writeline(lorem.words(randint(3, 12)))
+    pass
 
 
 class StepAlignSetsDone(ssm.StepTriStateDone):
@@ -391,9 +373,35 @@ class StepAlignSets(ssm.StepTriState):
     StepDone = StepAlignSetsDone
     StepFail = StepAlignSetsFail
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.temp_prep = None
+
     def work(self):
-        with self.states['wait'].redirect():
-            return dummy_work(self, 42, 200, 10, 20)
+        with self.states.wait.redirect():
+            return self.work_prep()
+
+    def work_prep(self):
+        self.temp_prep = TemporaryDirectory(prefix='concatenator_mafft_prep_')
+        path = Path(self.temp_prep.name)
+        charsets = {
+            k for k, v in self.machine().states.input.data.charsets.items()
+            if v.aligned and v.translation is not None}
+        files = self.machine().states.input.data.files.values()
+        seq_filter = OpFilterSequences(charsets).to_filter
+        print('Preparing files for selected charsets...')
+        for count, file in enumerate(files):
+            text = f'Preparing file {count}/{len(files)}: {file.path.name}'
+            self.update(count, len(files), text)
+            if not any(cs.aligned for cs in file.charsets.values()):
+                continue
+            stream = read_from_path(file.path)
+            write_from_stream(seq_filter(stream), path,
+                FileType.Directory, FileFormat.Fasta)
+            self.worker.check()
+        self.update(len(files), len(files), 'Done')
+        print('Done preparing files')
+        return len(charsets)
 
     def skipAll(self):
         skip = self.machine().states['align_options'].data.skip
