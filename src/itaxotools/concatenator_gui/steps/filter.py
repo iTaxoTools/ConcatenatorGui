@@ -119,12 +119,6 @@ class FilterItem(widgets.ModelItem):
         self.setFont(0, font)
 
     @property
-    def display_name(self):
-        if self.translation is None or self.translation == self.name:
-            return self.name
-        return self.translation
-
-    @property
     def action(self):
         if self.translation is None:
             return 'Delete'

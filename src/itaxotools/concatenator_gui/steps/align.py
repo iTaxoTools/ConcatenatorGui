@@ -115,7 +115,6 @@ class AlignItem(widgets.ModelItem):
                       QtCore.Qt.ItemIsEnabled |
                       QtCore.Qt.ItemNeverHasChildren)
         self.samples_len = len(self.model.samples)
-        self.updateField('display_name')
         self.tag_new('aligned')
         self.refresh()
 
@@ -141,10 +140,6 @@ class AlignItem(widgets.ModelItem):
         font = self.font(0)
         font.setBold(value)
         self.setFont(0, font)
-
-    @property
-    def display_name(self):
-        return self.translation
 
     @property
     def action(self):

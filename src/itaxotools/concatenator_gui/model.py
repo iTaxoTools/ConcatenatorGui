@@ -119,6 +119,12 @@ class Charset:
     def missing(self):
         return self.characters_missing / self.characters
 
+    @property
+    def display_name(self):
+        if self.translation is None or self.translation == self.name:
+            return self.name
+        return self.translation
+
 
 @dataclass
 class File:
