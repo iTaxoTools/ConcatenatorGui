@@ -100,7 +100,9 @@ class StepInputIdle(QtStateMachine.QState):
         parent = self.parent()
         parent.frame.setEnabled(True)
         parent.overlay.setVisible(False)
-        parent.footer.setMode(parent.footer.Mode.Middle)
+        action = ssm.NavigateEvent(event).action()
+        backwards = bool(action == ssm.NavigateAction.Back)
+        parent.footer.setMode(parent.footer.Mode.Middle, backwards=backwards)
         parent.footer.next.setEnabled(bool(parent.data.files))
         parent.stepProgressBar.setStatus(spb.states.Active)
         parent.refresh_contents()
@@ -188,6 +190,7 @@ class StepInput(ssm.StepState):
                 raise NotImplementedError(f'Duplicate charsets from "{path}"')
             charsets.update(file.charsets.keys())
             self.files_ready.append(file)
+            self.worker.check()
 
     def clear(self):
         self.data = model.Concatenation()
