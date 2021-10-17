@@ -33,7 +33,7 @@ import itaxotools.common.resources # noqa
 from itaxotools.common.utility import AttrDict
 
 from itaxotools.concatenator import (
-    FileType, FileFormat, read_from_path, write_from_stream)
+    FileType, FileFormat, read_from_path, write_to_path)
 from itaxotools.concatenator.library.operators import (
     OpFilterSequences)
 
@@ -427,7 +427,7 @@ class StepAlignSets(ssm.StepTriState):
             print(text)
             self.update(0, 0, text)
             stream = read_from_path(file.path)
-            write_from_stream(
+            write_to_path(
                 seq_filter(stream), path,
                 FileType.Directory, FileFormat.Fasta)
             self.worker.check()

@@ -534,7 +534,7 @@ class StepCodonsDone(ssm.StepTriStateDone):
         marked = self.parent().states.edit.marked.value
         s = 's' if marked > 1 else ''
         self.parent().update(
-            text=f'Ignored {marked} character set{s}.')
+            text=f'Skipped splitting {marked} character set{s}.')
 
 
 class StepCodonsFail(ssm.StepTriStateFail):

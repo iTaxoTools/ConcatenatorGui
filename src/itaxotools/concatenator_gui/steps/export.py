@@ -22,7 +22,6 @@ from PySide6 import QtCore
 from PySide6 import QtWidgets
 
 from dataclasses import dataclass
-from lorem_text import lorem
 from random import randint
 
 import pathlib
@@ -35,22 +34,7 @@ from .wait import StepWaitBar
 
 def dummy_work(state, count, max, lines, period):
     print('')
-    while True:
-        # if count == 3:
-        #     raise Exception('ohno')
-        now = lorem.words(3)
-        print(f'\nFile {count}/{max} {now}')
-        for i in range(1, lines):
-            print(lorem.words(randint(3, 12)))
-        text = f'File {count}/{max}: {now}'
-        state.update(count, max, text)
-        if count >= max:
-            break
-        for i in range(0, int(period/10)):
-            QtCore.QThread.msleep(10)
-            state.worker.check()
-        count += 1
-    return max
+    return 0
 
 
 @dataclass
@@ -218,10 +202,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
 
 
 class StepExportWait(StepWaitBar):
-    def onEntry(self, event):
-        super().onEntry(event)
-        for i in range(1, 10):
-            self.logio.writeline(lorem.words(randint(3, 12)))
+    pass
 
 
 class StepExportDone(ssm.StepTriStateDone):
