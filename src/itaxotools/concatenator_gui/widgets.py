@@ -177,7 +177,7 @@ class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
     def setData(self, column, role, value):
         super().setData(column, role, value)
         if role == QtCore.Qt.EditRole and column in self.unmap:
-            # setattr(self, self.unmap[column], value)
+            setattr(self, self.unmap[column], value)
             self.treeWidget().scrollToItem(self)
 
 

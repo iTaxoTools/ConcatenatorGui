@@ -126,6 +126,10 @@ class Charset:
             return self.name
         return self.translation
 
+    @display_name.setter
+    def display_name(self, value):
+        pass
+
 
 @dataclass
 class File:

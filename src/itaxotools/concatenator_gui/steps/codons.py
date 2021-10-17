@@ -270,6 +270,7 @@ class OptionsDialog(QtWidgets.QDialog):
             self.char.setText(f'{len(items)} items selected')
 
             item = CodonItem(None, model.Charset(''))
+            item.split = self.get_common_attr(items, 'split')
             item.code = self.get_common_attr(items, 'code')
             item.frame = self.get_common_attr(items, 'frame')
             names = {}
@@ -280,6 +281,8 @@ class OptionsDialog(QtWidgets.QDialog):
             names[3] = self.get_common_attr(
                 items, 'names', func=lambda x, a: getattr(x, a)[3])
             item.setNames(names)
+
+        self.split.setChecked(bool(item.split))
 
         id = self.code.findData(item.code)
         if (id >= 0):
@@ -297,18 +300,18 @@ class OptionsDialog(QtWidgets.QDialog):
             widget.setCursorPosition(0)
 
     def draw(self):
-        header = QtWidgets.QLabel(
-            'Set the codon subset options for all selected character sets.')
-        name_desc = QtWidgets.QLabel(
-            'Double asterisks (**) are replaced by the character set name.')
         self.label_char = QtWidgets.QLabel('Character Set:')
         label_code = QtWidgets.QLabel('Genetic Code:')
         label_frame = QtWidgets.QLabel('Reading Frame:')
         label_1 = QtWidgets.QLabel('1st Codon:')
         label_2 = QtWidgets.QLabel('2nd Codon:')
         label_3 = QtWidgets.QLabel('3rd Codon:')
+        name_desc = QtWidgets.QLabel(
+            'Double asterisks (**) are replaced by the character set name.')
 
-        self.char = QtWidgets.QLineEdit('Lorep_impsum_nocte')
+        self.split = QtWidgets.QCheckBox(
+            ' Split codon positions for all selected character sets.')
+        self.char = QtWidgets.QLineEdit('')
         self.char.setReadOnly(True)
         self.char.setStyleSheet("""
             QLineEdit {
@@ -338,29 +341,37 @@ class OptionsDialog(QtWidgets.QDialog):
         buttons.setSpacing(8)
         buttons.setContentsMargins(0, 0, 0, 0)
 
-        layout = QtWidgets.QGridLayout()
-        layout.addWidget(header, 0, 0, 1, 2)
+        options = QtWidgets.QGridLayout()
+        options.setRowMinimumHeight(10, 8)
+        options.addWidget(self.label_char, 11, 0)
+        options.addWidget(self.char, 11, 1)
+        options.addWidget(label_code, 12, 0)
+        options.addWidget(self.code, 12, 1)
+        options.addWidget(label_frame, 13, 0)
+        options.addWidget(self.frame, 13, 1)
 
-        layout.setRowMinimumHeight(10, 8)
-        layout.addWidget(self.label_char, 11, 0)
-        layout.addWidget(self.char, 11, 1)
-        layout.addWidget(label_code, 12, 0)
-        layout.addWidget(self.code, 12, 1)
-        layout.addWidget(label_frame, 13, 0)
-        layout.addWidget(self.frame, 13, 1)
+        options.setRowMinimumHeight(20, 16)
+        options.addWidget(label_1, 22, 0)
+        options.addWidget(self.first, 22, 1)
+        options.addWidget(label_2, 23, 0)
+        options.addWidget(self.second, 23, 1)
+        options.addWidget(label_3, 24, 0)
+        options.addWidget(self.third, 24, 1)
+        options.addWidget(name_desc, 29, 0, 1, 2)
 
-        layout.setRowMinimumHeight(20, 16)
-        layout.addWidget(label_1, 22, 0)
-        layout.addWidget(self.first, 22, 1)
-        layout.addWidget(label_2, 23, 0)
-        layout.addWidget(self.second, 23, 1)
-        layout.addWidget(label_3, 24, 0)
-        layout.addWidget(self.third, 24, 1)
-        layout.addWidget(name_desc, 29, 0, 1, 2)
+        options.setContentsMargins(0, 0, 0, 0)
+        options.setRowMinimumHeight(30, 24)
 
-        layout.setRowMinimumHeight(30, 24)
-        layout.addLayout(buttons, 31, 0, 1, 2)
+        self.options = QtWidgets.QWidget()
+        self.options.setLayout(options)
 
+        self.split.stateChanged.connect(self.options.setEnabled)
+        self.split.setChecked(True)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self.split)
+        layout.addWidget(self.options)
+        layout.addLayout(buttons)
         layout.setContentsMargins(24, 16, 24, 16)
         self.setLayout(layout)
 
@@ -376,16 +387,20 @@ class OptionsDialog(QtWidgets.QDialog):
     def accept(self):
         super().accept()
         items = self.view.selectedItems()
-        for item in items:
-            item.subset()
-            item.code = self.code.currentData()
-            item.frame = self.frame.currentData()
-            names = {
-                1: self.first.text(),
-                2: self.second.text(),
-                3: self.third.text(),
-                }
-            item.setNames(names)
+        if self.split.isChecked():
+            for item in items:
+                item.subset()
+                item.code = self.code.currentData()
+                item.frame = self.frame.currentData()
+                names = {
+                    1: self.first.text(),
+                    2: self.second.text(),
+                    3: self.third.text(),
+                    }
+                item.setNames(names)
+        else:
+            for item in items:
+                item.clear()
         self.view.scrollToItem(item)
 
 
