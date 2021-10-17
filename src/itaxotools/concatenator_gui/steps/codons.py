@@ -402,10 +402,11 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
 
     def populate_view(self):
         self.view.clear()
-        charsets = self.machine().states.input.data.charsets
-        for charset in charsets.values():
-            if charset.translation is not None:
-                CodonItem(self.view, charset)
+        charsets = [
+            cs for cs in self.machine().states.input.data.charsets.values()
+            if cs.translation is not None]
+        for charset in charsets:
+            CodonItem(self.view, charset)
         self.view.resizeColumnsToContents()
         self.sets.setValue(len(charsets))
         self.updateSummary()
@@ -539,7 +540,7 @@ class StepCodonsDone(ssm.StepTriStateDone):
 
     def onEntry(self, event):
         super().onEntry(event)
-        marked = self.parent().states['edit'].marked.value
+        marked = self.parent().states.edit.marked.value
         s = 's' if marked > 1 else ''
         self.parent().update(
             text=f'Successfully split {marked} character set{s}.')

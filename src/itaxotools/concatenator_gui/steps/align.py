@@ -229,10 +229,11 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
     def populate_view(self):
         self.view.clear()
-        charsets = self.machine().states.input.data.charsets
-        for charset in charsets.values():
-            if charset.translation is not None:
-                AlignItem(self.view, charset)
+        charsets = [
+            cs for cs in self.machine().states.input.data.charsets.values()
+            if cs.translation is not None]
+        for charset in charsets:
+            AlignItem(self.view, charset)
         self.view.resizeColumnsToContents()
         self.sets.setValue(len(charsets))
         self.updateSummary()
@@ -360,8 +361,9 @@ class StepAlignSetsDone(ssm.StepTriStateDone):
     def onEntry(self, event):
         super().onEntry(event)
         if self.result:
+            s = 's' if self.result > 1 else ''
             self.parent().update(
-                text=f'Successfully aligned {str(self.result)} sequences.')
+                text=f'Successfully aligned {str(self.result)} sequence{s}.')
         else:
             self.parent().update(
                 text='Successfully aligned sequences.')

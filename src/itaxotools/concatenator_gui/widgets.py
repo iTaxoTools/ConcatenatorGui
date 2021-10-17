@@ -389,6 +389,16 @@ class TreeWidget(QtWidgets.QTreeWidget):
             return 0
         return self._tags[tag]
 
+    def tag_reset(self, tag: str = None):
+        if tag is None:
+            self._tags = dict()
+        else:
+            self._tags[tag] = 0
+
+    def clear(self):
+        super().clear()
+        self.tag_reset()
+
 
 class ViewSearchWidget(common.widgets.SearchWidget):
 
