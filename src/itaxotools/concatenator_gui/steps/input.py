@@ -185,7 +185,8 @@ class StepInput(ssm.StepState):
             for k in self.data.files[path].charsets.keys()}
         while self.files_queue:
             path = self.files_queue.pop()
-            file = file_info_from_path(path, self.data.samples)
+            file = file_info_from_path(
+                path, self.data.samples, self.worker.check)
             if any(x in charsets for x in file.charsets):
                 raise NotImplementedError(f'Duplicate charsets from "{path}"')
             charsets.update(file.charsets.keys())

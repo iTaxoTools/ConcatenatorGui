@@ -1,4 +1,5 @@
 
+from typing import Callable
 from pathlib import Path
 
 from itaxotools.concatenator import (
@@ -32,7 +33,8 @@ formats_short = {
 
 def file_info_from_path(
     path: Path,
-    samples: model.DataSet
+    samples: model.DataSet,
+    checker: Callable[[None], None] = None,
 ) -> model.File:
 
     type, format = autodetect(path)
@@ -62,6 +64,8 @@ def file_info_from_path(
         all_characters += charset.characters
         all_characters_missing += charset.characters_missing
         all_uniform += [uniform]
+        if checker is not None:
+            checker()
 
     file.format = formats_short[type][format]
     file.characters = all_characters
