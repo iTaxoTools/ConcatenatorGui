@@ -22,9 +22,6 @@ from PySide6 import QtCore
 from PySide6 import QtWidgets
 from PySide6 import QtGui
 
-from lorem_text import lorem
-from random import randint
-
 from itaxotools import common
 import itaxotools.common.widgets
 import itaxotools.common.resources # noqa
@@ -34,24 +31,6 @@ from .. import widgets
 from .. import step_state_machine as ssm
 
 from .wait import StepWaitBar
-
-
-def dummy_work(state, count, max, lines, period):
-    print('')
-    while True:
-        now = lorem.words(3)
-        print(f'\nStep {count}/{max} {now}')
-        for i in range(1, lines):
-            print(lorem.words(randint(3, 12)))
-        text = f'Sequence {count}/{max}: {now}'
-        state.update(count, max, text)
-        if count >= max:
-            break
-        for i in range(0, int(period/10)):
-            QtCore.QThread.msleep(10)
-            state.worker.check()
-        count += 1
-    return max
 
 
 class CodonItem(widgets.ModelItem):
@@ -544,10 +523,7 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
 
 
 class StepCodonsWait(StepWaitBar):
-    def onEntry(self, event):
-        super().onEntry(event)
-        for i in range(1, 50):
-            self.logio.writeline(lorem.words(randint(3, 12)))
+    pass
 
 
 class StepCodonsDone(ssm.StepTriStateDone):
@@ -558,7 +534,7 @@ class StepCodonsDone(ssm.StepTriStateDone):
         marked = self.parent().states.edit.marked.value
         s = 's' if marked > 1 else ''
         self.parent().update(
-            text=f'Successfully split {marked} character set{s}.')
+            text=f'Ignored {marked} character set{s}.')
 
 
 class StepCodonsFail(ssm.StepTriStateFail):
@@ -586,10 +562,12 @@ class StepCodons(ssm.StepTriState):
 
     def work(self):
         with self.states['wait'].redirect():
-            return dummy_work(self, 42, 100, 10, 20)
+            print('Splitting by codons is not supported at this time.')
+            self.update(1, 1, 'text')
+        return self.states.edit.marked.value
 
     def skipWait(self):
-        skip = self.states['edit'].marked.value == 0
+        skip = self.states.edit.marked.value == 0
         return bool(skip)
 
     def filterCancel(self, event):
