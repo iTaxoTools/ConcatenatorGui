@@ -26,6 +26,8 @@ from enum import Enum, IntEnum, auto
 from datetime import datetime
 from pathlib import Path
 
+import shutil
+
 from itaxotools.common.utility import AttrDict
 from itaxotools.concatenator import (
     FileType, FileFormat, get_writer, get_extension, read_from_path)
@@ -76,10 +78,14 @@ class StepExportEdit(ssm.StepTriStateEdit):
 
     description = 'Configure output'
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.scheme_changed()
+        self.compression_changed()
+
     def onEntry(self, event):
         super().onEntry(event)
         self.footer.next.setText('&Export')
-        self.format_changed()
 
     def draw(self):
         widget = QtWidgets.QWidget()
@@ -138,8 +144,8 @@ class StepExportEdit(ssm.StepTriStateEdit):
         order.addItem('Alphabetical', OrderingOptions.Alphabetical)
         order.addItem('Same as input', OrderingOptions.SameAsInput)
 
-        scheme.activated.connect(self.format_changed)
-        compression.activated.connect(self.format_changed)
+        scheme.activated.connect(self.scheme_changed)
+        compression.activated.connect(self.compression_changed)
 
         label_order.setVisible(False)
         order.setVisible(False)
@@ -242,16 +248,19 @@ class StepExportEdit(ssm.StepTriStateEdit):
             return '_' + datetime.utcnow().strftime("%Y%m%dT%H%M%S")
         return ''
 
-    def format_changed(self, index=0):
+    def scheme_changed(self, index=0):
         scheme = self.scheme.currentData()
         scheme_is_dir = bool(scheme.type == FileType.Directory)
         self.compression.setEnabled(scheme_is_dir)
         if not scheme_is_dir:
             self.compression.setCurrentIndex(0)
-        out_is_dir = bool(self.infer_writer().type == FileType.Directory)
-        self.timestamp.setEnabled(not out_is_dir)
-        self.timestamp.setChecked(not out_is_dir)
+        else:
+            self.compression.setCurrentIndex(1)
         # Update option widgets here
+
+    def compression_changed(self, index=0):
+        # Update option widgets here
+        pass
 
 
 class StepExportWait(StepWaitBar):
@@ -269,7 +278,6 @@ class StepExportFail(ssm.StepTriStateFail):
 
     def onEntry(self, event):
         super().onEntry(event)
-        raise self.exception
         self.parent().update(
             text=f'Export failed: {str(self.exception)}')
 
@@ -312,6 +320,7 @@ class StepExport(ssm.StepTriState):
         out = Path(self.data.temp.name) / 'out'
         with self.states.wait.redirect():
             print('Exporting files, please wait...\n')
+            print(f'Writing to temporary file: {out}\n')
         writer = self.states.edit.infer_writer()
         streams = [
             read_from_path(file.path)
@@ -324,27 +333,32 @@ class StepExport(ssm.StepTriState):
         applied = OpApply(checker_func).to_filter(translated)
         writer(applied, out)
         with self.states.wait.redirect():
-            print('Done exporting')
+            print(f'Done exporting, moving results to {self.data.target}')
+        shutil.move(out, self.data.target)
         return self.data.total
 
     def filterNext(self, event):
+        basename = self.states.edit.infer_base_name()
+        basename += self.states.edit.get_time_string()
+        (fileName, _) = QtWidgets.QFileDialog.getSaveFileName(
+            self.machine().parent(),
+            self.machine().parent().title + ' - Export',
+            QtCore.QDir.currentPath() + '/' + basename,
+            self.states.edit.infer_dialog_filter())
+        if not fileName:
+            return False
         if self.states.edit.infer_writer().type == FileType.Directory:
-            fileName = QtWidgets.QFileDialog.getExistingDirectory(
-                self.machine().parent(),
-                self.machine().parent().title + ' - Export',
-                QtCore.QDir.currentPath())
-        else:
-            basename = self.states.edit.infer_base_name()
-            basename += self.states.edit.get_time_string()
-            (fileName, _) = QtWidgets.QFileDialog.getSaveFileName(
-                self.machine().parent(),
-                self.machine().parent().title + ' - Export',
-                QtCore.QDir.currentPath() + '/' + basename,
-                self.states.edit.infer_dialog_filter())
-        if len(fileName) > 0:
-            self.data.target = Path(fileName)
-            return True
-        return False
+            if Path(fileName).exists():
+                msgBox = QtWidgets.QMessageBox(self.machine().parent())
+                msgBox.setWindowTitle(self.machine().parent().title)
+                msgBox.setIcon(QtWidgets.QMessageBox.Critical)
+                msgBox.setText(
+                    'Destination must be the name of a new directory')
+                msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
+                self.machine().parent().msgShow(msgBox)
+                return False
+        self.data.target = Path(fileName)
+        return True
 
     def filterCancel(self, event):
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
