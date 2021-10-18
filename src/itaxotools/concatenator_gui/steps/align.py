@@ -35,7 +35,7 @@ from itaxotools.common.utility import AttrDict
 from itaxotools.concatenator import (
     FileType, FileFormat, read_from_path, write_to_path)
 from itaxotools.concatenator.library.operators import (
-    OpFilterSequences, OpApply, chain)
+    OpFilterCharsets, OpApply, chain)
 
 from itaxotools.mafftpy import MultipleSequenceAlignment
 
@@ -425,7 +425,7 @@ class StepAlignSets(ssm.StepTriState):
         path = Path(self.temp_prep.name)
         seq_filter = chain([
             OpApply(checker_func).to_filter,
-            OpFilterSequences(charsets).to_filter])
+            OpFilterCharsets(charsets).to_filter])
         print('Preparing files for selected charsets...\n')
         self.update(0, 0, 'Preparing files...')
         for count, file in enumerate(files):

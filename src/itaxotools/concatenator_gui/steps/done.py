@@ -70,7 +70,7 @@ class StepDone(ssm.StepState):
 
     def updateLabels(self):
         path = self.machine().states.export.data.target
-        count = self.machine().states.export.data.count
+        count = self.machine().states.export.data.total
         self.confirm.setText(
             f'<b>Successfully exported {count} sequences to "{path.name}"</b>')
 

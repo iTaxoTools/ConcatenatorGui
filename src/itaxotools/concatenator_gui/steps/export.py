@@ -21,13 +21,16 @@
 from PySide6 import QtCore
 from PySide6 import QtWidgets
 
+from tempfile import TemporaryDirectory
 from enum import Enum, IntEnum, auto
 from datetime import datetime
 from pathlib import Path
 
 from itaxotools.common.utility import AttrDict
 from itaxotools.concatenator import (
-    FileType, FileFormat, get_writer, get_extension)
+    FileType, FileFormat, get_writer, get_extension, read_from_path)
+from itaxotools.concatenator.library.operators import (
+    OpChainCharsets, OpTranslateCharsets, OpApply)
 
 from .. import step_state_machine as ssm
 
@@ -217,7 +220,9 @@ class StepExportEdit(ssm.StepTriStateEdit):
         compression = self.compression.currentData()
         if compression.type is not FileType.File:
             type = compression.type
-        return get_writer(type, scheme.format)
+        writer = get_writer(type, scheme.format)()
+        # fill writer options here
+        return writer
 
     def infer_dialog_filter(self):
         writer = self.infer_writer()
@@ -264,6 +269,7 @@ class StepExportFail(ssm.StepTriStateFail):
 
     def onEntry(self, event):
         super().onEntry(event)
+        raise self.exception
         self.parent().update(
             text=f'Export failed: {str(self.exception)}')
 
@@ -279,13 +285,47 @@ class StepExport(ssm.StepTriState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.data = AttrDict()
+        self.data.temp = None
         self.data.target = None
-        self.data.count = 0
+        self.data.counter = 0
+        self.data.total = 0
 
     def work(self):
+        self.data.counter = 0
+        self.data.total = len([
+            cs for cs in self.machine().states.input.data.charsets.values()
+            if cs.translation is not None])
+
+        def checker_func(series):
+            text = (
+                f'Exporting sequence {self.data.counter}/{self.data.total}: '
+                f'{series.name}')
+            self.update(self.data.counter, self.data.total, text)
+            with self.states.wait.redirect():
+                print(text)
+            QtCore.QThread.msleep(4)
+            self.data.counter += 1
+            self.worker.check()
+            return series
+
+        self.data.temp = TemporaryDirectory(prefix='concat_out_')
+        out = Path(self.data.temp.name) / 'out'
         with self.states.wait.redirect():
-            print('')
-            return 0
+            print('Exporting files, please wait...\n')
+        writer = self.states.edit.infer_writer()
+        streams = [
+            read_from_path(file.path)
+            for file in self.machine().states.input.data.files.values()]
+        cache = Path(self.machine().states.align_sets.temp_cache.name)
+        all_streams = [read_from_path(cache)] + streams
+        translation = self.machine().states.filter.translation
+        chained = OpChainCharsets().multi_filter(all_streams)
+        translated = OpTranslateCharsets(translation).to_filter(chained)
+        applied = OpApply(checker_func).to_filter(translated)
+        writer(applied, out)
+        with self.states.wait.redirect():
+            print('Done exporting')
+        return self.data.total
 
     def filterNext(self, event):
         if self.states.edit.infer_writer().type == FileType.Directory:
