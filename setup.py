@@ -25,7 +25,7 @@ setup(
     python_requires='>=3.8.6, <4',
     install_requires=[
         'pyside6>=6.1.1',
-        'itaxotools-common==0.2.1',
+        'itaxotools-common==0.2.dev2',
         'concatenator==0.2.dev0',
         'MAFFTpy==0.1.dev2',
         ],

@@ -106,6 +106,9 @@ class StepWaitBar(ssm.StepTriStateWait):
         if text is not None:
             self.progress.label.setText(text)
 
+    def reset(self):
+        self.logger.reset()
+
     @contextmanager
     def redirect(self):
         with common.io.redirect(sys, 'stdout', self.logio) as out:

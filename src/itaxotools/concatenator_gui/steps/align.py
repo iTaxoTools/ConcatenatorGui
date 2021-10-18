@@ -467,6 +467,7 @@ class StepAlignSets(ssm.StepTriState):
             loop.exec()
 
             self.worker.check()
+            self.states.wait.reset()
             self.charsets_cached.add(charset)
             print(f'\nAligned {charset}')
             print(f'\n{"-"*20}\n')
