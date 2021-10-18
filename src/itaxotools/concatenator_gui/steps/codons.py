@@ -409,8 +409,9 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Double-click an option field to change it. '
-            'Click "Edit" to set codon names and bulk editing.'
+            'Double-click a sequence name to toggle codon subsetting, '
+            'or an option field to change it. '
+            'Click "Edit" for more options.'
                 )
         label = QtWidgets.QLabel(text)
 
@@ -427,7 +428,7 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
 
     def draw_summary(self):
         sets = widgets.InfoLabel('Total Sets')
-        marked = widgets.InfoLabel('Checked', 0)
+        marked = widgets.InfoLabel('Marked', 0)
 
         sets.setToolTip('Total number of character sets.')
         marked.setToolTip('Character sets pending a split.')

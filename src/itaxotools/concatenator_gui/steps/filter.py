@@ -174,7 +174,7 @@ class StepFilter(ssm.StepState):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Select multiple sets by drag-and-click or '
+            'Select multiple sets by click-and-drag or '
             'by clicking while holding Ctrl/Shift. '
             'Sort by column by clicking on the headers.')
         label = QtWidgets.QLabel(text)

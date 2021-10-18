@@ -242,8 +242,8 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Select character sets and click "Align" to mark them '
-            'for alignment.')
+            'Mark character sets for alignment by selecting them'
+            'and then clicking "Align".')
         label = QtWidgets.QLabel(text)
 
         frame = self.draw_frame()
@@ -259,7 +259,7 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
     def draw_summary(self):
         sets = widgets.InfoLabel('Total Sets')
-        marked = widgets.InfoLabel('Checked', 0)
+        marked = widgets.InfoLabel('Marked', 0)
 
         sets.setToolTip('Total number of character sets.')
         marked.setToolTip('Number of character sets pending alignment.')
