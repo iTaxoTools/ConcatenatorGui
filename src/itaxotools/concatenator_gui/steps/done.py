@@ -53,7 +53,6 @@ class StepDone(ssm.StepState):
         self.confirm = self.progress.label
         self.confirm.setTextFormat(QtCore.Qt.RichText)
         self.confirm.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
-        self.updateLabels()
 
         path = common.resources.get(
             'itaxotools.concatenator_gui', 'docs/done.html')
@@ -70,8 +69,10 @@ class StepDone(ssm.StepState):
         return widget
 
     def updateLabels(self):
-        files = self.machine().states.export.data.file_count
-        self.confirm.setText(f'<b>Successfully exported {files} files.</b>')
+        path = self.machine().states.export.data.target
+        count = self.machine().states.export.data.count
+        self.confirm.setText(
+            f'<b>Successfully exported {count} sequences to "{path.name}"</b>')
 
     def onEntry(self, event):
         super().onEntry(event)

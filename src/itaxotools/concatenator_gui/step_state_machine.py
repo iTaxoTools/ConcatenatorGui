@@ -249,9 +249,6 @@ class StepTriState(StepState):
 
     updated = QtCore.Signal(list, dict)
 
-    class DataObject(object):
-        pass
-
     def __init__(self, name, parent, stack):
         super().__init__(name, parent, stack)
         self.worker = WorkerThread(self.work)
@@ -259,7 +256,6 @@ class StepTriState(StepState):
         self.worker.fail.connect(self._onFail)
         self.worker.cancel.connect(self.onCancel)
         self.machine().installWorker(self.worker)
-        self.data = self.DataObject()
 
     def draw(self):
         widget = QtWidgets.QStackedWidget()

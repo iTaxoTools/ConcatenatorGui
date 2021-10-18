@@ -21,68 +21,68 @@
 from PySide6 import QtCore
 from PySide6 import QtWidgets
 
-from dataclasses import dataclass
-from random import randint
+from enum import Enum, IntEnum, auto
+from pathlib import Path
 
-import pathlib
-import enum
+from itaxotools.common.utility import AttrDict
+from itaxotools.concatenator import (
+    FileType, FileFormat, get_writer, get_extension)
 
 from .. import step_state_machine as ssm
 
 from .wait import StepWaitBar
 
 
-def dummy_work(state, count, max, lines, period):
-    print('')
-    return 0
+class FileScheme(Enum):
+    InterNexus = ("Interleaved Nexus", FileType.File, FileFormat.Nexus)
+    ConcatFasta = ("Concatenated Fasta", FileType.File, FileFormat.Fasta)
+    ConcatPhylip = ("Concatenated Phylip", FileType.File, FileFormat.Phylip)
+    ConcatAli = ("Concatenated Ali", FileType.File, FileFormat.Ali)
+    MultiFasta = ("Multifile Fasta", FileType.Directory, FileFormat.Fasta)
+    MultiPhylip = ("Multifile Phylip", FileType.Directory, FileFormat.Phylip)
+    MultiAli = ("Multifile Ali", FileType.Directory, FileFormat.Ali)
+    ConcatTab = ("Tabfile", FileType.File, FileFormat.Tab)
+
+    def __init__(self, text: str, type: FileType, format: FileFormat):
+        self.text = text
+        self.type = type
+        self.format = format
 
 
-@dataclass
-class FileFormat:
-    text: str
-    many_files: bool = False
-    order_matters: bool = True
-    extension: str = None
+class FileCompression(Enum):
+    Uncompressed = ("None", FileType.File)
+    ZipArchive = ("Zip Archive", FileType.ZipArchive)
+
+    def __init__(self, text: str, type: FileType):
+        self.text = text
+        self.type = type
 
 
-@dataclass
-class FileCompression:
-    text: str
-    extension: str
+class CodonOptions(IntEnum):
+    Mark = auto()
+    Export = auto()
 
 
-class CodonOptions(enum.IntEnum):
-    Mark = enum.auto()
-    Export = enum.auto()
-
-
-class OrderingOptions(enum.IntEnum):
-    SameAsInput = enum.auto()
-    Alphabetical = enum.auto()
-
-
-class DataObject(object):
-    pass
+class OrderingOptions(IntEnum):
+    SameAsInput = auto()
+    Alphabetical = auto()
 
 
 class StepExportEdit(ssm.StepTriStateEdit):
 
     description = 'Configure output'
 
-    def __init__(self, *args, **kwargs):
-        self.data = DataObject()
-        super().__init__(*args, **kwargs)
-
     def onEntry(self, event):
         super().onEntry(event)
         self.footer.next.setText('&Export')
+        self.format_changed()
 
     def draw(self):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Please select the output file format and respective file '
-            'options, then click "Export" to save results:')
+            'Please select the output file format and compression type, '
+            'then click "Export" to save results:')
         label = QtWidgets.QLabel(text)
 
         layout = QtWidgets.QGridLayout()
@@ -100,11 +100,11 @@ class StepExportEdit(ssm.StepTriStateEdit):
     def draw_left(self):
         layout = QtWidgets.QGridLayout()
 
-        format = QtWidgets.QComboBox()
+        scheme = QtWidgets.QComboBox()
         order = QtWidgets.QComboBox()
         compression = QtWidgets.QComboBox()
 
-        format.setToolTip((
+        scheme.setToolTip((
             'Select one of the available sequence file formats.' + '\n'
             'Some options may only be available for certain formats.'
             ))
@@ -118,34 +118,39 @@ class StepExportEdit(ssm.StepTriStateEdit):
             ))
 
         label_format = QtWidgets.QLabel('Output file format:')
-        label_order = QtWidgets.QLabel('Character set order:')
         label_compression = QtWidgets.QLabel('File compression:')
+        label_order = QtWidgets.QLabel('Character set order:')
 
-        label_format.setToolTip(format.toolTip())
-        label_order.setToolTip(order.toolTip())
+        label_format.setToolTip(scheme.toolTip())
         label_compression.setToolTip(compression.toolTip())
+        label_order.setToolTip(order.toolTip())
 
-        for fileFormat in self.parent().fileFormats:
-            format.addItem(fileFormat.text, fileFormat)
-        for fileCompression in self.parent().fileCompressions:
-            compression.addItem(fileCompression.text, fileCompression)
+        for item in FileScheme:
+            scheme.addItem(item.text, item)
+        for item in FileCompression:
+            compression.addItem(item.text, item)
         order.addItem('Alphabetical', OrderingOptions.Alphabetical)
         order.addItem('Same as input', OrderingOptions.SameAsInput)
 
-        format.activated.connect(self.formatChanged)
+        scheme.activated.connect(self.format_changed)
+        compression.activated.connect(self.format_changed)
+
+        label_order.setVisible(False)
+        order.setVisible(False)
 
         layout.addWidget(label_format, 0, 0)
-        layout.addWidget(label_order, 1, 0)
-        layout.addWidget(label_compression, 2, 0)
-        layout.addWidget(format, 0, 1)
-        layout.addWidget(order, 1, 1)
-        layout.addWidget(compression, 2, 1)
+        layout.addWidget(label_compression, 1, 0)
+        layout.addWidget(label_order, 2, 0)
+        layout.addWidget(scheme, 0, 1)
+        layout.addWidget(compression, 1, 1)
+        layout.addWidget(order, 2, 1)
 
+        layout.setRowStretch(3, 1)
         layout.setColumnMinimumWidth(1, 160)
         layout.setSpacing(16)
         layout.setContentsMargins(24, 16, 24, 16)
 
-        self.format = format
+        self.scheme = scheme
         self.order = order
         self.compression = compression
 
@@ -184,10 +189,15 @@ class StepExportEdit(ssm.StepTriStateEdit):
         mark.setChecked(True)
         exclude.setChecked(True)
 
+        mark.setVisible(False)
+        export.setVisible(False)
+        exclude.setVisible(False)
+
         layout.addWidget(mark)
         layout.addWidget(export)
         layout.addSpacing(16)
         layout.addWidget(exclude)
+        layout.addStretch(1)
         layout.setSpacing(8)
         layout.setContentsMargins(24, 16, 24, 16)
 
@@ -196,9 +206,28 @@ class StepExportEdit(ssm.StepTriStateEdit):
 
         return layout
 
-    def formatChanged(self, index):
-        format = self.format.currentData()
-        self.order.setEnabled(format.order_matters)
+    def infer_writer(self):
+        scheme = self.scheme.currentData()
+        type = scheme.type
+        compression = self.compression.currentData()
+        if compression.type is not FileType.File:
+            type = compression.type
+        return get_writer(type, scheme.format)
+
+    def infer_dialog_filter(self):
+        writer = self.infer_writer()
+        scheme = self.scheme.currentData()
+        extension = get_extension(writer.type, writer.format)
+        glob = f'*{extension}' if extension else '*'
+        return f'{scheme.text} ({glob})'
+
+    def format_changed(self, index=0):
+        scheme = self.scheme.currentData()
+        allow_compression = bool(scheme.type == FileType.Directory)
+        self.compression.setEnabled(allow_compression)
+        if not allow_compression:
+            self.compression.setCurrentIndex(0)
+        # Update option widgets here
 
 
 class StepExportWait(StepWaitBar):
@@ -229,44 +258,30 @@ class StepExport(ssm.StepTriState):
     StepFail = StepExportFail
 
     def __init__(self, *args, **kwargs):
-        self.fileFormats = [
-            FileFormat('Interleaved NEXUS', False, True, 'nex'),
-            FileFormat('Concatenated FASTA', False, True, 'fas'),
-            FileFormat('Concatenated PHYLIP', False, True, 'phy'),
-            FileFormat('Distributed FASTA', True, False),
-            FileFormat('Ali Alignment', True, False),
-            FileFormat('Partitionfinder', True, True),
-            ]
-        self.fileCompressions = [
-            FileCompression('None', None),
-            FileCompression('Zip Archive', 'zip'),
-            FileCompression('Tar Archive', 'tar'),
-            ]
         super().__init__(*args, **kwargs)
-        self.data.targetFile = None
-        self.data.file_count = 0
+        self.data = AttrDict()
+        self.data.target = None
+        self.data.count = 0
 
     def work(self):
-        with self.states['wait'].redirect():
-            return dummy_work(self, 2, 10, 2, 80)
-
-    def dialogFilter(self, format, compression):
-        if compression.extension is not None:
-            return f'{compression.text} (*.{compression.extension})'
-        glob = f'*.{format.extension}' if not format.many_files else '*'
-        return f'{format.text} ({glob})'
+        with self.states.wait.redirect():
+            print('')
+            return 0
 
     def filterNext(self, event):
-        format = self.states.edit.format.currentData()
-        compression = self.states.edit.compression.currentData()
-        (fileName, _) = QtWidgets.QFileDialog.getSaveFileName(
-            self.machine().parent(),
-            self.machine().parent().title + ' - Export',
-            QtCore.QDir.currentPath() + '/output',
-            self.dialogFilter(format, compression))
+        if self.states.edit.infer_writer().type == FileType.Directory:
+            fileName = QtWidgets.QFileDialog.getExistingDirectory(
+                self.machine().parent(),
+                self.machine().parent().title + ' - Export',
+                QtCore.QDir.currentPath())
+        else:
+            (fileName, _) = QtWidgets.QFileDialog.getSaveFileName(
+                self.machine().parent(),
+                self.machine().parent().title + ' - Export',
+                QtCore.QDir.currentPath() + '/output',
+                self.states.edit.infer_dialog_filter())
         if len(fileName) > 0:
-            self.data.targetFile = pathlib.Path(fileName)
-            self.data.file_count = randint(1, 99)
+            self.data.target = Path(fileName)
             return True
         return False
 
