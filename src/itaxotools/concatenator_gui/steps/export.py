@@ -22,6 +22,7 @@ from PySide6 import QtCore
 from PySide6 import QtWidgets
 
 from enum import Enum, IntEnum, auto
+from datetime import datetime
 from pathlib import Path
 
 from itaxotools.common.utility import AttrDict
@@ -103,6 +104,8 @@ class StepExportEdit(ssm.StepTriStateEdit):
         scheme = QtWidgets.QComboBox()
         order = QtWidgets.QComboBox()
         compression = QtWidgets.QComboBox()
+        timestamp = QtWidgets.QCheckBox('Append timestamp to filename.')
+        timestamp.setChecked(True)
 
         scheme.setToolTip((
             'Select one of the available sequence file formats.' + '\n'
@@ -144,8 +147,9 @@ class StepExportEdit(ssm.StepTriStateEdit):
         layout.addWidget(scheme, 0, 1)
         layout.addWidget(compression, 1, 1)
         layout.addWidget(order, 2, 1)
+        layout.addWidget(timestamp, 3, 0, 1, 2)
 
-        layout.setRowStretch(3, 1)
+        layout.setRowStretch(4, 1)
         layout.setColumnMinimumWidth(1, 160)
         layout.setSpacing(16)
         layout.setContentsMargins(24, 16, 24, 16)
@@ -153,6 +157,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
         self.scheme = scheme
         self.order = order
         self.compression = compression
+        self.timestamp = timestamp
 
         return layout
 
@@ -221,12 +226,26 @@ class StepExportEdit(ssm.StepTriStateEdit):
         glob = f'*{extension}' if extension else '*'
         return f'{scheme.text} ({glob})'
 
+    def infer_base_name(self):
+        names = [path.stem for path in self.machine().states.input.data.files]
+        if len(names) == 1:
+            return names[0]
+        return 'output'
+
+    def get_time_string(self):
+        if self.timestamp.isChecked():
+            return '_' + datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+        return ''
+
     def format_changed(self, index=0):
         scheme = self.scheme.currentData()
-        allow_compression = bool(scheme.type == FileType.Directory)
-        self.compression.setEnabled(allow_compression)
-        if not allow_compression:
+        scheme_is_dir = bool(scheme.type == FileType.Directory)
+        self.compression.setEnabled(scheme_is_dir)
+        if not scheme_is_dir:
             self.compression.setCurrentIndex(0)
+        out_is_dir = bool(self.infer_writer().type == FileType.Directory)
+        self.timestamp.setEnabled(not out_is_dir)
+        self.timestamp.setChecked(not out_is_dir)
         # Update option widgets here
 
 
@@ -275,10 +294,12 @@ class StepExport(ssm.StepTriState):
                 self.machine().parent().title + ' - Export',
                 QtCore.QDir.currentPath())
         else:
+            basename = self.states.edit.infer_base_name()
+            basename += self.states.edit.get_time_string()
             (fileName, _) = QtWidgets.QFileDialog.getSaveFileName(
                 self.machine().parent(),
                 self.machine().parent().title + ' - Export',
-                QtCore.QDir.currentPath() + '/output',
+                QtCore.QDir.currentPath() + '/' + basename,
                 self.states.edit.infer_dialog_filter())
         if len(fileName) > 0:
             self.data.target = Path(fileName)
