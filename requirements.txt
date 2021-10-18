@@ -5,12 +5,11 @@ colorama==0.4.4
 colorlog==6.5.0
 concatenator==0.2.dev0
 concatenator-gui==0.2.dev0
-concatenator-qt==0.1.0
 csvw==1.11.0
-DNAconvert==0.1.0
+DNAconvert==0.1.dev1
 future==0.18.2
 isodate==0.6.0
-itaxotools-common==0.2.1
+itaxotools-common==0.2.dev2
 mafftpy==0.1.dev2
 newick==1.3.1
 numpy==1.21.2
