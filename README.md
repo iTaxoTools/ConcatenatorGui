@@ -17,10 +17,7 @@ $ concatenator-gui examples/test_tabfile.tab
 
 ## Packaging
 
-It is advised to do this inside a virtual environment using a tool such as pipenv:
-
 ```
-$ pipenv shell
-$ pip install -e ".[dev]"
+$ pip install ".[dev]" -f packages.html
 $ pyinstaller scripts/concatenator.spec
 ```
