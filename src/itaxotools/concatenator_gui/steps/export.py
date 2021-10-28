@@ -245,7 +245,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
 
     def get_time_string(self):
         if self.timestamp.isChecked():
-            return '_' + datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+            return '_' + datetime.now().strftime("%Y%m%dT%H%M%S")
         return ''
 
     def scheme_changed(self, index=0):
