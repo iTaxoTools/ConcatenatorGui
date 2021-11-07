@@ -24,15 +24,18 @@ from PySide6 import QtWidgets
 from tempfile import TemporaryDirectory
 from enum import Enum, IntEnum, auto
 from datetime import datetime
+from itertools import chain
 from pathlib import Path
 
+import traceback
 import shutil
 
 from itaxotools.common.utility import AttrDict
 from itaxotools.concatenator import (
-    FileType, FileFormat, get_writer, get_extension, read_from_path)
+    FileType, FileFormat, GeneStream,
+    get_writer, get_extension, read_from_path)
 from itaxotools.concatenator.library.operators import (
-    OpChainCharsets, OpTranslateCharsets, OpApply)
+    OpChainGenes, OpTranslateGenes, OpApplyToGene)
 
 from .. import step_state_machine as ssm
 
@@ -226,7 +229,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
         compression = self.compression.currentData()
         if compression.type is not FileType.File:
             type = compression.type
-        writer = get_writer(type, scheme.format)()
+        writer = get_writer(type, scheme.format)
         # fill writer options here
         return writer
 
@@ -278,8 +281,9 @@ class StepExportFail(ssm.StepTriStateFail):
 
     def onEntry(self, event):
         super().onEntry(event)
-        self.parent().update(
-            text=f'Export failed: {str(self.exception)}')
+        message = f'{type(self.exception).__name__}: {str(self.exception)}'
+        self.parent().states.wait.logio.writeline(message)
+        self.parent().update(text=f'Export failed: {message}')
 
 
 class StepExport(ssm.StepTriState):
@@ -328,10 +332,13 @@ class StepExport(ssm.StepTriState):
         cache = Path(self.machine().states.align_sets.temp_cache.name)
         all_streams = [read_from_path(cache)] + streams
         translation = self.machine().states.filter.translation
-        chained = OpChainCharsets().multi_filter(all_streams)
-        translated = OpTranslateCharsets(translation).to_filter(chained)
-        applied = OpApply(checker_func).to_filter(translated)
-        writer(applied, out)
+        stream = (
+            GeneStream(chain(*all_streams))
+            .pipe(OpChainGenes())
+            .pipe(OpTranslateGenes(translation))
+            .pipe(OpApplyToGene(checker_func))
+            )
+        writer(stream, out)
         with self.states.wait.redirect():
             print(f'Done exporting, moving results to {self.data.target}')
         shutil.move(out, self.data.target)

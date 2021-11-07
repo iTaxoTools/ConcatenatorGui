@@ -35,7 +35,7 @@ from itaxotools.common.utility import AttrDict
 from itaxotools.concatenator import (
     FileType, FileFormat, read_from_path, write_to_path)
 from itaxotools.concatenator.library.operators import (
-    OpFilterCharsets, OpApply, chain)
+    OpFilterGenes, OpApplyToGene)
 
 from itaxotools.mafftpy import MultipleSequenceAlignment
 
@@ -423,9 +423,6 @@ class StepAlignSets(ssm.StepTriState):
 
         self.temp_prep = TemporaryDirectory(prefix='concat_mafft_prep_')
         path = Path(self.temp_prep.name)
-        seq_filter = chain([
-            OpApply(checker_func).to_filter,
-            OpFilterCharsets(charsets).to_filter])
         print('Preparing files for selected charsets...\n')
         self.update(0, 0, 'Preparing files...')
         for count, file in enumerate(files):
@@ -433,9 +430,12 @@ class StepAlignSets(ssm.StepTriState):
             print(text)
             self.update(0, 0, text)
             stream = read_from_path(file.path)
-            write_to_path(
-                seq_filter(stream), path,
-                FileType.Directory, FileFormat.Fasta)
+            stream = (
+                stream
+                .pipe(OpApplyToGene(checker_func))
+                .pipe(OpFilterGenes(charsets))
+                )
+            write_to_path(stream, path,FileType.Directory, FileFormat.Fasta)
         self.worker.check()
         print('\nDone preparing files')
         print(f'\n{"-"*20}\n')
@@ -472,7 +472,7 @@ class StepAlignSets(ssm.StepTriState):
             print(f'\nAligned {charset}')
             print(f'\n{"-"*20}\n')
         self.update(1, 1, 'Done')
-        print('Done aligning sequences')
+        print('Completed sequence alignment.')
 
     def onCancel(self, exception):
         self.process.quit()

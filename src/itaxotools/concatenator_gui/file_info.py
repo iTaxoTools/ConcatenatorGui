@@ -2,6 +2,8 @@
 from typing import Callable
 from pathlib import Path
 
+import re
+
 from itaxotools.concatenator import (
     FileType, FileFormat, autodetect, read_from_path)
 from itaxotools.concatenator.library.operators import OpDropEmpty
@@ -44,11 +46,12 @@ def file_info_from_path(
     all_characters_missing = 0
     all_uniform = []
 
-    for series in stream:
-        series = OpDropEmpty('?-')(series)
+    for gene in stream:
+        gene = OpDropEmpty()(gene)
+        series = gene.series
         seq = series.name
         lengths = series.str.len()
-        missing = series.str.count('[?-]')
+        missing = series.str.count(f'[{re.escape(gene.missing + gene.gap)}]')
         uniform = has_uniform_length(series)
         mask = (lengths - missing != 0)
         samples_new = series.index[mask]
