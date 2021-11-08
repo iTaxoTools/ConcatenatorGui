@@ -469,7 +469,7 @@ class StepAlignSets(ssm.StepTriState):
                 work_mafft, input, output, strategy)
             self.process.setStream(self.states.wait.logio)
             self.process.done.connect(loop.quit)
-            # process.fail does not send out the stack
+            # process.fail does not send out the trace
             # self.process.fail.connect(self.worker.fail)
             self.process.fail.connect(
                 lambda e: self.worker.emit.fail(e, '???'))

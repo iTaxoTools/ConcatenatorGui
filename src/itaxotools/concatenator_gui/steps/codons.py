@@ -26,6 +26,10 @@ from itaxotools import common
 import itaxotools.common.widgets
 import itaxotools.common.resources # noqa
 
+from itaxotools.concatenator.library.model import GeneSeries
+from itaxotools.concatenator.library.codons import (
+    GeneticCode, ReadingFrame, _GC_DESCRIPTIONS)
+
 from .. import model
 from .. import widgets
 from .. import step_state_machine as ssm
@@ -33,38 +37,36 @@ from .. import step_state_machine as ssm
 from .wait import StepWaitBar
 
 
+GENETIC_CODES = {0: 'Unknown'}
+GENETIC_CODES.update({
+    k: f'{GeneticCode(k).name}: {_GC_DESCRIPTIONS[k].name}'
+    for k in _GC_DESCRIPTIONS.keys()
+})
+
+READING_FRAMES = {0: 'Auto-detect'}
+READING_FRAMES.update({
+    frame: str(frame) for frame in ReadingFrame
+    if frame != 0
+})
+
+DEFAULT_NAMES = {
+    i+1: name for i, name in enumerate(GeneSeries.defaults['codon_names'])}
+
+
 class CodonItem(widgets.ModelItem):
     fields = [
         'display_name',
         'action',
-        'code',
-        'frame',
+        'code_display',
+        'frame_display',
         'naming',
         ]
     values = {
         'naming': ['Default', 'Custom'],
-        'frame': {
-            'Auto-detect': 'Auto-detect',
-            '+1': '+1 (starts with 1st codon position)',
-            '+2': '+2 (starts with 2nd codon position)',
-            '+3': '+3 (starts with 3rd codon position)',
-            '-1': '-1 (reverse complement of +1)',
-            '-2': '-2 (reverse complement of +2)',
-            '-3': '-3 (reverse complement of +3)',
-            },
-        'code': [
-            'Auto-detect',
-            'Standard',
-            'Vertebrate Mitochondrial',
-            'Yeast Mitochondrial',
-            'Invertebrate Mitochondrial',
-            ],
+        'frame_display': READING_FRAMES,
+        'code_display': GENETIC_CODES
         }
-    defaults = {
-        1: '**_1st',
-        2: '**_2nd',
-        3: '**_3rd',
-        }
+    defaults = DEFAULT_NAMES
 
     def __init__(self, parent, charset: model.Charset):
         super().__init__(parent, charset)
@@ -77,17 +79,19 @@ class CodonItem(widgets.ModelItem):
         self.refresh()
 
     def subset(self):
+        if self.split:
+            return
         self.split = True
         self.naming = 'Default'
-        self.frame = 'Auto-detect'
-        self.code = 'Auto-detect'
+        self.frame = 1
+        self.code = 1
         self.refresh()
 
     def clear(self):
         self.split = False
         self.naming = ''
-        self.frame = ''
-        self.code = ''
+        self.frame = 0
+        self.code = 0
         self.names = dict(self.defaults)
         self.refresh()
 
@@ -99,6 +103,8 @@ class CodonItem(widgets.ModelItem):
 
     def refresh(self):
         self.updateField('action')
+        self.updateField('code_display')
+        self.updateField('frame_display')
         self.tag_set('split', self.split)
         if self.treeWidget():
             self.treeWidget().signalTagUpdate.emit()
@@ -130,7 +136,29 @@ class CodonItem(widgets.ModelItem):
 
     @property
     def action(self):
-        return 'Split' if self.split else '-'
+        return 'Subset' if self.split else '-'
+
+    @property
+    def code_display(self):
+        if not self.split:
+            return ''
+        return GeneticCode(self.code).name
+
+    @code_display.setter
+    def code_display(self, value):
+        self.code = value
+
+    @property
+    def frame_display(self):
+        if not self.split:
+            return ''
+        if not self.frame:
+            return 'Auto-detect'
+        return ReadingFrame(self.frame).label
+
+    @frame_display.setter
+    def frame_display(self, value):
+        self.frame = value
 
     @classmethod
     def populateComboBox(cls, combo, field):
@@ -289,7 +317,7 @@ class OptionsDialog(QtWidgets.QDialog):
             'Double asterisks (**) are replaced by the character set name.')
 
         self.split = QtWidgets.QCheckBox(
-            ' Split codon positions for all selected character sets.')
+            ' Subset codon positions for all selected character sets.')
         self.char = QtWidgets.QLineEdit('')
         self.char.setReadOnly(True)
         self.char.setStyleSheet("""
@@ -303,9 +331,10 @@ class OptionsDialog(QtWidgets.QDialog):
         self.third = QtWidgets.QLineEdit('**_3rd')
 
         self.code = QtWidgets.QComboBox()
-        CodonItem.populateComboBox(self.code, 'code')
+        self.code.setMaximumWidth(240)
+        CodonItem.populateComboBox(self.code, 'code_display')
         self.frame = QtWidgets.QComboBox()
-        CodonItem.populateComboBox(self.frame, 'frame')
+        CodonItem.populateComboBox(self.frame, 'frame_display')
 
         ok = common.widgets.PushButton('OK')
         ok.clicked.connect(self.accept)
@@ -369,8 +398,8 @@ class OptionsDialog(QtWidgets.QDialog):
         if self.split.isChecked():
             for item in items:
                 item.subset()
-                item.code = self.code.currentData()
-                item.frame = self.frame.currentData()
+                item.code_display = self.code.currentData()
+                item.frame_display = self.frame.currentData()
                 names = {
                     1: self.first.text(),
                     2: self.second.text(),
@@ -385,7 +414,7 @@ class OptionsDialog(QtWidgets.QDialog):
 
 class StepCodonsEdit(ssm.StepTriStateEdit):
 
-    description = 'Select which character sets to split'
+    description = 'Select which character sets to subset'
 
     def onEntry(self, event):
         super().onEntry(event)
@@ -563,12 +592,22 @@ class StepCodons(ssm.StepTriState):
         raise exception
 
     def work(self):
+        charsets = {
+            k for k, v in self.machine().states.input.data.charsets.items()
+            if v.split and v.translation is not None}
         with self.states['wait'].redirect():
             print('Splitting by codons is not supported at this time.')
+            for k in charsets:
+                print(k)
+            for item in self.states.edit.view.iterate():
+                print(item)
+                print(item.name)
+                print(item.frame)
             self.update(1, 1, 'text')
         return self.states.edit.marked.value
 
     def onFail(self, exception, trace):
+        raise exception
         self.states.wait.logio.writeline('')
         self.states.wait.logio.writeline(trace)
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
