@@ -374,8 +374,9 @@ class StepAlignSetsFail(ssm.StepTriStateFail):
 
     def onEntry(self, event):
         super().onEntry(event)
+        message = f'{type(self.exception).__name__}'
         self.parent().update(
-            text=f'Sequence alignment failed: {str(self.exception)}')
+            text=f'Sequence alignment failed: {message}')
 
 
 class StepAlignSets(ssm.StepTriState):
@@ -477,13 +478,13 @@ class StepAlignSets(ssm.StepTriState):
     def onCancel(self, exception):
         self.process.quit()
 
-    def onFail(self, exception):
+    def onFail(self, exception, trace):
         self.states.wait.logio.writeline('')
-        self.states.wait.logio.writeline(str(exception))
+        self.states.wait.logio.writeline(trace)
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
         msgBox.setWindowTitle(self.machine().parent().title)
         msgBox.setIcon(QtWidgets.QMessageBox.Critical)
-        msgBox.setText('Alignment failed:')
+        msgBox.setText(type(exception).__name__)
         msgBox.setInformativeText(str(exception))
         msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
         self.machine().parent().msgShow(msgBox)

@@ -295,8 +295,8 @@ class StepTriState(StepState):
         self.states.fail.exception = None
         self.machine().navigate(NavigateAction.Done)
 
-    def _onFail(self, exception):
-        self.onFail(exception)
+    def _onFail(self, exception, trace=''):
+        self.onFail(exception, trace)
         self.states.done.result = None
         self.states.fail.exception = exception
         self.machine().navigate(NavigateAction.Fail)
@@ -305,7 +305,7 @@ class StepTriState(StepState):
         """Called after work() is successfully completed"""
         pass
 
-    def onFail(self, exception):
+    def onFail(self, exception, trace=''):
         """Called after work() has raised an exception"""
         pass
 

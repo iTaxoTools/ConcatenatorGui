@@ -27,7 +27,6 @@ from datetime import datetime
 from itertools import chain
 from pathlib import Path
 
-import traceback
 import shutil
 
 from itaxotools.common.utility import AttrDict
@@ -249,8 +248,7 @@ class StepExportFail(ssm.StepTriStateFail):
 
     def onEntry(self, event):
         super().onEntry(event)
-        message = f'{type(self.exception).__name__}: {str(self.exception)}'
-        self.parent().states.wait.logio.writeline(message)
+        message = f'{type(self.exception).__name__}'
         self.parent().update(text=f'Export failed: {message}')
 
 
@@ -311,6 +309,17 @@ class StepExport(ssm.StepTriState):
             print(f'Done exporting, moving results to {self.data.target}')
         shutil.move(out, self.data.target)
         return self.data.total
+
+    def onFail(self, exception, trace):
+        self.states.wait.logio.writeline('')
+        self.states.wait.logio.writeline(trace)
+        msgBox = QtWidgets.QMessageBox(self.machine().parent())
+        msgBox.setWindowTitle(self.machine().parent().title)
+        msgBox.setIcon(QtWidgets.QMessageBox.Critical)
+        msgBox.setText(type(exception).__name__)
+        msgBox.setInformativeText(str(exception))
+        msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        self.machine().parent().msgShow(msgBox)
 
     def filterNext(self, event):
         basename = self.states.edit.infer_base_name()

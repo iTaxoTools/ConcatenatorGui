@@ -543,8 +543,9 @@ class StepCodonsFail(ssm.StepTriStateFail):
 
     def onEntry(self, event):
         super().onEntry(event)
+        message = f'{type(self.exception).__name__}'
         self.parent().update(
-            text=f'Codon subsetting failed: {str(self.exception)}')
+            text=f'Codon subsetting failed: {message}')
 
 
 class StepCodons(ssm.StepTriState):
@@ -566,6 +567,17 @@ class StepCodons(ssm.StepTriState):
             print('Splitting by codons is not supported at this time.')
             self.update(1, 1, 'text')
         return self.states.edit.marked.value
+
+    def onFail(self, exception, trace):
+        self.states.wait.logio.writeline('')
+        self.states.wait.logio.writeline(trace)
+        msgBox = QtWidgets.QMessageBox(self.machine().parent())
+        msgBox.setWindowTitle(self.machine().parent().title)
+        msgBox.setIcon(QtWidgets.QMessageBox.Critical)
+        msgBox.setText(type(exception).__name__)
+        msgBox.setInformativeText(str(exception))
+        msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        self.machine().parent().msgShow(msgBox)
 
     def skipWait(self):
         skip = self.states.edit.marked.value == 0
