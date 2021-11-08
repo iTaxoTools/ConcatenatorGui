@@ -31,8 +31,10 @@ import traceback
 import shutil
 
 from itaxotools.common.utility import AttrDict
+from itaxotools.common.param.model import Model as ParamModel
+from itaxotools.common.param.view import PlainView
 from itaxotools.concatenator import (
-    FileType, FileFormat, GeneStream,
+    FileType, FileFormat, GeneStream, FileWriter,
     get_writer, get_extension, read_from_path)
 from itaxotools.concatenator.library.operators import (
     OpChainGenes, OpTranslateGenes, OpApplyToGene)
@@ -50,6 +52,8 @@ class FileScheme(Enum):
     MultiFasta = ("Multifile Fasta", FileType.Directory, FileFormat.Fasta)
     MultiPhylip = ("Multifile Phylip", FileType.Directory, FileFormat.Phylip)
     MultiAli = ("Multifile Ali", FileType.Directory, FileFormat.Ali)
+    PartitionFinder = ("PartitionFinder", FileType.Directory, FileFormat.PartitionFinder)
+    IQTree = ("IQTree", FileType.Directory, FileFormat.IQTree)
     ConcatTab = ("Tabfile", FileType.File, FileFormat.Tab)
 
     def __init__(self, text: str, type: FileType, format: FileFormat):
@@ -83,6 +87,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.writer: Optional[FileWriter] = None
         self.scheme_changed()
         self.compression_changed()
 
@@ -176,50 +181,12 @@ class StepExportEdit(ssm.StepTriStateEdit):
     def draw_right(self):
         layout = QtWidgets.QVBoxLayout()
 
-        mark = QtWidgets.QRadioButton(
-            'Write codon sets within output information block.')
-        mark.setToolTip((
-            'Codon sets will be written within:' + '\n'
-            '- the sets block for Interleaved Nexus' + '\n'
-            '- the cfg file for Partitionfinder'
-            ))
+        self.param_view = PlainView()
 
-        export = QtWidgets.QRadioButton(
-            'Export codon sets as new character sets.')
-        export.setToolTip(
-            'Codon sets will be treated as new character sets.'
-            )
-
-        options = QtWidgets.QButtonGroup()
-        options.addButton(mark)
-        options.setId(mark, CodonOptions.Mark)
-        options.addButton(export)
-        options.setId(export, CodonOptions.Export)
-
-        exclude = QtWidgets.QCheckBox(
-            'Exclude sequences with missing data.')
-        exclude.setToolTip((
-            'Samples that contain only { N ? - } will not' + '\n'
-            'be included in the respective output files.'
-            ))
-
-        mark.setChecked(True)
-        exclude.setChecked(True)
-
-        mark.setVisible(False)
-        export.setVisible(False)
-        exclude.setVisible(False)
-
-        layout.addWidget(mark)
-        layout.addWidget(export)
-        layout.addSpacing(16)
-        layout.addWidget(exclude)
+        layout.addWidget(self.param_view)
         layout.addStretch(1)
-        layout.setSpacing(8)
         layout.setContentsMargins(24, 16, 24, 16)
-
-        self.codonOptions = options
-        self.exclude = exclude
+        layout.setContentsMargins(24, 8, 24, 8)
 
         return layout
 
@@ -230,13 +197,13 @@ class StepExportEdit(ssm.StepTriStateEdit):
         if compression.type is not FileType.File:
             type = compression.type
         writer = get_writer(type, scheme.format)
-        # fill writer options here
-        return writer
+        self.writer = writer
+        self.param_model = ParamModel(writer.params)
+        self.param_view.setModel(self.param_model)
 
     def infer_dialog_filter(self):
-        writer = self.infer_writer()
         scheme = self.scheme.currentData()
-        extension = get_extension(writer.type, writer.format)
+        extension = get_extension(self.writer.type, self.writer.format)
         glob = f'*{extension}' if extension else '*'
         return f'{scheme.text} ({glob})'
 
@@ -260,10 +227,11 @@ class StepExportEdit(ssm.StepTriStateEdit):
         else:
             self.compression.setCurrentIndex(1)
         # Update option widgets here
+        self.infer_writer()
 
     def compression_changed(self, index=0):
         # Update option widgets here
-        pass
+        self.infer_writer()
 
 
 class StepExportWait(StepWaitBar):
@@ -325,7 +293,7 @@ class StepExport(ssm.StepTriState):
         with self.states.wait.redirect():
             print('Exporting files, please wait...\n')
             print(f'Writing to temporary file: {out}\n')
-        writer = self.states.edit.infer_writer()
+        writer = self.states.edit.writer
         streams = [
             read_from_path(file.path)
             for file in self.machine().states.input.data.files.values()]
@@ -354,7 +322,7 @@ class StepExport(ssm.StepTriState):
             self.states.edit.infer_dialog_filter())
         if not fileName:
             return False
-        if self.states.edit.infer_writer().type == FileType.Directory:
+        if self.states.edit.writer.type == FileType.Directory:
             if Path(fileName).exists():
                 msgBox = QtWidgets.QMessageBox(self.machine().parent())
                 msgBox.setWindowTitle(self.machine().parent().title)
