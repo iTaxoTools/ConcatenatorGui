@@ -118,7 +118,6 @@ class StepExportEdit(ssm.StepTriStateEdit):
         layout = QtWidgets.QGridLayout()
 
         scheme = QtWidgets.QComboBox()
-        order = QtWidgets.QComboBox()
         compression = QtWidgets.QComboBox()
         timestamp = QtWidgets.QCheckBox('Append timestamp to filename.')
         timestamp.setChecked(True)
@@ -127,10 +126,6 @@ class StepExportEdit(ssm.StepTriStateEdit):
             'Select one of the available sequence file formats.' + '\n'
             'Some options may only be available for certain formats.'
             ))
-        order.setToolTip((
-            'The order in which the character sets are written' + '\n'
-            'in the output file information blocks.'
-            ))
         compression.setToolTip((
             'If a compression type is selected, all output files' + '\n'
             'will be contained in a single archive of that type.'
@@ -138,31 +133,22 @@ class StepExportEdit(ssm.StepTriStateEdit):
 
         label_format = QtWidgets.QLabel('Output file format:')
         label_compression = QtWidgets.QLabel('File compression:')
-        label_order = QtWidgets.QLabel('Character set order:')
 
         label_format.setToolTip(scheme.toolTip())
         label_compression.setToolTip(compression.toolTip())
-        label_order.setToolTip(order.toolTip())
 
         for item in FileScheme:
             scheme.addItem(item.text, item)
         for item in FileCompression:
             compression.addItem(item.text, item)
-        order.addItem('Alphabetical', OrderingOptions.Alphabetical)
-        order.addItem('Same as input', OrderingOptions.SameAsInput)
 
-        scheme.activated.connect(self.scheme_changed)
-        compression.activated.connect(self.compression_changed)
-
-        label_order.setVisible(False)
-        order.setVisible(False)
+        scheme.currentIndexChanged.connect(self.scheme_changed)
+        compression.currentIndexChanged.connect(self.compression_changed)
 
         layout.addWidget(label_format, 0, 0)
         layout.addWidget(label_compression, 1, 0)
-        layout.addWidget(label_order, 2, 0)
         layout.addWidget(scheme, 0, 1)
         layout.addWidget(compression, 1, 1)
-        layout.addWidget(order, 2, 1)
         layout.addWidget(timestamp, 3, 0, 1, 2)
 
         layout.setRowStretch(4, 1)
@@ -171,7 +157,6 @@ class StepExportEdit(ssm.StepTriStateEdit):
         layout.setContentsMargins(24, 16, 24, 16)
 
         self.scheme = scheme
-        self.order = order
         self.compression = compression
         self.timestamp = timestamp
 
@@ -197,6 +182,8 @@ class StepExportEdit(ssm.StepTriStateEdit):
             type = compression.type
         writer = get_writer(type, scheme.format)
         self.writer = writer
+        if writer is None:
+            raise Exception(f'Writer not found: {type} {scheme.format}')
         self.param_model = ParamModel(writer.params)
         self.param_view.setModel(self.param_model)
 
