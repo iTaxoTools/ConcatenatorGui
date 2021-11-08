@@ -33,7 +33,7 @@ import itaxotools.common.resources # noqa
 from itaxotools.common.utility import AttrDict
 
 from itaxotools.concatenator import (
-    FileType, FileFormat, read_from_path, write_to_path)
+    FileType, FileFormat, read_from_path, get_writer)
 from itaxotools.concatenator.library.operators import (
     OpFilterGenes, OpApplyToGene)
 
@@ -436,7 +436,13 @@ class StepAlignSets(ssm.StepTriState):
                 .pipe(OpApplyToGene(checker_func))
                 .pipe(OpFilterGenes(charsets))
                 )
-            write_to_path(stream, path,FileType.Directory, FileFormat.Fasta)
+            writer = get_writer(FileType.Directory, FileFormat.Fasta)
+            writer.params.translate_missing.value = ''
+            writer.params.translate_gap.value = ''
+            writer.params.padding.value = ''
+            writer.params.sanitize_genes.value = False
+            writer.params.sanitize_species.value = False
+            writer(stream, path,)
         self.worker.check()
         print('\nDone preparing files')
         print(f'\n{"-"*20}\n')
@@ -463,7 +469,10 @@ class StepAlignSets(ssm.StepTriState):
                 work_mafft, input, output, strategy)
             self.process.setStream(self.states.wait.logio)
             self.process.done.connect(loop.quit)
-            self.process.fail.connect(self.worker.fail)
+            # process.fail does not send out the stack
+            # self.process.fail.connect(self.worker.fail)
+            self.process.fail.connect(
+                lambda e: self.worker.emit.fail(e, '???'))
             self.process.start()
             loop.exec()
 
