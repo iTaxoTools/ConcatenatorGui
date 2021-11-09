@@ -27,6 +27,7 @@ import itaxotools.common.widgets
 import itaxotools.common.resources # noqa
 
 from itaxotools.concatenator.library.model import GeneSeries
+from itaxotools.concatenator.library.operators import OpUpdateMetadata
 from itaxotools.concatenator.library.codons import (
     GeneticCode, ReadingFrame, _GC_DESCRIPTIONS)
 
@@ -564,7 +565,7 @@ class StepCodonsDone(ssm.StepTriStateDone):
         marked = self.parent().states.edit.marked.value
         s = 's' if marked > 1 else ''
         self.parent().update(
-            text=f'Skipped splitting {marked} character set{s}.')
+            text=f'Successfully subsetted {marked} character set{s}.')
 
 
 class StepCodonsFail(ssm.StepTriStateFail):
@@ -588,26 +589,28 @@ class StepCodons(ssm.StepTriState):
     class StepFail(ssm.StepSubState):
         description = 'Task failed'
 
-    def onFail(self, exception):
-        raise exception
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.metas = dict()
 
     def work(self):
-        charsets = {
-            k for k, v in self.machine().states.input.data.charsets.items()
-            if v.split and v.translation is not None}
         with self.states['wait'].redirect():
-            print('Splitting by codons is not supported at this time.')
-            for k in charsets:
-                print(k)
-            for item in self.states.edit.view.iterate():
-                print(item)
-                print(item.name)
-                print(item.frame)
+            print('Codon subset automation is not supported at this time.')
+            print('All reading frames will be exported as is.')
+            self.metas = {
+                item.name: {
+                    'genetic_code': GeneticCode(item.code),
+                    'reading_frame': ReadingFrame(item.frame),
+                    'codon_names': tuple(item.names.values()),
+                    }
+                for item in self.states.edit.view.iterate()
+                if item.split}
             self.update(1, 1, 'text')
+            # raise Exception('this crashes the state machine...')
         return self.states.edit.marked.value
 
     def onFail(self, exception, trace):
-        raise exception
+        # raise exception
         self.states.wait.logio.writeline('')
         self.states.wait.logio.writeline(trace)
         msgBox = QtWidgets.QMessageBox(self.machine().parent())

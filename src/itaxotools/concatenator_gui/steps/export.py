@@ -36,7 +36,7 @@ from itaxotools.concatenator import (
     FileType, FileFormat, GeneStream, FileWriter,
     get_writer, get_extension, read_from_path)
 from itaxotools.concatenator.library.operators import (
-    OpChainGenes, OpTranslateGenes, OpApplyToGene)
+    OpChainGenes, OpTranslateGenes, OpApplyToGene, OpUpdateMetadata)
 
 from .. import step_state_machine as ssm
 
@@ -210,8 +210,6 @@ class StepExportEdit(ssm.StepTriStateEdit):
         self.compression.setEnabled(scheme_is_dir)
         if not scheme_is_dir:
             self.compression.setCurrentIndex(0)
-        else:
-            self.compression.setCurrentIndex(1)
         # Update option widgets here
         self.infer_writer()
 
@@ -288,6 +286,7 @@ class StepExport(ssm.StepTriState):
         stream = (
             GeneStream(chain(*all_streams))
             .pipe(OpChainGenes())
+            .pipe(OpUpdateMetadata(self.machine().states.codons.metas))
             .pipe(OpTranslateGenes(translation))
             .pipe(OpApplyToGene(checker_func))
             )
