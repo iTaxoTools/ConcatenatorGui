@@ -440,8 +440,7 @@ class StepAlignSets(ssm.StepTriState):
             writer.params.translate_missing.value = ''
             writer.params.translate_gap.value = ''
             writer.params.padding.value = ''
-            writer.params.sanitize_genes.value = False
-            writer.params.sanitize_species.value = False
+            writer.params.sanitize.value = False
             writer(stream, path,)
         self.worker.check()
         print('\nDone preparing files')
