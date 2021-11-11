@@ -439,10 +439,9 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Double-click a sequence name to toggle codon subsetting, '
-            'or an option field to change it. '
-            'Click "Edit" for more options.'
-                )
+            'Mark sequences for codon subsetting in the character set '
+            'specifications of the output file. '
+            'Double-click an option field to edit it.')
         label = QtWidgets.QLabel(text)
 
         frame = self.draw_frame()
@@ -579,7 +578,7 @@ class StepCodonsFail(ssm.StepTriStateFail):
 
 
 class StepCodons(ssm.StepTriState):
-    title = 'Subset by Codons'
+    title = 'Character Sets by Codon'
 
     StepEdit = StepCodonsEdit
     StepWait = StepCodonsWait

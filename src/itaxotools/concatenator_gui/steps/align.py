@@ -242,8 +242,8 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Mark character sets for alignment by selecting them'
-            'and then clicking "Align".')
+            'Mark sequences for alignment by double-clicking, or by '
+            'selecting them and then clicking "Align".')
         label = QtWidgets.QLabel(text)
 
         frame = self.draw_frame()

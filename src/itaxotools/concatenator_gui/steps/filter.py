@@ -174,9 +174,9 @@ class StepFilter(ssm.StepState):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Select multiple sets by click-and-drag or '
+            'Select multiple sets by click-and-drag, or '
             'by clicking while holding Ctrl/Shift. '
-            'Sort by column by clicking on the headers.')
+            'Click on the column headers to sort by column.')
         label = QtWidgets.QLabel(text)
 
         frame = self.draw_frame()
