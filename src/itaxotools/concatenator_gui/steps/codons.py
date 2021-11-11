@@ -44,7 +44,8 @@ GENETIC_CODES.update({
     for k in _GC_DESCRIPTIONS.keys()
 })
 
-READING_FRAMES = {0: 'Auto-detect'}
+# READING_FRAMES = {0: 'Auto-detect'}
+READING_FRAMES = {}
 READING_FRAMES.update({
     frame: str(frame) for frame in ReadingFrame
     if frame != 0
@@ -84,14 +85,14 @@ class CodonItem(widgets.ModelItem):
             return
         self.split = True
         self.naming = 'Default'
-        self.frame = 1
-        self.code = 1
+        self.frame = ReadingFrame(1)
+        self.code = 0
         self.refresh()
 
     def clear(self):
         self.split = False
         self.naming = ''
-        self.frame = 0
+        self.frame = ReadingFrame(1)
         self.code = 0
         self.names = dict(self.defaults)
         self.refresh()
@@ -621,6 +622,9 @@ class StepCodons(ssm.StepTriState):
         self.machine().parent().msgShow(msgBox)
 
     def skipWait(self):
+        # Bypass StepWait since autodetect is disabled
+        self.work()
+        return True
         skip = self.states.edit.marked.value == 0
         return bool(skip)
 
