@@ -98,8 +98,8 @@ class StepExportEdit(ssm.StepTriStateEdit):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Please select the target file format '
-            'and the desired options, then click "Export".')
+            'Export using the desired file format. '
+            'Hover options for more information.')
         label = QtWidgets.QLabel(text)
 
         layout = QtWidgets.QGridLayout()

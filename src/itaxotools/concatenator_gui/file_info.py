@@ -6,7 +6,6 @@ import re
 
 from itaxotools.concatenator import (
     FileType, FileFormat, autodetect, read_from_path)
-from itaxotools.concatenator.library.operators import OpDropEmpty
 from itaxotools.concatenator.library.utils import has_uniform_length
 
 from . import model
@@ -47,7 +46,6 @@ def file_info_from_path(
     all_uniform = []
 
     for gene in stream:
-        gene = OpDropEmpty()(gene)
         series = gene.series
         seq = series.name
         lengths = series.str.len()
