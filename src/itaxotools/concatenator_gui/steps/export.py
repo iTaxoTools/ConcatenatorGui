@@ -99,8 +99,8 @@ class StepExportEdit(ssm.StepTriStateEdit):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Export using the desired file format. '
-            'Hover options for more information.')
+            'Hover the options for more information. '
+            'Export using the desired file format.')
         label = QtWidgets.QLabel(text)
         separator = VLineSeparator(1)
 
