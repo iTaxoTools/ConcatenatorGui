@@ -30,6 +30,7 @@ from pathlib import Path
 import shutil
 
 from itaxotools.common.utility import AttrDict
+from itaxotools.common.widgets import VLineSeparator
 from itaxotools.common.param.model import Model as ParamModel
 from itaxotools.common.param.view import PlainView
 from itaxotools.concatenator import (
@@ -101,12 +102,14 @@ class StepExportEdit(ssm.StepTriStateEdit):
             'Export using the desired file format. '
             'Hover options for more information.')
         label = QtWidgets.QLabel(text)
+        separator = VLineSeparator(1)
 
         layout = QtWidgets.QGridLayout()
-        layout.addWidget(label, 0, 0, 1, 4)
+        layout.addWidget(label, 0, 0)
+        layout.addWidget(separator, 0, 2, 4, 1)
         layout.addLayout(self.draw_left(), 1, 0)
-        layout.addLayout(self.draw_right(), 1, 1)
-        layout.setColumnStretch(3, 1)
+        layout.addLayout(self.draw_right(), 1, 3)
+        layout.setColumnStretch(1, 1)
         layout.setRowStretch(3, 1)
         layout.setSpacing(16)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -166,11 +169,12 @@ class StepExportEdit(ssm.StepTriStateEdit):
         layout = QtWidgets.QVBoxLayout()
 
         self.param_view = PlainView()
+        self.param_view.layout().setSpacing(16)
+        self.param_view.layout().setContentsMargins(8, 16, 0, 16)
 
         layout.addWidget(self.param_view)
         layout.addStretch(1)
-        layout.setContentsMargins(24, 16, 24, 16)
-        layout.setContentsMargins(24, 8, 24, 8)
+        layout.setContentsMargins(0, 0, 0, 0)
 
         return layout
 
