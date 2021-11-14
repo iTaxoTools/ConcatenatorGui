@@ -441,6 +441,7 @@ class StepAlignSets(ssm.StepTriState):
             writer.params.translate_gap.value = ''
             writer.params.padding.value = ''
             writer.params.sanitize.value = False
+            writer.params.drop_empty.value = False
             writer(stream, path,)
         self.worker.check()
         print('\nDone preparing files')
