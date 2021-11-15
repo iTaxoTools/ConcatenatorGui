@@ -170,7 +170,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
 
         self.param_view = PlainView()
         self.param_view.layout().setSpacing(16)
-        self.param_view.layout().setContentsMargins(8, 16, 0, 16)
+        self.param_view.layout().setContentsMargins(8, 16, 0, 0)
 
         layout.addWidget(self.param_view)
         layout.addStretch(1)

@@ -161,7 +161,7 @@ class StepInput(ssm.StepState):
         self.signalDone.emit()
 
     def onFail(self, exception):
-        raise exception
+        # raise exception
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
         msgBox.setWindowTitle(self.machine().parent().title)
         msgBox.setIcon(QtWidgets.QMessageBox.Critical)

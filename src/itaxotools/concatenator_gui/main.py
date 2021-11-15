@@ -51,7 +51,7 @@ class Main(common.widgets.ToolDialog):
             'itaxotools.concatenator_gui', 'logos/concatenator.ico'))
         self.setWindowIcon(icon)
         self.setWindowTitle(self.title)
-        self.resize(840, 560)
+        self.resize(860, 600)
 
         self.process = None
         self.machine = None
