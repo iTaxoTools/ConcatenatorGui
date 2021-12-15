@@ -11,7 +11,7 @@ long_description = (here / 'README.md').read_text(encoding='utf-8')
 
 setup(
     name='concatenator-gui',
-    version='0.2.dev0',
+    version='0.2.0',
     description='A Qt GUI for Concatenator',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -25,9 +25,10 @@ setup(
     python_requires='>=3.8.6, <4',
     install_requires=[
         'pyside6>=6.1.1, <6.2.0',
-        'itaxotools-common==0.2.dev2',
-        'concatenator==0.2.dev0',
-        'MAFFTpy==0.1.dev2',
+        'itaxotools-common==0.2.2',
+        'concatenator==0.2.0',
+        'mafftpy==0.1.2',
+        'fasttreepy==0.1.dev1',
         ],
     extras_require={
         'dev': ['pyinstaller>=4.5.1'],
