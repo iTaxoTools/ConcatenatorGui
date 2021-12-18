@@ -29,8 +29,9 @@ from pathlib import Path
 
 import shutil
 
+from itaxotools import common
 from itaxotools.common.utility import AttrDict
-from itaxotools.common.widgets import VLineSeparator
+from itaxotools.common.widgets import VLineSeparator, PushButton
 from itaxotools.common.param.model import Model as ParamModel
 from itaxotools.common.param.view import PlainView
 from itaxotools.concatenator import (
@@ -38,7 +39,9 @@ from itaxotools.concatenator import (
     get_writer, get_extension, read_from_path)
 from itaxotools.concatenator.library.operators import (
     OpChainGenes, OpTranslateGenes, OpApplyToGene, OpUpdateMetadata)
-
+from itaxotools import mafftpy
+from itaxotools import fasttreepy
+from itaxotools.fasttreepy.gui.main import CustomView as TreeParamView
 from .. import step_state_machine as ssm
 
 from .wait import StepWaitBar
@@ -81,15 +84,65 @@ class OrderingOptions(IntEnum):
     Alphabetical = auto()
 
 
+class TreeOptionsDialog(QtWidgets.QDialog):
+    def __init__(self, params, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.params = params
+        self.draw()
+
+        self.setWindowTitle(self.parent().title)
+        # self.setFixedSize(self.sizeHint())
+
+    def draw(self):
+        self.model = ParamModel(self.params)
+        self.view = TreeParamView(self.model, showResetButton=False)
+        self.view.widget().layout().setContentsMargins(16, 12, 8, 12)
+        self.view.setStyleSheet("""
+            QScrollArea {
+                border: 0px;
+                border-bottom: 1px solid Palette(Mid);
+                }
+        """)
+
+        ok = common.widgets.PushButton('OK')
+        ok.clicked.connect(self.accept)
+        ok.setDefault(True)
+        reset = common.widgets.PushButton('Reset')
+        reset.clicked.connect(self.reset)
+
+        buttons = QtWidgets.QHBoxLayout()
+        buttons.addSpacing(16)
+        buttons.addWidget(reset)
+        buttons.addWidget(ok)
+        buttons.addSpacing(16)
+        buttons.setSpacing(8)
+        buttons.setContentsMargins(0, 0, 0, 0)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self.view)
+        layout.addSpacing(8)
+        layout.addLayout(buttons)
+        layout.addSpacing(16)
+        layout.setContentsMargins(0, 0, 0, 0)
+        # layout.setContentsMargins(24, 16, 24, 16)
+        self.setLayout(layout)
+
+    def reset(self):
+        self.model.resetParams()
+
+
 class StepExportEdit(ssm.StepTriStateEdit):
 
     description = 'Configure output'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.tree_params = fasttreepy.params.params()
         self.writer: Optional[FileWriter] = None
         self.scheme_changed()
         self.compression_changed()
+        self.handleTreeUpdate()
 
     def onEntry(self, event):
         super().onEntry(event)
@@ -99,18 +152,25 @@ class StepExportEdit(ssm.StepTriStateEdit):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Hover the options for more information. '
-            'Export using the desired file format.')
+            'Export using the desired file format. '
+            'Hover options for more information.')
         label = QtWidgets.QLabel(text)
+        text_trees = (
+            'You may additionally calculate phylogenetic trees '
+            'using FastTree.')
+        label_trees = QtWidgets.QLabel(text_trees)
         separator = VLineSeparator(1)
 
         layout = QtWidgets.QGridLayout()
         layout.addWidget(label, 0, 0)
-        layout.addWidget(separator, 0, 2, 4, 1)
+        layout.addWidget(separator, 0, 2, 6, 1)
         layout.addLayout(self.draw_left(), 1, 0)
-        layout.addLayout(self.draw_right(), 1, 3)
+        layout.addLayout(self.draw_right(), 1, 3, 5, 1)
+        layout.addWidget(label_trees, 3, 0)
+        layout.addLayout(self.draw_trees(), 4, 0)
         layout.setColumnStretch(1, 1)
-        layout.setRowStretch(3, 1)
+        # layout.setRowMinimumHeight(2, 1)
+        layout.setRowStretch(5, 1)
         layout.setSpacing(16)
         layout.setContentsMargins(0, 0, 0, 0)
         widget.setLayout(layout)
@@ -133,6 +193,8 @@ class StepExportEdit(ssm.StepTriStateEdit):
             'If a compression type is selected, all output files' + '\n'
             'will be contained in a single archive of that type.'
             ))
+        timestamp.setToolTip(
+            'The timestamp follows ISO 8601 in local time.')
 
         label_format = QtWidgets.QLabel('Output file format:')
         label_compression = QtWidgets.QLabel('File compression:')
@@ -178,6 +240,39 @@ class StepExportEdit(ssm.StepTriStateEdit):
 
         return layout
 
+    def draw_trees(self):
+        layout = QtWidgets.QVBoxLayout()
+
+        tree_concat = QtWidgets.QCheckBox(
+            'Calculate tree for the concatenated alignment.')
+
+        tree_all = QtWidgets.QCheckBox(
+            'Calculate trees for each single-gene alignment.')
+
+        text = 'Requires that all genes are aligned (eg. with MAFFT).'
+        tree_concat.setToolTip(text)
+        tree_all.setToolTip(text)
+
+        tree_concat.stateChanged.connect(self.handleTreeUpdate)
+        tree_all.stateChanged.connect(self.handleTreeUpdate)
+
+        tree_config = PushButton('FastTree Options', onclick=self.handleTreeConfig)
+        tree_config.setMaximumWidth(160)
+
+        layout.addWidget(tree_concat)
+        layout.addWidget(tree_all)
+        layout.addSpacing(8)
+        layout.addWidget(tree_config)
+
+        layout.setSpacing(16)
+        layout.setContentsMargins(24, 8, 24, 16)
+
+        self.tree_concat = tree_concat
+        self.tree_all = tree_all
+        self.tree_config = tree_config
+
+        return layout
+
     def infer_writer(self):
         scheme = self.scheme.currentData()
         type = scheme.type
@@ -220,6 +315,16 @@ class StepExportEdit(ssm.StepTriStateEdit):
     def compression_changed(self, index=0):
         # Update option widgets here
         self.infer_writer()
+
+    def handleTreeConfig(self):
+        self.dialog = TreeOptionsDialog(self.tree_params, self.machine().parent())
+        self.dialog.setModal(True)
+        self.dialog.show()
+
+    def handleTreeUpdate(self):
+        self.tree_config.setEnabled(
+            self.tree_concat.isChecked() or self.tree_all.isChecked()
+        )
 
 
 class StepExportWait(StepWaitBar):
