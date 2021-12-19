@@ -393,31 +393,37 @@ class StepExport(ssm.StepTriState):
         self.data.target = None
         self.data.counter = 0
         self.data.total = 0
+        self.data.seqs = 0
+        self.data.trees = 0
+        self.data.phylo_prep = None
 
     def work(self):
-        self.data.counter = 0
-        self.data.total = len([
-            cs for cs in self.machine().states.input.data.charsets.values()
-            if cs.translation is not None])
+        self.data.total = 0
+        self.data.trees = 0
+        self.data.phylo_do_concat = self.states.edit.phylo_concat.isChecked()
+        self.data.phylo_do_all = self.states.edit.phylo_all.isChecked()
+        # self.data.phylo_do_concat = True  # dev
+        # self.data.phylo_do_all = True  # dev
+        if self.data.phylo_do_concat or self.data.phylo_do_all:
+            self.work_export('Step 1/3: Exporting sequences')
+            self.work_phylo_prep('Step 2/3: Phylogeny preparation')
+            self.work_phylo_calc('Step 3/3: Phylogeny calculation')
+        else:
+            self.work_export('Please wait...')
 
-        def checker_func(series):
-            text = (
-                f'Exporting sequence {self.data.counter}/{self.data.total}: '
-                f'{series.name}')
-            self.update(self.data.counter, self.data.total, text)
-            with self.states.wait.redirect():
-                print(text)
-            QtCore.QThread.msleep(4)
-            self.data.counter += 1
-            self.worker.check()
-            return series
-
-        self.data.temp = TemporaryDirectory(prefix='concat_out_')
-        out = Path(self.data.temp.name) / 'out'
+    def checker_func(self, series):
+        text = (
+            f'Exporting sequence {self.data.counter}/{self.data.total}: '
+            f'{series.name}')
+        self.update(self.data.counter, self.data.total, text)
         with self.states.wait.redirect():
-            print('Exporting files, please wait...\n')
-            print(f'Writing to temporary file: {out}\n')
-        writer = self.states.edit.writer
+            print(text)
+        # QtCore.QThread.msleep(400)
+        self.data.counter += 1
+        self.worker.check()
+        return series
+
+    def work_get_stream(self):
         streams = [
             read_from_path(file.path)
             for file in self.machine().states.input.data.files.values()]
@@ -429,13 +435,68 @@ class StepExport(ssm.StepTriState):
             .pipe(OpChainGenes())
             .pipe(OpUpdateMetadata(self.machine().states.codons.metas))
             .pipe(OpTranslateGenes(translation))
-            .pipe(OpApplyToGene(checker_func))
+            .pipe(OpApplyToGene(self.checker_func))
             )
+        return stream
+
+    def work_export(self, description):
+        self.header.showTask(title=self.title, description=description)
+        self.data.counter = 0
+        self.data.total = len([
+            cs for cs in self.machine().states.input.data.charsets.values()
+            if cs.translation is not None])
+        self.data.temp = TemporaryDirectory(prefix='concat_out_')
+        out = Path(self.data.temp.name) / 'out'
+        with self.states.wait.redirect():
+            print('Exporting files, please wait...\n')
+            print(f'Writing to temporary file: {out}\n')
+        stream = self.work_get_stream()
+        writer = self.states.edit.writer
         writer(stream, out)
+        # QtCore.QThread.msleep(200)
         with self.states.wait.redirect():
             print(f'Done exporting, moving results to {self.data.target}')
         shutil.move(out, self.data.target)
+        self.data.seqs = self.data.total
+
+    def work_phylo_prep(self, description):
+        self.header.showTask(title=self.title, description=description)
+        if self.data.phylo_do_concat:
+            self.data.trees += 1
+        if self.data.phylo_do_all:
+            self.data.trees += self.data.total
+        self.data.total = self.data.seqs * sum([
+            self.data.phylo_do_concat, self.data.phylo_do_all])
+        self.data.counter = 0
+        self.data.phylo_prep = TemporaryDirectory(prefix='concat_phylo_prep_')
+        self.work_phylo_prep_concat()
+        self.work_phylo_prep_all()
+
+    def work_phylo_prep_concat(self):
+        out = Path(self.data.phylo_prep.name) / 'concat'
+        with self.states.wait.redirect():
+            print('\nPreparing for concatenated phylogeny, please wait...\n')
+            print(f'Writing to temporary file: {out}\n')
+        stream = self.work_get_stream()
+        writer = get_writer(FileType.File, FileFormat.Fasta)
+        writer(stream, out)
+        # QtCore.QThread.msleep(200)
+        return 1
+
+    def work_phylo_prep_all(self):
+        out = Path(self.data.phylo_prep.name) / 'all'
+        with self.states.wait.redirect():
+            print('\nPreparing for individual phylogeny, please wait...\n')
+            print(f'Writing to temporary file: {out}\n')
+        stream = self.work_get_stream()
+        writer = get_writer(FileType.Directory, FileFormat.Fasta)
+        writer(stream, out)
+        # QtCore.QThread.msleep(200)
         return self.data.total
+
+    def work_phylo_calc(self, description):
+        self.header.showTask(title=self.title, description=description)
+        # QtCore.QThread.msleep(200)
 
     def onFail(self, exception, trace):
         self.states.wait.logio.writeline('')

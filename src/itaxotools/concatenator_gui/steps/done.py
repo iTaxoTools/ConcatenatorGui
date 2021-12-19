@@ -70,11 +70,15 @@ class StepDone(ssm.StepState):
 
     def updateLabels(self):
         path = self.machine().states.export.data.target
-        count = self.machine().states.export.data.total
-        s = 's' if count > 1 else ''
+        count_seqs = self.machine().states.export.data.seqs
+        s = 's' if count_seqs > 1 else ''
+        text = f'{count_seqs} sequence{s}'
+        count_trees = self.machine().states.export.data.trees
+        if count_trees:
+            s = 's' if count_trees > 1 else ''
+            text += f' and {count_trees} tree{s}'
         self.confirm.setText((
-            f'<b>Successfully exported {count} sequence{s} '
-            f'to "{path.name}"</b>'))
+            f'<b>Successfully exported {text} to "{path.name}"</b>'))
 
     def onEntry(self, event):
         super().onEntry(event)
