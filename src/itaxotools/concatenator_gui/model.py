@@ -103,7 +103,7 @@ class Charset:
     name: str  # key
     characters: int = 0
     characters_missing: int = 0
-    uniform: bool = False
+    uniform: str = 'No'
     samples: Optional[DataGroup] = field(default=None, repr=False)
     translation: str = None
     aligned: bool = False
@@ -137,7 +137,7 @@ class File:
     format: Optional[str] = None
     characters: int = 0
     characters_missing: int = 0
-    uniform: bool = False
+    uniform: str = 'No'
     samples: Optional[DataGroup] = field(default=None, repr=False)
     charsets: Dict[str, Charset] = field(default_factory=dict, repr=False)
 

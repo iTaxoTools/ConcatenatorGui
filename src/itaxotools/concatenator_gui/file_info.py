@@ -73,7 +73,7 @@ def file_info_from_path(
     file.characters_missing = all_characters_missing
     if all(all_uniform):
         file.uniform = 'Yes'
-    elif all([not x for x in all_uniform]):
+    elif all(not x for x in all_uniform):
         file.uniform = 'No'
     else:
         file.uniform = 'Mixed'

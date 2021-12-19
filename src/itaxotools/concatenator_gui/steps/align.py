@@ -403,6 +403,11 @@ class StepAlignSets(ssm.StepTriState):
             self.temp_cache = TemporaryDirectory(prefix='concat_mafft_cache_')
             self.charsets_cached = set()
 
+    def onExit(self, event):
+        super().onExit(event)
+        # should check if selection changed instead of always setting
+        self.timestamp_set()
+
     def work(self):
         charsets = {
             k for k, v in self.machine().states.input.data.charsets.items()
@@ -414,7 +419,6 @@ class StepAlignSets(ssm.StepTriState):
         with self.states.wait.redirect():
             self.work_prep(files, charsets)
             self.work_align(charsets)
-        self.timestamp_set()
         return len(charsets)
 
     def work_prep(self, files, charsets):

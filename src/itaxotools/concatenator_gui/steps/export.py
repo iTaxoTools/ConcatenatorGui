@@ -138,8 +138,8 @@ class StepExportEdit(ssm.StepTriStateEdit):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.tree_params = fasttreepy.params.params()
-        self.tree_available = False
+        self.phylo_params = fasttreepy.params.params()
+        self.phylo_available = False
         self.writer: Optional[FileWriter] = None
         self.scheme_changed()
         self.compression_changed()
@@ -147,9 +147,10 @@ class StepExportEdit(ssm.StepTriStateEdit):
     def onEntry(self, event):
         super().onEntry(event)
         self.footer.next.setText('&Export')
-        self.checkTreeAvailable()
-        self.updateTreeEnabled()
-        self.handleTreeUpdate()
+        if self.checkGenesChanged():
+            self.updatePhyloAvailable()
+            self.updatePhyloLayout()
+            self.handlePhyloUpdate()
 
     def draw(self):
         widget = QtWidgets.QWidget()
@@ -246,38 +247,38 @@ class StepExportEdit(ssm.StepTriStateEdit):
     def draw_trees(self):
         layout = QtWidgets.QVBoxLayout()
 
-        tree_warning = QtWidgets.QLabel(
+        phylo_warning = QtWidgets.QLabel(
             '\u21AA Only available if all sequences are aligned/uniform.')
-        tree_warning.setEnabled(False)
 
-        tree_concat = QtWidgets.QCheckBox(
+        phylo_concat = QtWidgets.QCheckBox(
             'Calculate tree for the concatenated alignment.')
 
-        tree_all = QtWidgets.QCheckBox(
+        phylo_all = QtWidgets.QCheckBox(
             'Calculate trees for each single-gene alignment.')
 
         text = 'Requires that all genes are aligned (eg. with MAFFT).'
-        tree_concat.setToolTip(text)
-        tree_all.setToolTip(text)
+        phylo_concat.setToolTip(text)
+        phylo_all.setToolTip(text)
 
-        tree_concat.stateChanged.connect(self.handleTreeUpdate)
-        tree_all.stateChanged.connect(self.handleTreeUpdate)
+        phylo_concat.stateChanged.connect(self.handlePhyloUpdate)
+        phylo_all.stateChanged.connect(self.handlePhyloUpdate)
 
-        tree_config = PushButton('FastTree Options', onclick=self.handleTreeConfig)
-        tree_config.setMaximumWidth(160)
+        phylo_config = PushButton(
+            'FastTree Options', onclick=self.handlePhyloShowConfigDialog)
+        phylo_config.setMaximumWidth(160)
 
-        layout.addWidget(tree_warning)
-        layout.addWidget(tree_concat)
-        layout.addWidget(tree_all)
+        layout.addWidget(phylo_warning)
+        layout.addWidget(phylo_concat)
+        layout.addWidget(phylo_all)
         layout.addSpacing(8)
-        layout.addWidget(tree_config)
+        layout.addWidget(phylo_config)
         layout.setSpacing(16)
         layout.setContentsMargins(24, 12, 24, 16)
 
-        self.tree_warning = tree_warning
-        self.tree_concat = tree_concat
-        self.tree_all = tree_all
-        self.tree_config = tree_config
+        self.phylo_warning = phylo_warning
+        self.phylo_concat = phylo_concat
+        self.phylo_all = phylo_all
+        self.phylo_config = phylo_config
 
         return layout
 
@@ -322,29 +323,40 @@ class StepExportEdit(ssm.StepTriStateEdit):
     def compression_changed(self, index=0):
         self.infer_writer()
 
-    def handleTreeConfig(self):
-        self.dialog = TreeOptionsDialog(self.tree_params, self.machine().parent())
+    def checkGenesChanged(self):
+        last_update = max(
+            self.machine().states.filter.timestamp_get(),
+            self.machine().states.align_sets.timestamp_get())
+        return self.timestamp_get() < last_update
+
+    def updatePhyloAvailable(self):
+        self.phylo_available = not any(
+            cs for cs in self.machine().states.input.data.charsets.values()
+            if cs.translation is not None and not (
+                cs.aligned or cs.uniform == 'Yes'
+            ))
+        self.timestamp_set()
+
+    def updatePhyloLayout(self):
+        enabled = self.phylo_available
+        self.phylo_config.setVisible(enabled)
+        self.phylo_warning.setVisible(not enabled)
+        self.phylo_concat.setVisible(enabled)
+        self.phylo_all.setVisible(enabled)
+        if not enabled:
+            self.phylo_concat.setChecked(False)
+            self.phylo_all.setChecked(False)
+
+    def handlePhyloUpdate(self):
+        self.phylo_config.setEnabled(
+            self.phylo_concat.isChecked() or
+            self.phylo_all.isChecked())
+
+    def handlePhyloShowConfigDialog(self):
+        self.dialog = TreeOptionsDialog(
+            self.phylo_params, self.machine().parent())
         self.dialog.setModal(True)
         self.dialog.show()
-
-    def handleTreeUpdate(self):
-        self.tree_config.setEnabled(
-            self.tree_concat.isChecked() or self.tree_all.isChecked()
-        )
-
-    def checkTreeAvailable(self):
-        self.tree_available = True
-        return self.tree_available
-
-    def updateTreeEnabled(self):
-        enabled = self.tree_available
-        self.tree_config.setVisible(enabled)
-        self.tree_warning.setVisible(not enabled)
-        self.tree_concat.setVisible(enabled)
-        self.tree_all.setVisible(enabled)
-        if not enabled:
-            self.tree_concat.setChecked(False)
-            self.tree_all.setChecked(False)
 
 
 class StepExportWait(StepWaitBar):
