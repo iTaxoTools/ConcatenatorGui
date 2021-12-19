@@ -139,14 +139,17 @@ class StepExportEdit(ssm.StepTriStateEdit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tree_params = fasttreepy.params.params()
+        self.tree_available = False
         self.writer: Optional[FileWriter] = None
         self.scheme_changed()
         self.compression_changed()
-        self.handleTreeUpdate()
 
     def onEntry(self, event):
         super().onEntry(event)
         self.footer.next.setText('&Export')
+        self.checkTreeAvailable()
+        self.updateTreeEnabled()
+        self.handleTreeUpdate()
 
     def draw(self):
         widget = QtWidgets.QWidget()
@@ -169,9 +172,9 @@ class StepExportEdit(ssm.StepTriStateEdit):
         layout.addWidget(label_trees, 3, 0)
         layout.addLayout(self.draw_trees(), 4, 0)
         layout.setColumnStretch(1, 1)
-        # layout.setRowMinimumHeight(2, 1)
+        layout.setRowMinimumHeight(2, 8)
         layout.setRowStretch(5, 1)
-        layout.setSpacing(16)
+        layout.setSpacing(8)
         layout.setContentsMargins(0, 0, 0, 0)
         widget.setLayout(layout)
 
@@ -243,6 +246,10 @@ class StepExportEdit(ssm.StepTriStateEdit):
     def draw_trees(self):
         layout = QtWidgets.QVBoxLayout()
 
+        tree_warning = QtWidgets.QLabel(
+            '\u21AA Only available if all sequences are aligned/uniform.')
+        tree_warning.setEnabled(False)
+
         tree_concat = QtWidgets.QCheckBox(
             'Calculate tree for the concatenated alignment.')
 
@@ -259,14 +266,15 @@ class StepExportEdit(ssm.StepTriStateEdit):
         tree_config = PushButton('FastTree Options', onclick=self.handleTreeConfig)
         tree_config.setMaximumWidth(160)
 
+        layout.addWidget(tree_warning)
         layout.addWidget(tree_concat)
         layout.addWidget(tree_all)
         layout.addSpacing(8)
         layout.addWidget(tree_config)
-
         layout.setSpacing(16)
-        layout.setContentsMargins(24, 8, 24, 16)
+        layout.setContentsMargins(24, 12, 24, 16)
 
+        self.tree_warning = tree_warning
         self.tree_concat = tree_concat
         self.tree_all = tree_all
         self.tree_config = tree_config
@@ -309,11 +317,9 @@ class StepExportEdit(ssm.StepTriStateEdit):
         self.compression.setEnabled(scheme_is_dir)
         if not scheme_is_dir:
             self.compression.setCurrentIndex(0)
-        # Update option widgets here
         self.infer_writer()
 
     def compression_changed(self, index=0):
-        # Update option widgets here
         self.infer_writer()
 
     def handleTreeConfig(self):
@@ -325,6 +331,20 @@ class StepExportEdit(ssm.StepTriStateEdit):
         self.tree_config.setEnabled(
             self.tree_concat.isChecked() or self.tree_all.isChecked()
         )
+
+    def checkTreeAvailable(self):
+        self.tree_available = True
+        return self.tree_available
+
+    def updateTreeEnabled(self):
+        enabled = self.tree_available
+        self.tree_config.setVisible(enabled)
+        self.tree_warning.setVisible(not enabled)
+        self.tree_concat.setVisible(enabled)
+        self.tree_all.setVisible(enabled)
+        if not enabled:
+            self.tree_concat.setChecked(False)
+            self.tree_all.setChecked(False)
 
 
 class StepExportWait(StepWaitBar):
