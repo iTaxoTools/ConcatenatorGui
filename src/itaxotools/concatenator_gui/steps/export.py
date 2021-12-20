@@ -40,11 +40,22 @@ from itaxotools.concatenator import (
 from itaxotools.concatenator.library.operators import (
     OpChainGenes, OpTranslateGenes, OpApplyToGene, OpUpdateMetadata)
 from itaxotools import mafftpy
-from itaxotools import fasttreepy
+from itaxotools.fasttreepy import PhylogenyApproximation
+from itaxotools.fasttreepy.params import params as fasttreepy_params
 from itaxotools.fasttreepy.gui.main import CustomView as TreeParamView
 from .. import step_state_machine as ssm
 
 from .wait import StepWaitBar
+
+
+def work_fasttree(src, out, param):
+    from sys import stdout
+    phylo = PhylogenyApproximation(str(src))
+    phylo.param = param
+    phylo.target = out
+    phylo.log = stdout
+    phylo.fetch = lambda: out  # ugly! fix api instead
+    phylo.run()
 
 
 class FileScheme(Enum):
@@ -138,7 +149,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.phylo_params = fasttreepy.params.params()
+        self.phylo_params = fasttreepy_params()
         self.phylo_available = False
         self.writer: Optional[FileWriter] = None
         self.scheme_changed()
@@ -396,12 +407,11 @@ class StepExport(ssm.StepTriState):
         self.data.seqs = 0
         self.data.trees = 0
         self.data.phylo_prep = None
+        self.data.phylo_calc = None
 
     def work(self):
         self.data.total = 0
         self.data.trees = 0
-        self.data.phylo_do_concat = self.states.edit.phylo_concat.isChecked()
-        self.data.phylo_do_all = self.states.edit.phylo_all.isChecked()
         # self.data.phylo_do_concat = True  # dev
         # self.data.phylo_do_all = True  # dev
         if self.data.phylo_do_concat or self.data.phylo_do_all:
@@ -410,6 +420,7 @@ class StepExport(ssm.StepTriState):
             self.work_phylo_calc('Step 3/3: Phylogeny calculation')
         else:
             self.work_export('Please wait...')
+        self.work_save()
 
     def checker_func(self, series):
         text = (
@@ -454,9 +465,6 @@ class StepExport(ssm.StepTriState):
         writer = self.states.edit.writer
         writer(stream, out)
         # QtCore.QThread.msleep(200)
-        with self.states.wait.redirect():
-            print(f'Done exporting, moving results to {self.data.target}')
-        shutil.move(out, self.data.target)
         self.data.seqs = self.data.total
 
     def work_phylo_prep(self, description):
@@ -469,8 +477,10 @@ class StepExport(ssm.StepTriState):
             self.data.phylo_do_concat, self.data.phylo_do_all])
         self.data.counter = 0
         self.data.phylo_prep = TemporaryDirectory(prefix='concat_phylo_prep_')
-        self.work_phylo_prep_concat()
-        self.work_phylo_prep_all()
+        if self.data.phylo_do_concat:
+            self.work_phylo_prep_concat()
+        if self.data.phylo_do_all:
+            self.work_phylo_prep_all()
 
     def work_phylo_prep_concat(self):
         out = Path(self.data.phylo_prep.name) / 'concat'
@@ -494,9 +504,50 @@ class StepExport(ssm.StepTriState):
         # QtCore.QThread.msleep(200)
         return self.data.total
 
+    def work_phylo_fasttree(self, src, out):
+        # print('FASTTREE', src, '->', out)
+        loop = QtCore.QEventLoop()
+        self.process = common.threading.Process(
+            work_fasttree, src, out, self.states.edit.phylo_params)
+        self.process.setStream(self.states.wait.logio)
+        self.process.done.connect(loop.quit)
+        # process.fail does not send out the trace
+        # self.process.fail.connect(self.worker.fail)
+        self.process.fail.connect(
+            lambda e: self.worker.fail.emit(e, '???'))
+        self.process.start()
+        loop.exec()
+        self.worker.check()
+        # QtCore.QThread.msleep(500)
+
     def work_phylo_calc(self, description):
         self.header.showTask(title=self.title, description=description)
         # QtCore.QThread.msleep(200)
+        self.data.phylo_calc = TemporaryDirectory(prefix='concat_phylo_calc_')
+        if self.data.phylo_do_concat:
+            src = Path(self.data.phylo_prep.name) / 'concat'
+            out = Path(self.data.phylo_calc.name) / 'concat'
+            with self.states.wait.redirect():
+                print('\nCalculating concatenated phylogeny...\n')
+            self.work_phylo_fasttree(src, out)
+        if self.data.phylo_do_all:
+            src = Path(self.data.phylo_prep.name) / 'all'
+            out = Path(self.data.phylo_calc.name) / 'all'
+            out.mkdir()
+            for item in src.iterdir():
+                self.states.wait.reset()
+                with self.states.wait.redirect():
+                    print(f'\nCalculating phylogeny for {item.stem}...\n')
+                self.work_phylo_fasttree(
+                    src / item.name,
+                    out / f'{item.stem}.tre')
+
+    def work_save(self):
+        with self.states.wait.redirect():
+            print(f'Done exporting, moving results to {self.data.target}')
+        out = Path(self.data.temp.name) / 'out'
+        shutil.move(out, self.data.target)
+        # add phylo saving here!
 
     def onFail(self, exception, trace):
         self.states.wait.logio.writeline('')
@@ -509,7 +560,16 @@ class StepExport(ssm.StepTriState):
         msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
         self.machine().parent().msgShow(msgBox)
 
+    def isTargetDir(self):
+        type = self.states.edit.writer.type
+        return (
+            type == FileType.Directory or
+            type == FileType.File and (
+                self.data.phylo_do_concat or self.data.phylo_do_all))
+
     def filterNext(self, event):
+        self.data.phylo_do_concat = self.states.edit.phylo_concat.isChecked()
+        self.data.phylo_do_all = self.states.edit.phylo_all.isChecked()
         basename = self.states.edit.infer_base_name()
         basename += self.states.edit.get_time_string()
         (fileName, _) = QtWidgets.QFileDialog.getSaveFileName(
@@ -519,7 +579,7 @@ class StepExport(ssm.StepTriState):
             self.states.edit.infer_dialog_filter())
         if not fileName:
             return False
-        if self.states.edit.writer.type == FileType.Directory:
+        if self.isTargetDir():
             if Path(fileName).exists():
                 msgBox = QtWidgets.QMessageBox(self.machine().parent())
                 msgBox.setWindowTitle(self.machine().parent().title)
