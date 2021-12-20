@@ -37,6 +37,7 @@ from itaxotools.common.param.view import PlainView
 from itaxotools.concatenator import (
     FileType, FileFormat, GeneStream, FileWriter,
     get_writer, get_extension, read_from_path)
+from itaxotools.concatenator.library.file_utils import ZipFile, ZipPath
 from itaxotools.concatenator.library.operators import (
     OpChainGenes, OpTranslateGenes, OpApplyToGene, OpUpdateMetadata)
 from itaxotools import mafftpy
@@ -56,6 +57,12 @@ def work_fasttree(src, out, param):
     phylo.log = stdout
     phylo.fetch = lambda: out  # ugly! fix api instead
     phylo.run()
+
+
+def copy_file_to_archive(src, dst):
+    with src.open('r') as fin, dst.open('w') as fout:
+        for line in fin:
+            fout.write(line)
 
 
 class FileScheme(Enum):
@@ -316,7 +323,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
         names = [path.stem for path in self.machine().states.input.data.files]
         if len(names) == 1:
             return names[0]
-        return 'output'
+        return 'sequences'
 
     def get_time_string(self):
         if self.timestamp.isChecked():
@@ -412,8 +419,6 @@ class StepExport(ssm.StepTriState):
     def work(self):
         self.data.total = 0
         self.data.trees = 0
-        # self.data.phylo_do_concat = True  # dev
-        # self.data.phylo_do_all = True  # dev
         if self.data.phylo_do_concat or self.data.phylo_do_all:
             self.work_export('Step 1/3: Exporting sequences')
             self.work_phylo_prep('Step 2/3: Phylogeny preparation')
@@ -429,7 +434,6 @@ class StepExport(ssm.StepTriState):
         self.update(self.data.counter, self.data.total, text)
         with self.states.wait.redirect():
             print(text)
-        # QtCore.QThread.msleep(400)
         self.data.counter += 1
         self.worker.check()
         return series
@@ -464,7 +468,6 @@ class StepExport(ssm.StepTriState):
         stream = self.work_get_stream()
         writer = self.states.edit.writer
         writer(stream, out)
-        # QtCore.QThread.msleep(200)
         self.data.seqs = self.data.total
 
     def work_phylo_prep(self, description):
@@ -490,7 +493,6 @@ class StepExport(ssm.StepTriState):
         stream = self.work_get_stream()
         writer = get_writer(FileType.File, FileFormat.Fasta)
         writer(stream, out)
-        # QtCore.QThread.msleep(200)
         return 1
 
     def work_phylo_prep_all(self):
@@ -501,7 +503,6 @@ class StepExport(ssm.StepTriState):
         stream = self.work_get_stream()
         writer = get_writer(FileType.Directory, FileFormat.Fasta)
         writer(stream, out)
-        # QtCore.QThread.msleep(200)
         return self.data.total
 
     def work_phylo_fasttree(self, src, out):
@@ -518,11 +519,9 @@ class StepExport(ssm.StepTriState):
         self.process.start()
         loop.exec()
         self.worker.check()
-        # QtCore.QThread.msleep(500)
 
     def work_phylo_calc(self, description):
         self.header.showTask(title=self.title, description=description)
-        # QtCore.QThread.msleep(200)
         self.data.phylo_calc = TemporaryDirectory(prefix='concat_phylo_calc_')
         if self.data.phylo_do_concat:
             src = Path(self.data.phylo_prep.name) / 'concat'
@@ -543,11 +542,40 @@ class StepExport(ssm.StepTriState):
                     out / f'{item.stem}.tre')
 
     def work_save(self):
+        self.states.wait.reset()
         with self.states.wait.redirect():
             print(f'Done exporting, moving results to {self.data.target}')
+
+        target_out = self.data.target
+        do_phylo = self.data.phylo_do_concat or self.data.phylo_do_all
+        type = self.states.edit.writer.type
+        if do_phylo and type == FileType.File:
+            target_out.mkdir()
+            basename = self.states.edit.infer_base_name()
+            ext = self.states.edit.writer.format.extension
+            target_out = target_out / f'{basename}{ext}'
         out = Path(self.data.temp.name) / 'out'
-        shutil.move(out, self.data.target)
-        # add phylo saving here!
+        shutil.move(out, target_out)
+
+        if do_phylo:
+            if type == FileType.File:
+                target_phylo = target_out.parent
+                move_func = shutil.move
+            elif type == FileType.Directory:
+                target_phylo = target_out
+                move_func = shutil.move
+            elif type == FileType.ZipArchive:
+                archive = ZipFile(target_out, 'a')
+                target_phylo = ZipPath(archive)
+                move_func = copy_file_to_archive
+        if self.data.phylo_do_concat:
+            out = Path(self.data.phylo_calc.name) / 'concat'
+            basename = self.states.edit.infer_base_name()
+            move_func(out, target_phylo / f'{basename}.tre')
+        if self.data.phylo_do_all:
+            out = Path(self.data.phylo_calc.name) / 'all'
+            for item in out.iterdir():
+                move_func(item, target_phylo / item.name)
 
     def onFail(self, exception, trace):
         self.states.wait.logio.writeline('')
