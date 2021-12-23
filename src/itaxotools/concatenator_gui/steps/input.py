@@ -230,23 +230,23 @@ class StepInput(ssm.StepState):
         return widget
 
     def draw_summary(self):
-        files = widgets.InfoLabel('Input Files')
-        sets = widgets.InfoLabel('Character Sets')
-        samples = widgets.InfoLabel('Unique Samples')
+        files = widgets.InfoLabel('Files')
+        genes = widgets.InfoLabel('Genes')
+        samples = widgets.InfoLabel('Samples')
         nucleotides = widgets.InfoLabel('Nucleotides')
 
         files.setToolTip(
             'The total number of imported files.')
-        sets.setToolTip(
-            'The total number of character sets contained in all files.')
+        genes.setToolTip(
+            'The total number of genes contained in all files.')
         samples.setToolTip(
-            'The number of unique samples across all character sets.')
+            'The number of unique samples across all genes.')
         nucleotides.setToolTip(
             'The total number of nucleotide characters across all files.')
 
         summary = QtWidgets.QHBoxLayout()
         summary.addWidget(files)
-        summary.addWidget(sets)
+        summary.addWidget(genes)
         summary.addWidget(samples)
         summary.addWidget(nucleotides)
         summary.addStretch(1)
@@ -254,7 +254,7 @@ class StepInput(ssm.StepState):
         summary.setContentsMargins(4, 0, 4, 0)
 
         self.files = files
-        self.charsets = sets
+        self.charsets = genes
         self.samples = samples
         self.nucleotides = nucleotides
 
@@ -270,7 +270,7 @@ class StepInput(ssm.StepState):
             'Nucleotides', 'Missing', 'Uniform'])
 
         headerItem = view.headerItem()
-        headerItem.setToolTip(0, 'Input filename or character set name')
+        headerItem.setToolTip(0, 'Input filename or gene name')
         headerItem.setToolTip(1, 'Sequence file format')
         headerItem.setToolTip(2, 'Total number of sequences')
         headerItem.setToolTip(3, 'Total number of nucleotide characters')

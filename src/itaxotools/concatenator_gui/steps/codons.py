@@ -272,10 +272,10 @@ class OptionsDialog(QtWidgets.QDialog):
         items = self.view.selectedItems()
         if len(items) == 1:
             item = items[0]
-            self.label_char.setText('Character Set:')
+            self.label_char.setText('Gene Name:')
             self.char.setText(item.name)
         elif len(items) > 1:
-            self.label_char.setText('Character Sets:')
+            self.label_char.setText('Gene Name:')
             self.char.setText(f'{len(items)} items selected')
 
             item = CodonItem(None, model.Charset(''))
@@ -309,17 +309,17 @@ class OptionsDialog(QtWidgets.QDialog):
             widget.setCursorPosition(0)
 
     def draw(self):
-        self.label_char = QtWidgets.QLabel('Character Set:')
+        self.label_char = QtWidgets.QLabel('Gene Name:')
         label_code = QtWidgets.QLabel('Genetic Code:')
         label_frame = QtWidgets.QLabel('Reading Frame:')
         label_1 = QtWidgets.QLabel('1st Codon:')
         label_2 = QtWidgets.QLabel('2nd Codon:')
         label_3 = QtWidgets.QLabel('3rd Codon:')
         name_desc = QtWidgets.QLabel(
-            'Double asterisks (**) are replaced by the character set name.')
+            'Double asterisks (**) are replaced by the gene name.')
 
         self.split = QtWidgets.QCheckBox(
-            ' Subset codon positions for all selected character sets.')
+            ' Subset codon positions for all selected genes.')
         self.char = QtWidgets.QLineEdit('')
         self.char.setReadOnly(True)
         self.char.setStyleSheet("""
@@ -416,7 +416,7 @@ class OptionsDialog(QtWidgets.QDialog):
 
 class StepCodonsEdit(ssm.StepTriStateEdit):
 
-    description = 'Select which character sets to subset'
+    description = 'Select which genes to subset'
 
     def onEntry(self, event):
         super().onEntry(event)
@@ -440,7 +440,7 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Mark sequences for codon subsetting in the character set '
+            'Mark genes for codon subsetting in the character set '
             'specifications of the output file. '
             'Double-click an option field to edit it.')
         label = QtWidgets.QLabel(text)
@@ -457,11 +457,11 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
         return widget
 
     def draw_summary(self):
-        sets = widgets.InfoLabel('Total Sets')
+        sets = widgets.InfoLabel('Genes')
         marked = widgets.InfoLabel('Marked', 0)
 
-        sets.setToolTip('Total number of character sets.')
-        marked.setToolTip('Character sets pending a split.')
+        sets.setToolTip('Total number of genes.')
+        marked.setToolTip('Number of genes marked for subsetting.')
 
         summary = QtWidgets.QHBoxLayout()
         summary.addWidget(sets)
@@ -488,7 +488,7 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
             'Name', 'Action', 'Genetic Code', 'Reading Frame', 'Naming'])
 
         headerItem = view.headerItem()
-        headerItem.setToolTip(0, 'Character set name')
+        headerItem.setToolTip(0, 'Gene name')
         headerItem.setToolTip(1, 'Pending action')
         headerItem.setToolTip(2, 'Genetic code variant (translation table)')
         headerItem.setToolTip(3, 'Reading frame')
@@ -565,7 +565,7 @@ class StepCodonsDone(ssm.StepTriStateDone):
         marked = self.parent().states.edit.marked.value
         s = 's' if marked > 1 else ''
         self.parent().update(
-            text=f'Successfully subsetted {marked} character set{s}.')
+            text=f'Successfully subsetted {marked} gene{s}.')
 
 
 class StepCodonsFail(ssm.StepTriStateFail):

@@ -222,7 +222,7 @@ class Main(common.widgets.ToolDialog):
             self, self.stepProgressBar, self.header, self.footer, self.body)
         m.addStep('about', 'About', 1, False, StepAbout)
         m.addStep('input', 'Files', 1, True, StepInput)
-        m.addStep('filter', 'Sets', 1, True, StepFilter)
+        m.addStep('filter', 'Genes', 1, True, StepFilter)
         m.addStep('align_options', 'Align', 1, True, StepAlignOptions)
         m.addStep('align_sets', '', 1, False, StepAlignSets)
         m.addStep('codons', 'Codons', 1, True, StepCodons)

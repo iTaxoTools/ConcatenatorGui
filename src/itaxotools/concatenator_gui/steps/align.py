@@ -218,7 +218,7 @@ class StepAlignOptions(ssm.StepState):
 
 class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
-    description = 'Select which character sets to align'
+    description = 'Select which genes to align'
 
     def onEntry(self, event):
         super().onEntry(event)
@@ -242,7 +242,7 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Mark sequences for alignment by double-clicking, or by '
+            'Mark genes for alignment by double-clicking, or by '
             'selecting them and then clicking "Align".')
         label = QtWidgets.QLabel(text)
 
@@ -258,11 +258,11 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
         return widget
 
     def draw_summary(self):
-        sets = widgets.InfoLabel('Total Sets')
+        sets = widgets.InfoLabel('Genes')
         marked = widgets.InfoLabel('Marked', 0)
 
-        sets.setToolTip('Total number of character sets.')
-        marked.setToolTip('Number of character sets pending alignment.')
+        sets.setToolTip('Total number of genes.')
+        marked.setToolTip('Number of genes pending alignment.')
 
         summary = QtWidgets.QHBoxLayout()
         summary.addWidget(sets)
@@ -289,7 +289,7 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
             'Nucleotides', 'Missing', 'Uniform'])
 
         headerItem = view.headerItem()
-        headerItem.setToolTip(0, 'Character set name')
+        headerItem.setToolTip(0, 'Gene name')
         headerItem.setToolTip(1, 'Pending action')
         headerItem.setToolTip(2, 'Total number of sequences')
         headerItem.setToolTip(3, 'Total number of nucleotide characters')
@@ -363,7 +363,7 @@ class StepAlignSetsDone(ssm.StepTriStateDone):
         if self.result:
             s = 's' if self.result > 1 else ''
             self.parent().update(
-                text=f'Successfully aligned {str(self.result)} sequence{s}.')
+                text=f'Successfully aligned {str(self.result)} gene{s}.')
         else:
             self.parent().update(
                 text='Successfully aligned sequences.')
@@ -410,7 +410,6 @@ class StepAlignSets(ssm.StepTriState):
             k for k, v in self.machine().states.input.data.charsets.items()
             if v.aligned and v.translation is not None}
         if self.charsets_last != charsets:
-            print('it changed!')
             self.charsets_last = charsets
             self.timestamp_set()
 

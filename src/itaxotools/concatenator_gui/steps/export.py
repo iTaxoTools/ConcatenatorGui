@@ -398,7 +398,7 @@ class StepExportFail(ssm.StepTriStateFail):
 
 
 class StepExport(ssm.StepTriState):
-    title = 'Export sequence data'
+    title = 'Export Sequence Data'
 
     StepEdit = StepExportEdit
     StepWait = StepExportWait

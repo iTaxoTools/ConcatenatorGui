@@ -130,8 +130,8 @@ class FilterItem(widgets.ModelItem):
 
 class StepFilter(ssm.StepState):
 
-    title = 'Filter Character Sets'
-    description = 'Rename or delete character sets'
+    title = 'Filter Genes'
+    description = 'Rename or delete genes'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -188,9 +188,9 @@ class StepFilter(ssm.StepState):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Select multiple sets by click-and-drag, or '
+            'Select multiple genes by click-and-drag, or '
             'by clicking while holding Ctrl/Shift. '
-            'Click on the column headers to sort by column.')
+            'Click column headers to sort by column.')
         label = QtWidgets.QLabel(text)
 
         frame = self.draw_frame()
@@ -205,13 +205,13 @@ class StepFilter(ssm.StepState):
         return widget
 
     def draw_summary(self):
-        sets = widgets.InfoLabel('Total Sets')
+        sets = widgets.InfoLabel('Genes')
         renamed = widgets.InfoLabel('Renamed', 0)
         deleted = widgets.InfoLabel('Deleted', 0)
 
-        sets.setToolTip('Total number of character sets.')
-        renamed.setToolTip('Character sets pending renaming.')
-        deleted.setToolTip('Character sets pending deletion.')
+        sets.setToolTip('Total number of genes.')
+        renamed.setToolTip('Genes pending renaming.')
+        deleted.setToolTip('Genes pending deletion.')
 
         summary = QtWidgets.QHBoxLayout()
         summary.addWidget(sets)
@@ -241,7 +241,7 @@ class StepFilter(ssm.StepState):
             'Nucleotides', 'Missing', 'Uniform'])
 
         headerItem = view.headerItem()
-        headerItem.setToolTip(0, 'Character set name')
+        headerItem.setToolTip(0, 'Gene name')
         headerItem.setToolTip(1, 'Pending action')
         headerItem.setToolTip(2, 'Total number of sequences')
         headerItem.setToolTip(3, 'Total number of nucleotide characters')
@@ -317,7 +317,7 @@ class StepFilter(ssm.StepState):
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
         msgBox.setWindowTitle(self.machine().parent().title)
         msgBox.setIcon(QtWidgets.QMessageBox.Critical)
-        msgBox.setText('Cannot continue because \nall character sets are deleted.')
+        msgBox.setText('Cannot continue because \nall genes are deleted.')
         msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
         self.machine().parent().msgShow(msgBox)
         return False
