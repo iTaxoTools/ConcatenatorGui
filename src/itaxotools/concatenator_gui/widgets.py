@@ -150,7 +150,7 @@ class WidgetItem(QtWidgets.QTreeWidgetItem, metaclass=_WidgetItem_meta):
             return
         if not hasattr(self, field):
             return
-        value = getattr(self, field)
+        value = self.__getattr__(field)
         if isinstance(value, int):
             value = f'{value:,}'
         elif isinstance(value, float):

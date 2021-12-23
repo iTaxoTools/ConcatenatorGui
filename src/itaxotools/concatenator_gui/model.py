@@ -122,7 +122,7 @@ class Charset:
 
     @property
     def display_name(self):
-        if self.translation is None or self.translation == self.name:
+        if self.translation is None:
             return self.name
         return self.translation
 
