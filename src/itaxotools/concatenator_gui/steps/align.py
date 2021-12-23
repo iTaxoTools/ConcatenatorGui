@@ -392,6 +392,7 @@ class StepAlignSets(ssm.StepTriState):
         self.temp_prep = None
         self.temp_cache = None
         self.charsets_cached = set()
+        self.charsets_last = set()
         self.process = None
 
     def onEntry(self, event):
@@ -405,8 +406,13 @@ class StepAlignSets(ssm.StepTriState):
 
     def onExit(self, event):
         super().onExit(event)
-        # should check if selection changed instead of always setting
-        self.timestamp_set()
+        charsets = {
+            k for k, v in self.machine().states.input.data.charsets.items()
+            if v.aligned and v.translation is not None}
+        if self.charsets_last != charsets:
+            print('it changed!')
+            self.charsets_last = charsets
+            self.timestamp_set()
 
     def work(self):
         charsets = {
