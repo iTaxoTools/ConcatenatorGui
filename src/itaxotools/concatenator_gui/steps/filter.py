@@ -25,6 +25,7 @@ from PySide6 import QtGui
 from itaxotools import common
 import itaxotools.common.widgets
 import itaxotools.common.resources # noqa
+from itaxotools.common.utility import AttrDict
 
 from .. import model
 from .. import widgets
@@ -152,6 +153,19 @@ class StepFilter(ssm.StepState):
         if translation != self.translation:
             self.translation = translation
             self.timestamp_set()
+
+    def cog(self):
+        # Modified from base class to filter Next
+        m = self.machine()
+        transitions = AttrDict()
+        transitions.next = m.navigateTransition(
+                ssm.NavigateAction.Next, self.filterNext)
+        transitions.back = m.navigateTransition(ssm.NavigateAction.Back)
+        transitions.exit = m.navigateTransition(ssm.NavigateAction.Exit)
+        transitions.exit.setTargetState(m.states.final)
+        for transition in transitions:
+            self.addTransition(transitions[transition])
+        self.transitions = transitions
 
     def populate_view(self):
         charsets = self.machine().states.input.data.charsets
@@ -296,3 +310,14 @@ class StepFilter(ssm.StepState):
     def handleActivated(self, item, column):
         index = self.view.indexFromItem(item).siblingAtColumn(0)
         self.view.edit(index)
+
+    def filterNext(self, event):
+        if self.deleted.value < self.sets.value:
+            return True
+        msgBox = QtWidgets.QMessageBox(self.machine().parent())
+        msgBox.setWindowTitle(self.machine().parent().title)
+        msgBox.setIcon(QtWidgets.QMessageBox.Critical)
+        msgBox.setText('Cannot continue because \nall character sets are deleted.')
+        msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        self.machine().parent().msgShow(msgBox)
+        return False
