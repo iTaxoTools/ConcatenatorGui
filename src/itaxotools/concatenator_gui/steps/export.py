@@ -39,7 +39,8 @@ from itaxotools.concatenator import (
     get_writer, get_extension, read_from_path)
 from itaxotools.concatenator.library.file_utils import ZipFile, ZipPath
 from itaxotools.concatenator.library.operators import (
-    OpChainGenes, OpTranslateGenes, OpApplyToGene, OpUpdateMetadata)
+    OpChainGenes, OpTranslateGenes, OpApplyToGene,
+    OpUpdateMetadata, OpFilterGenes)
 from itaxotools import mafftpy
 from itaxotools.fasttreepy import PhylogenyApproximation
 from itaxotools.fasttreepy.params import params as fasttreepy_params
@@ -439,11 +440,18 @@ class StepExport(ssm.StepTriState):
         return series
 
     def work_get_stream(self):
-        streams = [
+        input_streams = [
             read_from_path(file.path)
             for file in self.machine().states.input.data.files.values()]
-        cache = Path(self.machine().states.align_sets.temp_cache.name)
-        all_streams = [read_from_path(cache)] + streams
+        aligned_cache = Path(self.machine().states.align_sets.temp_cache.name)
+        aligned_charsets = {
+            k for k, v in self.machine().states.input.data.charsets.items()
+            if v.aligned and v.translation is not None}
+        aligned_stream = (
+            read_from_path(aligned_cache)
+            .pipe(OpFilterGenes(aligned_charsets))
+            )
+        all_streams = [aligned_stream] + input_streams
         translation = self.machine().states.filter.translation
         stream = (
             GeneStream(chain(*all_streams))
