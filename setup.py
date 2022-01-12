@@ -28,7 +28,7 @@ setup(
         'itaxotools-common==0.2.2',
         'concatenator==0.2.0',
         'mafftpy==0.1.2',
-        'fasttreepy==0.1.dev1',
+        'fasttreepy==0.2.0',
         ],
     extras_require={
         'dev': ['pyinstaller>=4.5.1'],
