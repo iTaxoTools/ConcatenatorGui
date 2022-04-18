@@ -39,8 +39,9 @@ from itaxotools.concatenator import (
     get_writer, get_extension, read_from_path)
 from itaxotools.concatenator.library.file_utils import ZipFile, ZipPath
 from itaxotools.concatenator.library.operators import (
-    OpChainGenes, OpTranslateGenes, OpApplyToGene,
-    OpUpdateMetadata, OpFilterGenes)
+    OpChainGenes, OpTranslateGenes, OpApplyToGene, OpTagSet,
+    OpUpdateMetadata, OpFilterGenes, OpGeneralInfo,
+    OpGeneralInfoPerFile, OpGeneralInfoPerGene)
 from itaxotools import mafftpy
 from itaxotools.fasttreepy import PhylogenyApproximation
 from itaxotools.fasttreepy.params import params as fasttreepy_params
@@ -207,6 +208,8 @@ class StepExportEdit(ssm.StepTriStateEdit):
         compression = QtWidgets.QComboBox()
         timestamp = QtWidgets.QCheckBox('Append timestamp to filename.')
         timestamp.setChecked(True)
+        report = QtWidgets.QCheckBox('Produce summary report.')
+        report.setChecked(True)
 
         scheme.setToolTip((
             'Select one of the available sequence file formats.' + '\n'
@@ -238,8 +241,9 @@ class StepExportEdit(ssm.StepTriStateEdit):
         layout.addWidget(scheme, 0, 1)
         layout.addWidget(compression, 1, 1)
         layout.addWidget(timestamp, 3, 0, 1, 2)
+        layout.addWidget(report, 4, 0, 1, 2)
 
-        layout.setRowStretch(4, 1)
+        layout.setRowStretch(5, 1)
         layout.setColumnMinimumWidth(1, 160)
         layout.setSpacing(16)
         layout.setContentsMargins(24, 16, 24, 16)
@@ -247,6 +251,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
         self.scheme = scheme
         self.compression = compression
         self.timestamp = timestamp
+        self.report = report
 
         return layout
 
@@ -443,6 +448,11 @@ class StepExport(ssm.StepTriState):
         input_streams = [
             read_from_path(file.path)
             for file in self.machine().states.input.data.files.values()]
+        if self.data.do_report:
+            self.data.op_general_info_per_file = OpGeneralInfoPerFile()
+            input_streams = [
+                stream.pipe(self.data.op_general_info_per_file)
+                for stream in input_streams]
         aligned_cache = Path(self.machine().states.align_sets.temp_cache.name)
         aligned_charsets = {
             k for k, v in self.machine().states.input.data.charsets.items()
@@ -450,6 +460,7 @@ class StepExport(ssm.StepTriState):
         aligned_stream = (
             read_from_path(aligned_cache)
             .pipe(OpFilterGenes(aligned_charsets))
+            .pipe(OpTagSet("MafftRealigned", True))
             )
         all_streams = [aligned_stream] + input_streams
         translation = self.machine().states.filter.translation
@@ -460,6 +471,14 @@ class StepExport(ssm.StepTriState):
             .pipe(OpTranslateGenes(translation))
             .pipe(OpApplyToGene(self.checker_func))
             )
+        if self.data.do_report:
+            self.data.op_general_info = OpGeneralInfo()
+            self.data.op_general_info_per_gene = OpGeneralInfoPerGene()
+            stream = (
+                stream
+                .pipe(self.data.op_general_info)
+                .pipe(self.data.op_general_info_per_gene)
+                )
         return stream
 
     def work_export(self, description):
@@ -554,6 +573,18 @@ class StepExport(ssm.StepTriState):
         with self.states.wait.redirect():
             print(f'Done exporting, moving results to {self.data.target}')
 
+        if self.data.do_report:
+            table = self.data.op_general_info.table
+            print(table.dataframe.to_string())
+            print(table.total_data().to_string())
+            print(table.by_taxon().to_string())
+
+            table = self.data.op_general_info_per_gene.get_info(table)
+            print(table.to_string())
+
+            table = self.data.op_general_info_per_file.get_info()
+            print(table.to_string())
+
         target_out = self.data.target
         do_phylo = self.data.phylo_do_concat or self.data.phylo_do_all
         type = self.states.edit.writer.type
@@ -606,6 +637,10 @@ class StepExport(ssm.StepTriState):
     def filterNext(self, event):
         self.data.phylo_do_concat = self.states.edit.phylo_concat.isChecked()
         self.data.phylo_do_all = self.states.edit.phylo_all.isChecked()
+        self.data.do_report = self.states.edit.report.isChecked()
+        self.data.op_general_info = None
+        self.data.op_general_info_per_file = None
+        self.data.op_general_info_per_gene = None
         basename = self.states.edit.infer_base_name()
         basename += self.states.edit.get_time_string()
         (fileName, _) = QtWidgets.QFileDialog.getSaveFileName(
