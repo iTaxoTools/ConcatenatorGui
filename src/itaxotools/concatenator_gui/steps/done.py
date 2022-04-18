@@ -101,6 +101,28 @@ class StepDone(ssm.StepState):
             f'<b>Successfully exported {text} to "{path.name}"</b>'))
         self.report.setVisible(self.machine().states.export.data.do_report)
 
+    def warnDisjoint(self):
+        if not self.machine().states.export.data.report:
+            return
+        group_count = self.machine().states.export.data.report.disjoint_groups
+        if group_count > 1:
+            msgBox = QtWidgets.QMessageBox(self.machine().parent())
+            msgBox.setWindowTitle(self.machine().parent().title)
+            msgBox.setIcon(QtWidgets.QMessageBox.Warning)
+            msgBox.setText(f'Disjoint sample groups detected!')
+            msgBox.setInformativeText(
+                f'We detected {group_count} distinct sample groups. '
+                'This could be the result of slight differences in sample names between input files. '
+                'Please open the disjoint group report to verify this is not a mistake.'
+                )
+            msgBox.setStandardButtons(
+                QtWidgets.QMessageBox.Ignore | QtWidgets.QMessageBox.Open)
+            msgBox.setDefaultButton(QtWidgets.QMessageBox.Ignore)
+            button = self.machine().parent().msgShow(msgBox)
+            if button == QtWidgets.QMessageBox.Open:
+                self.open_report_link('disjoint_groups.txt')
+
     def onEntry(self, event):
         super().onEntry(event)
         self.updateLabels()
+        self.warnDisjoint()

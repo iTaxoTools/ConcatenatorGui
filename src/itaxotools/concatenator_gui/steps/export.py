@@ -115,6 +115,7 @@ class SummaryReport:
         self.timestamp = None
         self.scheme = None
         self.input_files_count = None
+        self.disjoint_groups = None
 
     def pipe_input_streams(self, input_streams):
         self.input_files_count = len(input_streams)
@@ -155,6 +156,16 @@ class SummaryReport:
     def get_table_by_input_file(self):
         return self.op_general_info_per_file.get_info()
 
+    def export_disjoint(self, file):
+        self.disjoint_groups = 0
+        for group in self.op_general_info.table.disjoint_taxon_groups():
+            self.disjoint_groups += 1
+            print(f'Group {self.disjoint_groups}', file=file)
+            print('-------------', file=file)
+            for taxon in group:
+                print(taxon, file=file)
+            print('', file=file)
+
     def export_dir(self):
         return Path(self.temp.name)
 
@@ -166,6 +177,9 @@ class SummaryReport:
             temp / 'by_input_file.tsv', index=False, sep="\t")
         self.get_table_by_taxon().to_csv(temp / 'by_taxon.tsv', sep="\t")
         self.get_table_by_gene().to_csv(temp / 'by_gene.tsv', sep="\t")
+        self.get_table_by_gene().to_csv(temp / 'by_gene.tsv', sep="\t")
+        with open(temp / 'disjoint_groups.txt', 'w') as file:
+            self.export_disjoint(file)
 
 
 class TreeOptionsDialog(QtWidgets.QDialog):
