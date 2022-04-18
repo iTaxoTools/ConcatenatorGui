@@ -104,6 +104,52 @@ class OrderingOptions(IntEnum):
     Alphabetical = auto()
 
 
+class SummaryReport:
+    def __init__(self):
+        self.op_general_info = OpGeneralInfo()
+        self.op_general_info_per_gene = OpGeneralInfoPerGene()
+        self.op_general_info_per_file = OpGeneralInfoPerFile()
+        self.temp = TemporaryDirectory(prefix='concat_summary_')
+
+    def pipe_input_streams(self, input_streams):
+        return [
+            stream.pipe(self.op_general_info_per_file)
+            for stream in input_streams]
+
+    def pipe_final_stream(self, stream):
+        return (
+            stream
+            .pipe(self.op_general_info)
+            .pipe(self.op_general_info_per_gene)
+            )
+
+    def get_dataframe(self):
+        return self.op_general_info.table.dataframe
+
+    def get_table_total(self):
+        return self.op_general_info.table.total_data()
+
+    def get_table_by_taxon(self):
+        return self.op_general_info.table.by_taxon()
+
+    def get_table_by_gene(self):
+        table = self.op_general_info.table
+        return self.op_general_info_per_gene.get_info(table)
+
+    def get_table_by_input_file(self):
+        return self.op_general_info_per_file.get_info()
+
+    def export_dir(self):
+        return Path(self.temp.name)
+
+    def export_all(self):
+        temp = self.export_dir()
+        self.get_table_total().to_csv(temp / 'total_data_set', sep="\t")
+        self.get_table_by_input_file().to_csv(temp / 'by_input_file', sep="\t")
+        self.get_table_by_taxon().to_csv(temp / 'by_taxon', sep="\t")
+        self.get_table_by_gene().to_csv(temp / 'by_gene', sep="\t")
+
+
 class TreeOptionsDialog(QtWidgets.QDialog):
     def __init__(self, params, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -449,10 +495,7 @@ class StepExport(ssm.StepTriState):
             read_from_path(file.path)
             for file in self.machine().states.input.data.files.values()]
         if self.data.do_report:
-            self.data.op_general_info_per_file = OpGeneralInfoPerFile()
-            input_streams = [
-                stream.pipe(self.data.op_general_info_per_file)
-                for stream in input_streams]
+            input_streams = self.data.report.pipe_input_streams(input_streams)
         aligned_cache = Path(self.machine().states.align_sets.temp_cache.name)
         aligned_charsets = {
             k for k, v in self.machine().states.input.data.charsets.items()
@@ -472,13 +515,7 @@ class StepExport(ssm.StepTriState):
             .pipe(OpApplyToGene(self.checker_func))
             )
         if self.data.do_report:
-            self.data.op_general_info = OpGeneralInfo()
-            self.data.op_general_info_per_gene = OpGeneralInfoPerGene()
-            stream = (
-                stream
-                .pipe(self.data.op_general_info)
-                .pipe(self.data.op_general_info_per_gene)
-                )
+            stream = self.data.report.pipe_final_stream(stream)
         return stream
 
     def work_export(self, description):
@@ -574,16 +611,10 @@ class StepExport(ssm.StepTriState):
             print(f'Done exporting, moving results to {self.data.target}')
 
         if self.data.do_report:
-            table = self.data.op_general_info.table
-            print(table.dataframe.to_string())
-            print(table.total_data().to_string())
-            print(table.by_taxon().to_string())
-
-            table = self.data.op_general_info_per_gene.get_info(table)
-            print(table.to_string())
-
-            table = self.data.op_general_info_per_file.get_info()
-            print(table.to_string())
+            self.data.report.export_all()
+            for file in self.data.report.export_dir().glob('*'):
+                with open(file) as f:
+                    print(f.read())
 
         target_out = self.data.target
         do_phylo = self.data.phylo_do_concat or self.data.phylo_do_all
@@ -638,9 +669,7 @@ class StepExport(ssm.StepTriState):
         self.data.phylo_do_concat = self.states.edit.phylo_concat.isChecked()
         self.data.phylo_do_all = self.states.edit.phylo_all.isChecked()
         self.data.do_report = self.states.edit.report.isChecked()
-        self.data.op_general_info = None
-        self.data.op_general_info_per_file = None
-        self.data.op_general_info_per_gene = None
+        self.data.report = SummaryReport()
         basename = self.states.edit.infer_base_name()
         basename += self.states.edit.get_time_string()
         (fileName, _) = QtWidgets.QFileDialog.getSaveFileName(
