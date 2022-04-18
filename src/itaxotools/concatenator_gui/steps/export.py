@@ -28,6 +28,7 @@ from itertools import chain
 from pathlib import Path
 
 import shutil
+import pandas as pd
 
 from itaxotools import common
 from itaxotools.common.utility import AttrDict
@@ -110,8 +111,13 @@ class SummaryReport:
         self.op_general_info_per_gene = OpGeneralInfoPerGene()
         self.op_general_info_per_file = OpGeneralInfoPerFile()
         self.temp = TemporaryDirectory(prefix='concat_summary_')
+        self.filename = None
+        self.timestamp = None
+        self.scheme = None
+        self.input_files_count = None
 
     def pipe_input_streams(self, input_streams):
+        self.input_files_count = len(input_streams)
         return [
             stream.pipe(self.op_general_info_per_file)
             for stream in input_streams]
@@ -123,11 +129,21 @@ class SummaryReport:
             .pipe(self.op_general_info_per_gene)
             )
 
+    def get_table_header(self):
+        return pd.Series({
+            'Name of output file': self.filename,
+            'Timestamp of output file': self.timestamp,
+            'Output file format': self.scheme.text,
+            'Number of input files used': self.input_files_count,
+        })
+
     def get_dataframe(self):
         return self.op_general_info.table.dataframe
 
     def get_table_total(self):
-        return self.op_general_info.table.total_data()
+        header = self.get_table_header()
+        table = self.op_general_info.table.total_data()
+        return pd.concat([header, table])
 
     def get_table_by_taxon(self):
         return self.op_general_info.table.by_taxon()
@@ -144,7 +160,7 @@ class SummaryReport:
 
     def export_all(self):
         temp = self.export_dir()
-        self.get_table_total().to_csv(temp / 'total_data_set', sep="\t")
+        self.get_table_total().to_csv(temp / 'total_data', sep="\t", header=False)
         self.get_table_by_input_file().to_csv(temp / 'by_input_file', sep="\t")
         self.get_table_by_taxon().to_csv(temp / 'by_taxon', sep="\t")
         self.get_table_by_gene().to_csv(temp / 'by_gene', sep="\t")
@@ -377,9 +393,13 @@ class StepExportEdit(ssm.StepTriStateEdit):
             return names[0]
         return 'sequences'
 
-    def get_time_string(self):
+    def get_timestamp(self):
+        return datetime.now().strftime("%Y%m%dT%H%M%S")
+
+    def get_time_string(self, timestamp=None):
+        timestamp = timestamp or self.get_timestamp()
         if self.timestamp.isChecked():
-            return '_' + datetime.now().strftime("%Y%m%dT%H%M%S")
+            return '_' + timestamp
         return ''
 
     def scheme_changed(self, index=0):
@@ -666,12 +686,15 @@ class StepExport(ssm.StepTriState):
                 self.data.phylo_do_concat or self.data.phylo_do_all))
 
     def filterNext(self, event):
+        timestamp = self.states.edit.get_timestamp()
+        basename = self.states.edit.infer_base_name()
+        basename += self.states.edit.get_time_string(timestamp)
         self.data.phylo_do_concat = self.states.edit.phylo_concat.isChecked()
         self.data.phylo_do_all = self.states.edit.phylo_all.isChecked()
         self.data.do_report = self.states.edit.report.isChecked()
         self.data.report = SummaryReport()
-        basename = self.states.edit.infer_base_name()
-        basename += self.states.edit.get_time_string()
+        self.data.report.scheme = self.states.edit.scheme.currentData()
+        self.data.report.timestamp = timestamp
         (fileName, _) = QtWidgets.QFileDialog.getSaveFileName(
             self.machine().parent(),
             self.machine().parent().title + ' - Export',
@@ -690,6 +713,7 @@ class StepExport(ssm.StepTriState):
                 self.machine().parent().msgShow(msgBox)
                 return False
         self.data.target = Path(fileName)
+        self.data.report.filename = self.data.target.name
         return True
 
     def filterCancel(self, event):
