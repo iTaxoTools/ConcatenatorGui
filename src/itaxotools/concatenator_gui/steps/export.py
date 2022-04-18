@@ -160,10 +160,12 @@ class SummaryReport:
 
     def export_all(self):
         temp = self.export_dir()
-        self.get_table_total().to_csv(temp / 'total_data', sep="\t", header=False)
-        self.get_table_by_input_file().to_csv(temp / 'by_input_file', sep="\t")
-        self.get_table_by_taxon().to_csv(temp / 'by_taxon', sep="\t")
-        self.get_table_by_gene().to_csv(temp / 'by_gene', sep="\t")
+        self.get_table_total().to_csv(
+            temp / 'total_data.tsv', header=False, sep="\t")
+        self.get_table_by_input_file().to_csv(
+            temp / 'by_input_file.tsv', index=False, sep="\t")
+        self.get_table_by_taxon().to_csv(temp / 'by_taxon.tsv', sep="\t")
+        self.get_table_by_gene().to_csv(temp / 'by_gene.tsv', sep="\t")
 
 
 class TreeOptionsDialog(QtWidgets.QDialog):
@@ -632,9 +634,6 @@ class StepExport(ssm.StepTriState):
 
         if self.data.do_report:
             self.data.report.export_all()
-            for file in self.data.report.export_dir().glob('*'):
-                with open(file) as f:
-                    print(f.read())
 
         target_out = self.data.target
         do_phylo = self.data.phylo_do_concat or self.data.phylo_do_all

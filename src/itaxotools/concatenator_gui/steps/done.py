@@ -20,6 +20,9 @@
 
 from PySide6 import QtCore
 from PySide6 import QtWidgets
+from PySide6 import QtGui
+
+from pathlib import Path
 
 from itaxotools import common
 import itaxotools.common.resources # noqa
@@ -55,11 +58,22 @@ class StepDone(ssm.StepState):
         self.confirm.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
 
         path = common.resources.get(
+            'itaxotools.concatenator_gui', 'docs/report.html')
+        with open(path) as f:
+            text = f.read()
+        self.report = widgets.HtmlLabel(path)
+        self.report.setOpenExternalLinks(False)
+        self.report.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByMouse)
+        self.report.linkActivated.connect(self.open_report_link)
+
+        path = common.resources.get(
             'itaxotools.concatenator_gui', 'docs/done.html')
         self.label = widgets.HtmlLabel(path)
+        self.label.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByMouse)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.progress)
+        layout.addWidget(self.report)
         layout.addWidget(self.label)
         layout.addStretch(1)
         layout.setSpacing(16)
@@ -67,6 +81,12 @@ class StepDone(ssm.StepState):
         widget.setLayout(layout)
 
         return widget
+
+    def open_report_link(self, link):
+        dir = self.machine().states.export.data.report.export_dir()
+        file = Path(dir) / link
+        url = QtCore.QUrl.fromLocalFile(str(file))
+        QtGui.QDesktopServices.openUrl(url)
 
     def updateLabels(self):
         path = self.machine().states.export.data.target
@@ -79,6 +99,7 @@ class StepDone(ssm.StepState):
             text += f' and {count_trees} tree{s}'
         self.confirm.setText((
             f'<b>Successfully exported {text} to "{path.name}"</b>'))
+        self.report.setVisible(self.machine().states.export.data.do_report)
 
     def onEntry(self, event):
         super().onEntry(event)
