@@ -550,8 +550,6 @@ class StepExport(ssm.StepTriState):
             .pipe(OpTranslateGenes(translation))
             .pipe(OpApplyToGene(self.checker_func))
             )
-        if self.data.do_report:
-            stream = self.data.report.pipe_final_stream(stream)
         return stream
 
     def work_export(self, description):
@@ -567,6 +565,8 @@ class StepExport(ssm.StepTriState):
             print(f'Writing to temporary file: {out}\n')
         stream = self.work_get_stream()
         writer = self.states.edit.writer
+        if self.data.do_report:
+            writer.filters.append(self.data.report.pipe_final_stream)
         writer(stream, out)
         self.data.seqs = self.data.total
 
