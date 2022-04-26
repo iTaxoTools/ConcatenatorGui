@@ -118,6 +118,8 @@ class Charset:
 
     @property
     def missing(self):
+        if not self.characters:
+            return 0.0
         return self.characters_missing / self.characters
 
     @property
