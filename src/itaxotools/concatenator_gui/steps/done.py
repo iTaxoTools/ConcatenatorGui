@@ -83,7 +83,7 @@ class StepDone(ssm.StepState):
         return widget
 
     def open_report_link(self, link):
-        dir = self.machine().states.export.data.report.export_dir()
+        dir = self.machine().states.export.data.diagnoser.export_dir()
         file = Path(dir) / link
         url = QtCore.QUrl.fromLocalFile(str(file))
         QtGui.QDesktopServices.openUrl(url)
@@ -99,12 +99,12 @@ class StepDone(ssm.StepState):
             text += f' and {count_trees} tree{s}'
         self.confirm.setText((
             f'<b>Successfully exported {text} to "{path.name}"</b>'))
-        self.report.setVisible(self.machine().states.export.data.do_report)
+        self.report.setVisible(self.machine().states.export.data.diagnoser.params.report)
 
     def warnDisjoint(self):
-        if not self.machine().states.export.data.report:
+        if not self.machine().states.export.data.diagnoser:
             return
-        group_count = self.machine().states.export.data.report.disjoint_groups
+        group_count = self.machine().states.export.data.diagnoser.disjoint_groups
         if not group_count:
             return
         if group_count > 1:

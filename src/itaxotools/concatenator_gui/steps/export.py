@@ -100,22 +100,22 @@ class FileCompression(Enum):
         self.type = type
 
 
-class CodonOptions(IntEnum):
-    Mark = auto()
-    Export = auto()
+@dataclass
+class DiagnoserParams:
+    report: bool = True
+    disjoint: bool = False
+    foreign: bool = False
+    outliers: bool = False
+    iqr: float = 20.0
 
 
-class OrderingOptions(IntEnum):
-    SameAsInput = auto()
-    Alphabetical = auto()
-
-
-class SummaryReport:
-    def __init__(self):
+class Diagnoser:
+    def __init__(self, params: DiagnoserParams):
+        self.params = params
         self.op_general_info = OpGeneralInfo()
         self.op_general_info_per_gene = OpGeneralInfoPerGene()
         self.op_general_info_per_file = OpGeneralInfoPerFile()
-        self.temp = TemporaryDirectory(prefix='concat_summary_')
+        self.temp = TemporaryDirectory(prefix='concat_diagnose_')
         self.filename = None
         self.timestamp = None
         self.scheme = None
@@ -126,14 +126,20 @@ class SummaryReport:
 
     def pipe_input_streams(self, input_streams):
         self.input_files_count = len(input_streams)
+        if not self.params.report:
+            return input_streams
         return [
             stream.pipe(self.op_general_info_per_file)
             for stream in input_streams]
 
     def pipe_aligned_stream(self, aligned_stream):
+        if not self.params.report:
+            return aligned_stream
         return aligned_stream.pipe(OpGeneralInfoTagMafftRealigned())
 
     def _pipe_general_info(self, stream):
+        if not self.params.report and not self.params.disjoint:
+            return stream
         return (
             stream
             .pipe(self.op_general_info)
@@ -141,6 +147,8 @@ class SummaryReport:
             )
 
     def _pipe_padding_info(self, stream):
+        if not self.params.report:
+            return stream
         if self._writer_padding:
             stream = stream.pipe(OpGeneralInfoTagPaddedLength())
         if self._writer_frames:
@@ -205,24 +213,17 @@ class SummaryReport:
 
     def export_all(self):
         temp = self.export_dir()
-        self.export_table(self.get_table_total(), 'total_data.tsv', header=False)
-        self.export_table(self.get_table_by_input_file(), 'by_input_file.tsv', index=False)
-        self.export_table(self.get_table_by_taxon(), 'by_taxon.tsv')
-        self.export_table(self.get_table_by_gene(), 'by_gene.tsv')
-        self.export_disjoint('disjoint_groups.txt')
+        if self.params.report:
+            self.export_table(self.get_table_total(), 'total_data.tsv', header=False)
+            self.export_table(self.get_table_by_input_file(), 'by_input_file.tsv', index=False)
+            self.export_table(self.get_table_by_taxon(), 'by_taxon.tsv')
+            self.export_table(self.get_table_by_gene(), 'by_gene.tsv')
+        if self.params.disjoint:
+            self.export_disjoint('disjoint_groups.txt')
 
 
-@dataclass
-class DiagnoseParams:
-    report: bool = True
-    disjoint: bool = False
-    foreign: bool = False
-    outliers: bool = False
-    iqr: float = 20.0
-
-
-class DiagnoseOptionsDialog(QtWidgets.QDialog):
-    def __init__(self, params, *args, **kwargs):
+class DiagnoserOptionsDialog(QtWidgets.QDialog):
+    def __init__(self, params: DiagnoserParams, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.params = params
         self.draw()
@@ -255,7 +256,6 @@ class DiagnoseOptionsDialog(QtWidgets.QDialog):
 
         self.footer = QtWidgets.QLabel(
             'Hover fields for more details.')
-
 
         self.report.setToolTip(
             'Produce summary tables per sample, marker and input file. \n'
@@ -394,7 +394,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.phylo_params = fasttreepy_params()
-        self.diagnose_params = DiagnoseParams()
+        self.diagnoser_params = DiagnoserParams()
         self.phylo_available = False
         self.writer: Optional[FileWriter] = None
         self.scheme_changed()
@@ -627,8 +627,8 @@ class StepExportEdit(ssm.StepTriStateEdit):
         self.dialog.show()
 
     def handleDiagnoseShowConfigDialog(self):
-        self.dialog = DiagnoseOptionsDialog(
-            self.diagnose_params, self.machine().parent())
+        self.dialog = DiagnoserOptionsDialog(
+            self.diagnoser_params, self.machine().parent())
         self.dialog.setModal(True)
         self.dialog.show()
 
@@ -698,8 +698,7 @@ class StepExport(ssm.StepTriState):
         input_streams = [
             read_from_path(file.path)
             for file in self.machine().states.input.data.files.values()]
-        if self.data.do_report:
-            input_streams = self.data.report.pipe_input_streams(input_streams)
+        input_streams = self.data.diagnoser.pipe_input_streams(input_streams)
         aligned_cache = Path(self.machine().states.align_sets.temp_cache.name)
         aligned_charsets = {
             k for k, v in self.machine().states.input.data.charsets.items()
@@ -708,8 +707,7 @@ class StepExport(ssm.StepTriState):
             read_from_path(aligned_cache)
             .pipe(OpFilterGenes(aligned_charsets))
             )
-        if self.data.do_report:
-            aligned_stream = self.data.report.pipe_aligned_stream(aligned_stream)
+        aligned_stream = self.data.diagnoser.pipe_aligned_stream(aligned_stream)
         all_streams = [aligned_stream] + input_streams
         translation = self.machine().states.filter.translation
         stream = (
@@ -734,8 +732,7 @@ class StepExport(ssm.StepTriState):
             print(f'Writing to temporary file: {out}\n')
         stream = self.work_get_stream()
         writer = self.states.edit.writer
-        if self.data.do_report:
-            self.data.report.modify_writer_filters(writer)
+        self.data.diagnoser.modify_writer_filters(writer)
         writer(stream, out)
         self.data.seqs = self.data.total
 
@@ -813,10 +810,12 @@ class StepExport(ssm.StepTriState):
     def work_save(self):
         self.states.wait.reset()
         with self.states.wait.redirect():
-            print(f'Done exporting, moving results to {self.data.target}')
+            print(f'Saving diagnostics...')
 
-        if self.data.do_report:
-            self.data.report.export_all()
+        self.data.diagnoser.export_all()
+
+        with self.states.wait.redirect():
+            print(f'Done exporting, moving results to {self.data.target}')
 
         target_out = self.data.target
         do_phylo = self.data.phylo_do_concat or self.data.phylo_do_all
@@ -868,15 +867,11 @@ class StepExport(ssm.StepTriState):
                 self.data.phylo_do_concat or self.data.phylo_do_all))
 
     def filterNext(self, event):
+        self.data.phylo_do_concat = self.states.edit.phylo_concat.isChecked()
+        self.data.phylo_do_all = self.states.edit.phylo_all.isChecked()
         timestamp = self.states.edit.get_timestamp()
         basename = self.states.edit.infer_base_name()
         basename += self.states.edit.get_time_string(timestamp)
-        self.data.phylo_do_concat = self.states.edit.phylo_concat.isChecked()
-        self.data.phylo_do_all = self.states.edit.phylo_all.isChecked()
-        self.data.do_report = self.states.edit.diagnose_params.report
-        self.data.report = SummaryReport()
-        self.data.report.scheme = self.states.edit.scheme.currentData()
-        self.data.report.timestamp = timestamp
         (fileName, _) = QtWidgets.QFileDialog.getSaveFileName(
             self.machine().parent(),
             self.machine().parent().title + ' - Export',
@@ -895,7 +890,10 @@ class StepExport(ssm.StepTriState):
                 self.machine().parent().msgShow(msgBox)
                 return False
         self.data.target = Path(fileName)
-        self.data.report.filename = self.data.target.name
+        self.data.diagnoser = Diagnoser(self.states.edit.diagnoser_params)
+        self.data.diagnoser.scheme = self.states.edit.scheme.currentData()
+        self.data.diagnoser.timestamp = timestamp
+        self.data.diagnoser.filename = self.data.target.name
         return True
 
     def filterCancel(self, event):
