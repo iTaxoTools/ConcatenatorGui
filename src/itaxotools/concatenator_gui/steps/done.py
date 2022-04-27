@@ -105,6 +105,8 @@ class StepDone(ssm.StepState):
         if not self.machine().states.export.data.report:
             return
         group_count = self.machine().states.export.data.report.disjoint_groups
+        if not group_count:
+            return
         if group_count > 1:
             msgBox = QtWidgets.QMessageBox(self.machine().parent())
             msgBox.setWindowTitle(self.machine().parent().title)

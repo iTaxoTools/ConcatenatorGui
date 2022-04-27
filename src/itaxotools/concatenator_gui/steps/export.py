@@ -20,12 +20,14 @@
 
 from PySide6 import QtCore
 from PySide6 import QtWidgets
+from PySide6 import QtGui
 
 from tempfile import TemporaryDirectory
 from enum import Enum, IntEnum, auto
 from datetime import datetime
 from itertools import chain
 from pathlib import Path
+from dataclasses import dataclass
 
 import shutil
 import pandas as pd
@@ -210,6 +212,133 @@ class SummaryReport:
         self.export_disjoint('disjoint_groups.txt')
 
 
+@dataclass
+class DiagnoseParams:
+    report: bool = True
+    disjoint: bool = False
+    foreign: bool = False
+    outliers: bool = False
+    iqr: float = 20.0
+
+
+class DiagnoseOptionsDialog(QtWidgets.QDialog):
+    def __init__(self, params, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.params = params
+        self.draw()
+        self.load_params()
+
+        self.setWindowTitle(self.parent().title)
+        self.setFixedSize(self.sizeHint())
+
+    def draw(self):
+        self.header = QtWidgets.QLabel(
+            'Diagnostic options for data validation: ')
+
+        self.report = QtWidgets.QCheckBox(
+            'Produce summary report tables.')
+        self.disjoint = QtWidgets.QCheckBox(
+            'Detect disjoint sample groups.')
+        self.foreign = QtWidgets.QCheckBox(
+            'Detect foreign samples.')
+
+        self.outliers = QtWidgets.QCheckBox(
+            'Detect outlier sequences.')
+        self.outliers.stateChanged.connect(self.setIqrEnabled)
+
+        self.iqr_label = QtWidgets.QLabel(
+            ' \u21AA IQR coefficient:   ')
+        self.iqr_edit = QtWidgets.QLineEdit('1.0')
+        validator = QtGui.QDoubleValidator(self.iqr_edit)
+        validator.setBottom(0)
+        self.iqr_edit.setValidator(validator)
+
+        self.footer = QtWidgets.QLabel(
+            'Hover fields for more details.')
+
+
+        self.report.setToolTip(
+            'Produce summary tables per sample, marker and input file. \n'
+            'Also produces a short summary for the whole dataset.')
+        self.disjoint.setToolTip(
+            'List sample groups that share no markers. \n'
+            'A warning will be issued if there are more than one.')
+        self.foreign.setToolTip(
+            'Find pairs of samples that have no markers in common. \n'
+            'A warning will be issued if any exist.')
+        self.outliers.setToolTip(
+            'List outlier samples using SequenceBouncer. \n'
+            'A warning will be issued if any exist.')
+
+        iqr_tip = (
+            'Coefficient multiplied by the interquartile range that helps \n'
+            'define an outlier sequence (default is 1.0).')
+        self.iqr_label.setToolTip(iqr_tip)
+        self.iqr_edit.setToolTip(iqr_tip)
+
+        ok = common.widgets.PushButton('OK')
+        ok.clicked.connect(self.accept)
+        ok.setDefault(True)
+        cancel = common.widgets.PushButton('Cancel')
+        cancel.clicked.connect(self.reject)
+
+        buttons = QtWidgets.QHBoxLayout()
+        buttons.addStretch(1)
+        buttons.addWidget(cancel)
+        buttons.addWidget(ok)
+        buttons.setSpacing(8)
+        buttons.setContentsMargins(0, 0, 0, 0)
+
+        options = QtWidgets.QGridLayout()
+        options.setRowMinimumHeight(10, 8)
+        options.addWidget(self.header, 11, 0, 1, 4)
+        options.setRowMinimumHeight(20, 16)
+        options.addWidget(self.report, 21, 1, 1, 3)
+        options.addWidget(self.disjoint, 22, 1, 1, 3)
+        options.addWidget(self.foreign, 23, 1, 1, 3)
+        options.setRowMinimumHeight(30, 16)
+        options.addWidget(self.outliers, 31, 1, 1, 3)
+        options.addWidget(self.iqr_label, 32, 1, 1, 1)
+        options.addWidget(self.iqr_edit, 32, 2, 1, 1)
+        options.setRowMinimumHeight(40, 16)
+        options.addWidget(self.footer, 41, 0, 1, 4)
+        options.setRowMinimumHeight(50, 24)
+
+        options.setColumnStretch(3, 1)
+        options.setColumnMinimumWidth(0, 16)
+        options.setColumnMinimumWidth(4, 16)
+        options.setContentsMargins(0, 0, 0, 0)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addLayout(options)
+        layout.addLayout(buttons)
+        layout.setContentsMargins(24, 16, 24, 16)
+        self.setLayout(layout)
+
+    def setIqrEnabled(self, state):
+        self.iqr_label.setEnabled(state)
+        self.iqr_edit.setEnabled(state)
+
+    def accept(self):
+        super().accept()
+        self.save_params()
+
+    def load_params(self):
+        self.report.setChecked(self.params.report)
+        self.disjoint.setChecked(self.params.disjoint)
+        self.foreign.setChecked(self.params.foreign)
+        self.outliers.setChecked(self.params.outliers)
+        self.iqr_edit.setText(str(self.params.iqr))
+        self.setIqrEnabled(self.params.outliers)
+
+    def save_params(self):
+        self.params.report = self.report.isChecked()
+        self.params.disjoint = self.disjoint.isChecked()
+        self.params.foreign = self.foreign.isChecked()
+        self.params.outliers = self.outliers.isChecked()
+        self.params.iqr = float(self.iqr_edit.text())
+
+
 class TreeOptionsDialog(QtWidgets.QDialog):
     def __init__(self, params, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -265,6 +394,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.phylo_params = fasttreepy_params()
+        self.diagnose_params = DiagnoseParams()
         self.phylo_available = False
         self.writer: Optional[FileWriter] = None
         self.scheme_changed()
@@ -314,8 +444,9 @@ class StepExportEdit(ssm.StepTriStateEdit):
         compression = QtWidgets.QComboBox()
         timestamp = QtWidgets.QCheckBox('Append timestamp to filename.')
         timestamp.setChecked(True)
-        report = QtWidgets.QCheckBox('Produce summary report.')
-        report.setChecked(True)
+        diagnose_config = PushButton(
+            'Diagnostic Options', onclick=self.handleDiagnoseShowConfigDialog)
+        diagnose_config.setMaximumWidth(160)
 
         scheme.setToolTip((
             'Select one of the available sequence file formats.' + '\n'
@@ -327,6 +458,9 @@ class StepExportEdit(ssm.StepTriStateEdit):
             ))
         timestamp.setToolTip(
             'The timestamp follows ISO 8601 in local time.')
+        diagnose_config.setToolTip(
+            'Select between a series of diagnostic options'
+            'for data validation.')
 
         label_format = QtWidgets.QLabel('Output file format:')
         label_compression = QtWidgets.QLabel('File compression:')
@@ -347,9 +481,10 @@ class StepExportEdit(ssm.StepTriStateEdit):
         layout.addWidget(scheme, 0, 1)
         layout.addWidget(compression, 1, 1)
         layout.addWidget(timestamp, 3, 0, 1, 2)
-        layout.addWidget(report, 4, 0, 1, 2)
+        layout.addWidget(diagnose_config, 5, 0, 1, 2)
 
         layout.setRowStretch(5, 1)
+        layout.setRowMinimumHeight(4, 8)
         layout.setColumnMinimumWidth(1, 160)
         layout.setSpacing(16)
         layout.setContentsMargins(24, 16, 24, 16)
@@ -357,7 +492,6 @@ class StepExportEdit(ssm.StepTriStateEdit):
         self.scheme = scheme
         self.compression = compression
         self.timestamp = timestamp
-        self.report = report
 
         return layout
 
@@ -489,6 +623,12 @@ class StepExportEdit(ssm.StepTriStateEdit):
     def handlePhyloShowConfigDialog(self):
         self.dialog = TreeOptionsDialog(
             self.phylo_params, self.machine().parent())
+        self.dialog.setModal(True)
+        self.dialog.show()
+
+    def handleDiagnoseShowConfigDialog(self):
+        self.dialog = DiagnoseOptionsDialog(
+            self.diagnose_params, self.machine().parent())
         self.dialog.setModal(True)
         self.dialog.show()
 
@@ -733,7 +873,7 @@ class StepExport(ssm.StepTriState):
         basename += self.states.edit.get_time_string(timestamp)
         self.data.phylo_do_concat = self.states.edit.phylo_concat.isChecked()
         self.data.phylo_do_all = self.states.edit.phylo_all.isChecked()
-        self.data.do_report = self.states.edit.report.isChecked()
+        self.data.do_report = self.states.edit.diagnose_params.report
         self.data.report = SummaryReport()
         self.data.report.scheme = self.states.edit.scheme.currentData()
         self.data.report.timestamp = timestamp
