@@ -53,7 +53,7 @@ from itaxotools.fasttreepy import PhylogenyApproximation
 from itaxotools.fasttreepy.params import params as fasttreepy_params
 from itaxotools.fasttreepy.gui.main import CustomView as TreeParamView
 from .. import step_state_machine as ssm
-
+from ..bouncer import OpSequenceBouncer
 from .wait import StepWaitBar
 
 
@@ -105,7 +105,7 @@ class DiagnoserParams:
     report: bool = True
     disjoint: bool = True
     foreign: bool = True
-    outliers: bool = False
+    outliers: bool = True
     iqr: float = 20.0
 
 
@@ -115,6 +115,7 @@ class Diagnoser:
         self.op_general_info = OpGeneralInfo()
         self.op_general_info_per_gene = OpGeneralInfoPerGene()
         self.op_general_info_per_file = OpGeneralInfoPerFile()
+        self.op_sequence_bouncer = OpSequenceBouncer(self.params.iqr)
         self.temp = TemporaryDirectory(prefix='concat_diagnose_')
         self.filename = None
         self.timestamp = None
@@ -122,6 +123,7 @@ class Diagnoser:
         self.input_files_count = None
         self.disjoint_groups = None
         self.foreign_pairs = None
+        self.outlier_count = None
         self._writer_padding = False
         self._writer_frames = False
 
@@ -138,15 +140,6 @@ class Diagnoser:
             return aligned_stream
         return aligned_stream.pipe(OpGeneralInfoTagMafftRealigned())
 
-    def _pipe_general_info(self, stream):
-        if not self.params.report and not self.params.disjoint:
-            return stream
-        return (
-            stream
-            .pipe(self.op_general_info)
-            .pipe(self.op_general_info_per_gene)
-            )
-
     def _pipe_padding_info(self, stream):
         if not self.params.report:
             return stream
@@ -156,11 +149,33 @@ class Diagnoser:
             stream = stream.pipe(OpGeneralInfoTagPaddedCodonPosition())
         return stream
 
+    def _pipe_general_info(self, stream):
+        if not any([
+            self.params.report,
+            self.params.disjoint,
+            self.params.foreign
+        ]):
+            return stream
+        return (
+            stream
+            .pipe(self.op_general_info)
+            .pipe(self.op_general_info_per_gene)
+            )
+
+    def _pipe_sequence_bouncer(self, stream):
+        if not self.params.outliers:
+            return stream
+        return stream.pipe(self.op_sequence_bouncer)
+
     def modify_writer_filters(self, writer):
         self._writer_padding = bool(getattr(writer, 'padding', False))
         self._writer_frames = bool(getattr(writer, 'adjust_frames', False))
-        writer.filters.insert(0, self._pipe_padding_info)
-        writer.filters.append(self._pipe_general_info)
+        writer.filters = [
+            self._pipe_padding_info,
+            writer.filter,
+            self._pipe_general_info,
+            self._pipe_sequence_bouncer,
+        ]
 
     def get_table_header(self):
         return pd.Series({
@@ -208,8 +223,8 @@ class Diagnoser:
                 self.disjoint_groups += 1
                 print(f'Group {self.disjoint_groups}', file=file)
                 print('-------------', file=file)
-                for taxon in group:
-                    print(taxon, file=file)
+                for sample in group:
+                    print(sample, file=file)
                 print('', file=file)
 
     def export_foreign(self, name):
@@ -218,6 +233,24 @@ class Diagnoser:
             for x, y in self.op_general_info.table.unconnected_taxons():
                 self.foreign_pairs += 1
                 print(f'{x}\t{y}', file=file)
+
+    def export_outliers(self, name):
+        self.outlier_count = 0
+        with open(self.export_dir() / name, 'w') as file:
+            for gene, data in self.op_sequence_bouncer.outliers.items():
+                if not data:
+                    continue
+                print(f'{gene}', file=file)
+                print('-------------', file=file)
+                if isinstance(data, str):
+                    print(data, file=file)
+                elif isinstance(data, list):
+                    self.outlier_count += len(data)
+                    for sample in data:
+                        print(sample, file=file)
+                print('', file=file)
+            if self.outlier_count == 0:
+                print('No outliers detected.', file=file)
 
     def export_all(self):
         temp = self.export_dir()
@@ -230,6 +263,8 @@ class Diagnoser:
             self.export_disjoint('disjoint_groups.txt')
         if self.params.foreign:
             self.export_foreign('foreign_pairs.txt')
+        if self.params.outliers:
+            self.export_outliers('outliers.txt')
 
 
 class DiagnoserOptionsDialog(QtWidgets.QDialog):
