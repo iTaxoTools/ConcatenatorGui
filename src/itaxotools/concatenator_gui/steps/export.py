@@ -103,8 +103,8 @@ class FileCompression(Enum):
 @dataclass
 class DiagnoserParams:
     report: bool = True
-    disjoint: bool = False
-    foreign: bool = False
+    disjoint: bool = True
+    foreign: bool = True
     outliers: bool = False
     iqr: float = 20.0
 
@@ -121,6 +121,7 @@ class Diagnoser:
         self.scheme = None
         self.input_files_count = None
         self.disjoint_groups = None
+        self.foreign_pairs = None
         self._writer_padding = False
         self._writer_frames = False
 
@@ -211,6 +212,13 @@ class Diagnoser:
                     print(taxon, file=file)
                 print('', file=file)
 
+    def export_foreign(self, name):
+        self.foreign_pairs = 0
+        with open(self.export_dir() / name, 'w') as file:
+            for x, y in self.op_general_info.table.unconnected_taxons():
+                self.foreign_pairs += 1
+                print(f'{x}\t{y}', file=file)
+
     def export_all(self):
         temp = self.export_dir()
         if self.params.report:
@@ -220,6 +228,8 @@ class Diagnoser:
             self.export_table(self.get_table_by_gene(), 'by_gene.tsv')
         if self.params.disjoint:
             self.export_disjoint('disjoint_groups.txt')
+        if self.params.foreign:
+            self.export_foreign('foreign_pairs.txt')
 
 
 class DiagnoserOptionsDialog(QtWidgets.QDialog):
@@ -261,8 +271,8 @@ class DiagnoserOptionsDialog(QtWidgets.QDialog):
             'Produce summary tables per sample, marker and input file. \n'
             'Also produces a short summary for the whole dataset.')
         self.disjoint.setToolTip(
-            'List sample groups that share no markers. \n'
-            'A warning will be issued if there are more than one.')
+            'List groups of samples, such that samples in different groups share no markers. \n'
+            'A warning will be issued if there are more than one such groups.')
         self.foreign.setToolTip(
             'Find pairs of samples that have no markers in common. \n'
             'A warning will be issued if any exist.')
