@@ -144,6 +144,8 @@ class SummaryReport:
     def get_table_total(self):
         header = self.get_table_header()
         table = self.op_general_info.table.total_data()
+        table["GC content of sequences"] = f'{table["GC content of sequences"]:.1f}'
+        table["% missing data"] = f'{table["% missing data"]:.1f}'
         return pd.concat([header, table])
 
     def get_table_by_taxon(self):
@@ -156,30 +158,35 @@ class SummaryReport:
     def get_table_by_input_file(self):
         return self.op_general_info_per_file.get_info()
 
-    def export_disjoint(self, file):
-        self.disjoint_groups = 0
-        for group in self.op_general_info.table.disjoint_taxon_groups():
-            self.disjoint_groups += 1
-            print(f'Group {self.disjoint_groups}', file=file)
-            print('-------------', file=file)
-            for taxon in group:
-                print(taxon, file=file)
-            print('', file=file)
-
     def export_dir(self):
         return Path(self.temp.name)
 
+    def export_table(
+        self, table, name, header=True, index=True,
+        sep='\t', float_format='%.1f'
+    ):
+        table.to_csv(
+            self.export_dir() / name, header=header, index=index,
+            sep=sep, float_format=float_format)
+
+    def export_disjoint(self, name):
+        self.disjoint_groups = 0
+        with open(self.export_dir() / name, 'w') as file:
+            for group in self.op_general_info.table.disjoint_taxon_groups():
+                self.disjoint_groups += 1
+                print(f'Group {self.disjoint_groups}', file=file)
+                print('-------------', file=file)
+                for taxon in group:
+                    print(taxon, file=file)
+                print('', file=file)
+
     def export_all(self):
         temp = self.export_dir()
-        self.get_table_total().to_csv(
-            temp / 'total_data.tsv', header=False, sep="\t")
-        self.get_table_by_input_file().to_csv(
-            temp / 'by_input_file.tsv', index=False, sep="\t")
-        self.get_table_by_taxon().to_csv(temp / 'by_taxon.tsv', sep="\t")
-        self.get_table_by_gene().to_csv(temp / 'by_gene.tsv', sep="\t")
-        self.get_table_by_gene().to_csv(temp / 'by_gene.tsv', sep="\t")
-        with open(temp / 'disjoint_groups.txt', 'w') as file:
-            self.export_disjoint(file)
+        self.export_table(self.get_table_total(), 'total_data.tsv', header=False)
+        self.export_table(self.get_table_by_input_file(), 'by_input_file.tsv', index=False)
+        self.export_table(self.get_table_by_taxon(), 'by_taxon.tsv')
+        self.export_table(self.get_table_by_gene(), 'by_gene.tsv')
+        self.export_disjoint('disjoint_groups.txt')
 
 
 class TreeOptionsDialog(QtWidgets.QDialog):
