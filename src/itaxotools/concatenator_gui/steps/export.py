@@ -42,7 +42,10 @@ from itaxotools.concatenator.library.file_utils import ZipFile, ZipPath
 from itaxotools.concatenator.library.operators import (
     OpChainGenes, OpTranslateGenes, OpApplyToGene, OpTagSet,
     OpUpdateMetadata, OpFilterGenes, OpGeneralInfo,
-    OpGeneralInfoPerFile, OpGeneralInfoPerGene)
+    OpGeneralInfoPerFile, OpGeneralInfoPerGene,
+    OpGeneralInfoTagMafftRealigned,
+    OpGeneralInfoTagPaddedLength,
+    OpGeneralInfoTagPaddedCodonPosition)
 from itaxotools import mafftpy
 from itaxotools.fasttreepy import PhylogenyApproximation
 from itaxotools.fasttreepy.params import params as fasttreepy_params
@@ -116,6 +119,8 @@ class SummaryReport:
         self.scheme = None
         self.input_files_count = None
         self.disjoint_groups = None
+        self._writer_padding = False
+        self._writer_frames = False
 
     def pipe_input_streams(self, input_streams):
         self.input_files_count = len(input_streams)
@@ -123,12 +128,28 @@ class SummaryReport:
             stream.pipe(self.op_general_info_per_file)
             for stream in input_streams]
 
-    def pipe_final_stream(self, stream):
+    def pipe_aligned_stream(self, aligned_stream):
+        return aligned_stream.pipe(OpGeneralInfoTagMafftRealigned())
+
+    def _pipe_general_info(self, stream):
         return (
             stream
             .pipe(self.op_general_info)
             .pipe(self.op_general_info_per_gene)
             )
+
+    def _pipe_padding_info(self, stream):
+        if self._writer_padding:
+            stream = stream.pipe(OpGeneralInfoTagPaddedLength())
+        if self._writer_frames:
+            stream = stream.pipe(OpGeneralInfoTagPaddedCodonPosition())
+        return stream
+
+    def modify_writer_filters(self, writer):
+        self._writer_padding = bool(getattr(writer, 'padding', False))
+        self._writer_frames = bool(getattr(writer, 'adjust_frames', False))
+        writer.filters.insert(0, self._pipe_padding_info)
+        writer.filters.append(self._pipe_general_info)
 
     def get_table_header(self):
         return pd.Series({
@@ -546,8 +567,9 @@ class StepExport(ssm.StepTriState):
         aligned_stream = (
             read_from_path(aligned_cache)
             .pipe(OpFilterGenes(aligned_charsets))
-            .pipe(OpTagSet("MafftRealigned", True))
             )
+        if self.data.do_report:
+            aligned_stream = self.data.report.pipe_aligned_stream(aligned_stream)
         all_streams = [aligned_stream] + input_streams
         translation = self.machine().states.filter.translation
         stream = (
@@ -573,7 +595,7 @@ class StepExport(ssm.StepTriState):
         stream = self.work_get_stream()
         writer = self.states.edit.writer
         if self.data.do_report:
-            writer.filters.append(self.data.report.pipe_final_stream)
+            self.data.report.modify_writer_filters(writer)
         writer(stream, out)
         self.data.seqs = self.data.total
 
