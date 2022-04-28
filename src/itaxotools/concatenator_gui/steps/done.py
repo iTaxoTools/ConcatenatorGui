@@ -131,6 +131,6 @@ class StepDone(ssm.StepState):
         diagnoser = self.machine().states.export.data.diagnoser
         for name, record in diagnoser.get_summary_report().records.items():
             print(str(record))
-            print(record.data.to_string())
+            print(record.data.data.to_string())
             print('')
         print(diagnoser.get_record_log())

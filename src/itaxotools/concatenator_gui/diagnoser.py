@@ -35,7 +35,7 @@ from itaxotools.concatenator.library.operators import (
     OpGeneralInfoTagPaddedCodonPosition)
 
 from .bouncer import OpSequenceBouncer
-from .records import Record, RecordFlag, RecordLog
+from .records import Record, RecordFlag, RecordLog, RecordData
 
 
 @dataclass
@@ -47,6 +47,84 @@ class DiagnoserParams:
     iqr: float = 20.0
 
 
+class RecordTable(RecordData):
+    def _export_table(
+        self, path, header=True, index=True,
+        sep='\t', float_format='%.1f'
+    ):
+        self.data.to_csv(
+            path, header=header, index=index,
+            sep=sep, float_format=float_format)
+
+
+class RecordTotal(RecordTable):
+    export_name = 'total_data.tsv'
+
+    def export(self, path: Path) -> None:
+        self._export_table(path, header=False)
+
+
+class RecordByTaxon(RecordTable):
+    export_name = 'by_taxon.tsv'
+
+    def export(self, path: Path) -> None:
+        self._export_table(path, index=False)
+
+
+class RecordByGene(RecordTable):
+    export_name = 'by_gene.tsv'
+
+    def export(self, path: Path) -> None:
+        self._export_table(path)
+
+
+class RecordByInput(RecordTable):
+    export_name = 'by_input_file.tsv'
+
+    def export(self, path: Path) -> None:
+        self._export_table(path)
+
+
+class RecordDisjoint(RecordData):
+    export_name = 'disjoint_groups.txt'
+
+    def export(self, path: Path) -> None:
+        with open(path, 'w') as file:
+            for count, group in enumerate(self.data, start=1):
+                print(f'Group {count}', file=file)
+                print('-------------', file=file)
+                for sample in group:
+                    print(sample, file=file)
+                print('', file=file)
+
+
+class RecordForeign(RecordData):
+    export_name = 'foreign_pairs.txt'
+
+    def export(self, path: Path) -> None:
+        with open(path, 'w') as file:
+            for x, y in self.data:
+                print(f'{x}\t{y}', file=file)
+
+
+class RecordOutliers(RecordData):
+    export_name = 'outliers.txt'
+
+    def export(self, path: Path) -> None:
+        with open(path, 'w') as file:
+            for gene, data in self.data.items():
+                if not data:
+                    continue
+                print(f'{gene}', file=file)
+                print('-------------', file=file)
+                if isinstance(data, str):
+                    print(data, file=file)
+                elif isinstance(data, list):
+                    for sample in data:
+                        print(sample, file=file)
+                print('', file=file)
+
+
 class SummaryReport:
     def __init__(
         self,
@@ -56,10 +134,10 @@ class SummaryReport:
         by_input: pd.DataFrame,
     ):
         self.records = AttrDict()
-        self.records.total = Record(RecordFlag.Info, 'Total', data=total)
-        self.records.by_taxon = Record(RecordFlag.Info, 'Per Taxon', data=by_taxon)
-        self.records.by_gene = Record(RecordFlag.Info, 'Per Gene', data=by_gene)
-        self.records.by_input = Record(RecordFlag.Info, 'Per Input File', data=by_input)
+        self.records.total = Record(RecordFlag.Info, 'Total', data=RecordTotal(total))
+        self.records.by_taxon = Record(RecordFlag.Info, 'Per Taxon', data=RecordByTaxon(by_taxon))
+        self.records.by_gene = Record(RecordFlag.Info, 'Per Gene', data=RecordByGene(by_gene))
+        self.records.by_input = Record(RecordFlag.Info, 'Per Input File', data=RecordByInput(by_input))
 
 
 class Diagnoser:
@@ -130,7 +208,7 @@ class Diagnoser:
             self._pipe_sequence_bouncer,
         ]
 
-    def get_table_header(self):
+    def _get_table_header(self):
         return pd.Series({
             'Name of output file': self.filename,
             'Timestamp of output file': self.timestamp,
@@ -142,7 +220,7 @@ class Diagnoser:
         return self.op_general_info.table.dataframe
 
     def _get_table_total(self):
-        header = self.get_table_header()
+        header = self._get_table_header()
         table = self.op_general_info.table.total_data()
         table["GC content of sequences"] = f'{table["GC content of sequences"]:.1f}'
         table["% missing data"] = f'{table["% missing data"]:.1f}'
@@ -179,7 +257,7 @@ class Diagnoser:
         if len(groups) <= 1:
             return Record(RecordFlag.Info, 'Disjoint OK')
         else:
-            return Record(RecordFlag.Warn, 'Disjoint WARN', data=groups)
+            return Record(RecordFlag.Warn, 'Disjoint WARN', data=RecordDisjoint(groups))
 
     def _get_record_foreign(self) -> Record:
         if not self.params.foreign:
@@ -188,7 +266,7 @@ class Diagnoser:
         if not pairs:
             return Record(RecordFlag.Info, 'Foreign OK')
         else:
-            return Record(RecordFlag.Warn, 'Foreign WARN', data=pairs)
+            return Record(RecordFlag.Warn, 'Foreign WARN', data=RecordForeign(pairs))
 
     def _get_record_outliers(self) -> Record:
         if not self.params.outliers:
@@ -198,7 +276,7 @@ class Diagnoser:
         if not count:
             return Record(RecordFlag.Info, 'Outliers OK')
         else:
-            return Record(RecordFlag.Warn, 'Outliers WARN', data=outliers)
+            return Record(RecordFlag.Warn, 'Outliers WARN', data=RecordOutliers(outliers))
 
     def get_record_log(self) -> RecordLog:
         log = RecordLog()
@@ -210,62 +288,16 @@ class Diagnoser:
     def export_dir(self):
         return Path(self.temp.name)
 
-    def export_table(
-        self, table, name, header=True, index=True,
-        sep='\t', float_format='%.1f'
-    ):
-        table.to_csv(
-            self.export_dir() / name, header=header, index=index,
-            sep=sep, float_format=float_format)
-
-    def export_disjoint(self, name):
-        self.disjoint_groups = 0
-        with open(self.export_dir() / name, 'w') as file:
-            for group in self.op_general_info.table.disjoint_taxon_groups():
-                self.disjoint_groups += 1
-                print(f'Group {self.disjoint_groups}', file=file)
-                print('-------------', file=file)
-                for sample in group:
-                    print(sample, file=file)
-                print('', file=file)
-
-    def export_foreign(self, name):
-        self.foreign_pairs = 0
-        with open(self.export_dir() / name, 'w') as file:
-            for x, y in self.op_general_info.table.unconnected_taxons():
-                self.foreign_pairs += 1
-                print(f'{x}\t{y}', file=file)
-            if self.foreign_pairs == 0:
-                print('No foreign pairs detected.', file=file)
-
-    def export_outliers(self, name):
-        self.outlier_count = 0
-        with open(self.export_dir() / name, 'w') as file:
-            for gene, data in self.op_sequence_bouncer.outliers.items():
-                if not data:
-                    continue
-                print(f'{gene}', file=file)
-                print('-------------', file=file)
-                if isinstance(data, str):
-                    print(data, file=file)
-                elif isinstance(data, list):
-                    self.outlier_count += len(data)
-                    for sample in data:
-                        print(sample, file=file)
-                print('', file=file)
-            if self.outlier_count == 0:
-                print('No outliers detected.', file=file)
+    def _export_record(self, record):
+        path = self.export_dir() / record.data.export_name
+        record.data.export(path)
 
     def export_all(self):
         temp = self.export_dir()
         if self.params.report:
-            self.export_table(self._get_table_total(), 'total_data.tsv', header=False)
-            self.export_table(self._get_table_by_input_file(), 'by_input_file.tsv', index=False)
-            self.export_table(self._get_table_by_taxon(), 'by_taxon.tsv')
-            self.export_table(self._get_table_by_gene(), 'by_gene.tsv')
-        if self.params.disjoint:
-            self.export_disjoint('disjoint_groups.txt')
-        if self.params.foreign:
-            self.export_foreign('foreign_pairs.txt')
-        if self.params.outliers:
-            self.export_outliers('outliers.txt')
+            for record in self.get_summary_report().records.values():
+                self._export_record(record)
+        for record in self.get_record_log():
+            print(str(record))
+            if record.data is not None:
+                self._export_record(record)

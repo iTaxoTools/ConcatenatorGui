@@ -34,6 +34,8 @@ class RecordFlag(Enum):
 
 
 class RecordData:
+    export_name: str = ''
+
     def __init__(self, data: object):
         self.data = data
 
