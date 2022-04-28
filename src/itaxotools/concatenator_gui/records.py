@@ -23,8 +23,9 @@ from typing import Iterator, Optional
 from enum import Enum, auto
 from pathlib import Path
 
-from PySide6.QtCore import QAbstractItemModel
-from PySide6.QtWidgets import QWidget
+from PySide6.QtCore import Qt, QSize, QRect, QEvent, QAbstractItemModel, QAbstractListModel
+from PySide6.QtWidgets import QWidget, QListView, QStyledItemDelegate, QStyle, QSizePolicy
+from PySide6.QtGui import QFontMetrics
 
 
 class RecordFlag(Enum):
@@ -81,3 +82,119 @@ class RecordLog:
     def append(self, record: Optional[Record]) -> None:
         if record is not None:
             self.records.append(record)
+
+
+class RecordLogModel(QAbstractListModel):
+
+    def __init__(self, log):
+        super().__init__()
+        self.log = log
+
+    def rowCount(self, parent=None):
+        return len(self.log.records)
+
+    def data(self, index, role):
+        if (
+            index.row() < 0 or
+            index.row() >= len(self.log.records) or
+            index.column() != 0
+        ):
+            return None
+        record = self.log.records[index.row()]
+        if role == Qt.DisplayRole:
+            return str(record)
+        if role == Qt.UserRole:
+            return record
+        return None
+
+
+class RecordLogDelegate(QStyledItemDelegate):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._hovering = False
+
+    def sizeHint(self, option, index):
+        record = index.data(Qt.UserRole)
+        font_metrics = QFontMetrics(option.font)
+        width = font_metrics.horizontalAdvance(record.title)
+        height = font_metrics.height()
+        return QSize(width + 28, height + 12)
+
+    def paint(self, painter, option, index):
+        self.initStyleOption(option, index)
+        record = index.data(Qt.UserRole)
+        painter.save()
+        deco = {
+            RecordFlag.Info: '\u2714',
+            RecordFlag.Warn: '\u2718',
+            RecordFlag.Fail: '\u2718',
+        }[record.type]
+        decoRect = QRect(option.rect)
+        decoRect.adjust(8, 0, 0, 0)
+        painter.drawText(decoRect, Qt.AlignVCenter, deco)
+        if option.state & QStyle.State_MouseOver and self._hovering:
+            font = painter.font()
+            font.setUnderline(True)
+            painter.setFont(font)
+        textRect = QRect(option.rect)
+        textRect.adjust(24, 0, 0, 0)
+        painter.drawText(textRect, Qt.AlignVCenter, record.title)
+        painter.restore()
+
+    def editorEvent(self, event, model, option, index):
+        if event.type() == QEvent.Type.MouseMove:
+            hovering = (
+                event.x() >= 24 and
+                event.x() <= self.sizeHint(option, index).width() and
+                event.y() <= self.parent().sizeHint().height())
+            if hovering != self._hovering:
+                if hovering:
+                    self.parent().setCursor(Qt.PointingHandCursor)
+                else:
+                    self.parent().unsetCursor()
+                self._hovering = hovering
+                self.parent().update()
+        elif (
+            event.type() == QEvent.MouseButtonRelease and
+            event.button() == Qt.LeftButton and
+            self._hovering
+        ):
+            record = index.data(Qt.UserRole)
+            print(str(record))
+        return super().event(event)
+
+
+class RecordLogView(QListView):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setMouseTracking(True)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setSizePolicy(
+            QSizePolicy.Policy.Minimum,
+            QSizePolicy.Policy.Minimum)
+        self.setStyleSheet("""
+            RecordLogView {
+                background: transparent;
+                border: 0px solid transparent;
+                outline: none;
+                padding: 0px;
+            }
+        """)
+        self.setSpacing(0)
+        self.delegate = RecordLogDelegate(self)
+        self.setItemDelegate(self.delegate)
+
+    def sizeHint(self):
+        width = self.sizeHintForColumn(0)
+        height = self.sizeHintForRow(0)
+        rows = 0
+        if self.model():
+            rows = self.model().rowCount()
+        return QSize(width, height * rows)
+
+    def setLog(self, log):
+        model = RecordLogModel(log)
+        self.setModel(model)
+        self.updateGeometry()

@@ -27,6 +27,7 @@ from pathlib import Path
 from itaxotools import common
 import itaxotools.common.resources # noqa
 
+from ..records import RecordLogView
 from .. import step_state_machine as ssm
 from .. import widgets
 
@@ -57,6 +58,8 @@ class StepDone(ssm.StepState):
         self.confirm.setTextFormat(QtCore.Qt.RichText)
         self.confirm.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
 
+        self.log_view = RecordLogView()
+
         path = common.resources.get(
             'itaxotools.concatenator_gui', 'docs/report.html')
         with open(path) as f:
@@ -74,6 +77,7 @@ class StepDone(ssm.StepState):
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.progress)
+        layout.addWidget(self.log_view)
         layout.addWidget(self.report)
         layout.addWidget(self.label)
         layout.addStretch(1)
@@ -134,3 +138,4 @@ class StepDone(ssm.StepState):
             print(record.data.data.to_string())
             print('')
         print(diagnoser.get_record_log())
+        self.log_view.setLog(diagnoser.get_record_log())
