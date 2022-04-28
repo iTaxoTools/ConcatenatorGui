@@ -105,7 +105,7 @@ class DiagnoserParams:
     report: bool = True
     disjoint: bool = True
     foreign: bool = True
-    outliers: bool = True
+    outliers: bool = False
     iqr: float = 20.0
 
 
@@ -193,6 +193,9 @@ class Diagnoser:
         table = self.op_general_info.table.total_data()
         table["GC content of sequences"] = f'{table["GC content of sequences"]:.1f}'
         table["% missing data"] = f'{table["% missing data"]:.1f}'
+        table["Average number of nucleotides per taxon"] = f'{table["Average number of nucleotides per taxon"]:.2f}'
+        table["Average number of markers per taxon"] = f'{table["Average number of markers per taxon"]:.2f}'
+        table["Average number of taxa per marker"] = f'{table["Average number of taxa per marker"]:.2f}'
         return pd.concat([header, table])
 
     def get_table_by_taxon(self):
@@ -233,6 +236,8 @@ class Diagnoser:
             for x, y in self.op_general_info.table.unconnected_taxons():
                 self.foreign_pairs += 1
                 print(f'{x}\t{y}', file=file)
+            if self.foreign_pairs == 0:
+                print('No foreign pairs detected.', file=file)
 
     def export_outliers(self, name):
         self.outlier_count = 0

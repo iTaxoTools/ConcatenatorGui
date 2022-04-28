@@ -70,6 +70,7 @@ class StepDone(ssm.StepState):
             'itaxotools.concatenator_gui', 'docs/done.html')
         self.label = widgets.HtmlLabel(path)
         self.label.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByMouse)
+        self.label.setVisible(False)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.progress)
@@ -99,7 +100,6 @@ class StepDone(ssm.StepState):
             text += f' and {count_trees} tree{s}'
         self.confirm.setText((
             f'<b>Successfully exported {text} to "{path.name}"</b>'))
-        self.report.setVisible(self.machine().states.export.data.diagnoser.params.report)
 
     def warnDisjoint(self):
         if not self.machine().states.export.data.diagnoser:

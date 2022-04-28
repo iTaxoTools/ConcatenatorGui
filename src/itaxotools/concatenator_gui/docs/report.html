@@ -1,21 +1,26 @@
 <html>
 
-  <p style="margin-bottom: 20px;">Below you may find the summary reports for all performed operations:</p>
-  <div style="line-height:1.4; margin-left: 20px;">
-    <a href="total_data.tsv">For the total data set</a>
+  <p style="margin-bottom: 40px;">Below you may find the summary reports for all performed diagnostics:</p>
+  <div style="line-height:1.6; margin-left: 20px;">
+    &#x1F82A;&nbsp;&nbsp;Summary reports:&nbsp;&nbsp;
+    <a href="total_data.tsv">Total</a>,&nbsp;
+    <a href="by_input_file.tsv">per input</a>,&nbsp;
+    <a href="by_taxon.tsv">per sample</a>,&nbsp;
+    <a href="by_gene.tsv">per marker</a>.
     <br>
-    <a href="by_input_file.tsv">Per input file</a>
     <br>
-    <a href="by_taxon.tsv">By sample (taxon)</a>
+    &#x2714;&nbsp;&nbsp;WORK IN PROGRESS: The warnings below are intentionally triggering!&nbsp;&nbsp;
+    <a href="work_in_progress">More...</a>&nbsp;
     <br>
-    <a href="by_gene.tsv">By marker (gene)</a>
+    &#x2718;&nbsp;&nbsp;WARNING: Disjoint sample groups detected:&nbsp;&nbsp;
+    <a href="disjoint_groups.txt">Disjoint</a>&nbsp;
     <br>
-    <a href="disjoint_groups.txt">Disjoint sample groups</a>
+    &#x2718;&nbsp;&nbsp;WARNING: Foreign sample pairs detected:&nbsp;&nbsp;
+    <a href="foreign_pairs.txt">Foreign</a>&nbsp;
     <br>
-    <a href="foreign_pairs.txt">Foreign sample pairs</a>
-    <br>
-    <a href="outliers.txt">Outlier sequences</a>
+    &#x2718;&nbsp;&nbsp;WARNING: Outlier sequences detected:&nbsp;&nbsp;
+    <a href="outliers.txt">Outliers</a>&nbsp;
   </div>
-  <p style="margin-top: 80px;"> </p>
+  <p style="margin-top: 40px;">You may go back and change a few options, or start a new concatenation.</p>
 
 </html>
