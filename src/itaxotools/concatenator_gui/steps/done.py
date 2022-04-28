@@ -129,5 +129,8 @@ class StepDone(ssm.StepState):
         self.updateLabels()
         # self.warnDisjoint()
         diagnoser = self.machine().states.export.data.diagnoser
-        print(diagnoser.get_summary_report())
+        for name, record in diagnoser.get_summary_report().records.items():
+            print(str(record))
+            print(record.data.to_string())
+            print('')
         print(diagnoser.get_record_log())

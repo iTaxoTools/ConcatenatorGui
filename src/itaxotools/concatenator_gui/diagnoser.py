@@ -25,6 +25,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from itaxotools.common.utility import AttrDict
 from itaxotools.concatenator.library.operators import (
     OpChainGenes, OpTranslateGenes, OpApplyToGene, OpTagSet,
     OpUpdateMetadata, OpFilterGenes, OpGeneralInfo,
@@ -47,7 +48,18 @@ class DiagnoserParams:
 
 
 class SummaryReport:
-    pass
+    def __init__(
+        self,
+        total: pd.DataFrame,
+        by_taxon: pd.DataFrame,
+        by_gene: pd.DataFrame,
+        by_input: pd.DataFrame,
+    ):
+        self.records = AttrDict()
+        self.records.total = Record(RecordFlag.Info, 'Total', data=total)
+        self.records.by_taxon = Record(RecordFlag.Info, 'Per Taxon', data=by_taxon)
+        self.records.by_gene = Record(RecordFlag.Info, 'Per Gene', data=by_gene)
+        self.records.by_input = Record(RecordFlag.Info, 'Per Input File', data=by_input)
 
 
 class Diagnoser:
@@ -129,7 +141,7 @@ class Diagnoser:
     def get_dataframe(self):
         return self.op_general_info.table.dataframe
 
-    def get_table_total(self):
+    def _get_table_total(self):
         header = self.get_table_header()
         table = self.op_general_info.table.total_data()
         table["GC content of sequences"] = f'{table["GC content of sequences"]:.1f}'
@@ -139,23 +151,60 @@ class Diagnoser:
         table["Average number of taxa per marker"] = f'{table["Average number of taxa per marker"]:.2f}'
         return pd.concat([header, table])
 
-    def get_table_by_taxon(self):
+    def _get_table_by_taxon(self):
         return self.op_general_info.table.by_taxon()
 
-    def get_table_by_gene(self):
+    def _get_table_by_gene(self):
         table = self.op_general_info.table
         return self.op_general_info_per_gene.get_info(table)
 
-    def get_table_by_input_file(self):
+    def _get_table_by_input_file(self):
         return self.op_general_info_per_file.get_info()
 
     def get_summary_report(self) -> SummaryReport:
         if self.params.report:
-            return SummaryReport()
+            return SummaryReport(
+                total = self._get_table_total(),
+                by_taxon = self._get_table_by_taxon(),
+                by_gene = self._get_table_by_gene(),
+                by_input = self._get_table_by_input_file(),
+            )
         return None
+
+    def _get_record_disjoint(self) -> Record:
+        if not self.params.disjoint:
+            return None
+        # Todo: save in a tree formation
+        groups = list(self.op_general_info.table.disjoint_taxon_groups())
+        if len(groups) <= 1:
+            return Record(RecordFlag.Info, 'Disjoint OK')
+        else:
+            return Record(RecordFlag.Warn, 'Disjoint WARN', data=groups)
+
+    def _get_record_foreign(self) -> Record:
+        if not self.params.foreign:
+            return None
+        pairs = list(self.op_general_info.table.unconnected_taxons())
+        if not pairs:
+            return Record(RecordFlag.Info, 'Foreign OK')
+        else:
+            return Record(RecordFlag.Warn, 'Foreign WARN', data=pairs)
+
+    def _get_record_outliers(self) -> Record:
+        if not self.params.outliers:
+            return None
+        outliers = self.op_sequence_bouncer.outliers
+        count = sum(len(data) for gene, data in outliers.items() if isinstance(data, list))
+        if not count:
+            return Record(RecordFlag.Info, 'Outliers OK')
+        else:
+            return Record(RecordFlag.Warn, 'Outliers WARN', data=outliers)
 
     def get_record_log(self) -> RecordLog:
         log = RecordLog()
+        log.append(self._get_record_disjoint())
+        log.append(self._get_record_foreign())
+        log.append(self._get_record_outliers())
         return log
 
     def export_dir(self):
@@ -210,10 +259,10 @@ class Diagnoser:
     def export_all(self):
         temp = self.export_dir()
         if self.params.report:
-            self.export_table(self.get_table_total(), 'total_data.tsv', header=False)
-            self.export_table(self.get_table_by_input_file(), 'by_input_file.tsv', index=False)
-            self.export_table(self.get_table_by_taxon(), 'by_taxon.tsv')
-            self.export_table(self.get_table_by_gene(), 'by_gene.tsv')
+            self.export_table(self._get_table_total(), 'total_data.tsv', header=False)
+            self.export_table(self._get_table_by_input_file(), 'by_input_file.tsv', index=False)
+            self.export_table(self._get_table_by_taxon(), 'by_taxon.tsv')
+            self.export_table(self._get_table_by_gene(), 'by_gene.tsv')
         if self.params.disjoint:
             self.export_disjoint('disjoint_groups.txt')
         if self.params.foreign:
