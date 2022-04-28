@@ -28,6 +28,7 @@ from itaxotools import common
 import itaxotools.common.resources # noqa
 
 from ..records import RecordLogView
+from ..diagnoser import SummaryReportView
 from .. import step_state_machine as ssm
 from .. import widgets
 
@@ -58,7 +59,11 @@ class StepDone(ssm.StepState):
         self.confirm.setTextFormat(QtCore.Qt.RichText)
         self.confirm.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
 
+        self.diagnostics = QtWidgets.QLabel('Below you may find the summary reports for all performed diagnostics:')
+        self.report_view = SummaryReportView()
         self.log_view = RecordLogView()
+
+        self.report_view.clicked.connect(print)
 
         path = common.resources.get(
             'itaxotools.concatenator_gui', 'docs/report.html')
@@ -77,9 +82,12 @@ class StepDone(ssm.StepState):
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.progress)
+        layout.addWidget(self.diagnostics)
+        layout.addSpacing(16)
+        layout.addWidget(self.report_view)
         layout.addWidget(self.log_view)
-        layout.addWidget(self.report)
-        layout.addWidget(self.label)
+        # layout.addWidget(self.report)
+        # layout.addWidget(self.label)
         layout.addStretch(1)
         layout.setSpacing(16)
         layout.setContentsMargins(0, 0, 0, 32)
@@ -133,9 +141,10 @@ class StepDone(ssm.StepState):
         self.updateLabels()
         # self.warnDisjoint()
         diagnoser = self.machine().states.export.data.diagnoser
-        for name, record in diagnoser.get_summary_report().records.items():
-            print(str(record))
-            print(record.data.data.to_string())
-            print('')
-        print(diagnoser.get_record_log())
+        # for name, record in diagnoser.get_summary_report().records.items():
+        #     print(str(record))
+        #     print(record.data.data.to_string())
+        #     print('')
+        # print(diagnoser.get_record_log())
+        self.report_view.setReport(diagnoser.get_summary_report())
         self.log_view.setLog(diagnoser.get_record_log())

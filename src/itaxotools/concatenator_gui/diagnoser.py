@@ -19,11 +19,16 @@
 """Data diagnoser"""
 
 
+from typing import Optional
 from tempfile import TemporaryDirectory
 from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
+
+from PySide6.QtCore import Qt, QSize, QRect, QEvent, QAbstractItemModel, QAbstractListModel, Signal
+from PySide6.QtWidgets import QWidget, QListView, QStyledItemDelegate, QStyle, QSizePolicy, QHBoxLayout, QLabel
+from PySide6.QtGui import QFontMetrics
 
 from itaxotools.common.utility import AttrDict
 from itaxotools.concatenator.library.operators import (
@@ -239,7 +244,7 @@ class Diagnoser:
     def _get_table_by_input_file(self):
         return self.op_general_info_per_file.get_info()
 
-    def get_summary_report(self) -> SummaryReport:
+    def get_summary_report(self) -> Optional[SummaryReport]:
         if self.params.report:
             return SummaryReport(
                 total = self._get_table_total(),
@@ -301,3 +306,72 @@ class Diagnoser:
             print(str(record))
             if record.data is not None:
                 self._export_record(record)
+
+
+class SummaryReportLabel(QLabel):
+    clicked = Signal(str)
+
+    def __init__(self, attr, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setCursor(Qt.PointingHandCursor)
+        self.attr = attr
+
+    def enterEvent(self, event):
+        font = self.font()
+        font.setUnderline(True)
+        self.setFont(font)
+
+    def leaveEvent(self, event):
+        font = self.font()
+        font.setUnderline(False)
+        self.setFont(font)
+
+    def mousePressEvent(self, event):
+        if (
+            event.type() == QEvent.MouseButtonPress and
+            event.button() == Qt.LeftButton
+        ):
+            self.clicked.emit(self.attr)
+
+
+class SummaryReportView(QWidget):
+    clicked = Signal(object)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.report = None
+
+        self.total = SummaryReportLabel('total', 'Total')
+        self.per_input = SummaryReportLabel('by_input', 'per input')
+        self.per_sample = SummaryReportLabel('by_taxon', 'per sample')
+        self.per_marker = SummaryReportLabel('by_gene', 'per marker')
+
+        self.total.clicked.connect(self._clicked)
+        self.per_input.clicked.connect(self._clicked)
+        self.per_sample.clicked.connect(self._clicked)
+        self.per_marker.clicked.connect(self._clicked)
+
+        layout = QHBoxLayout()
+        layout.addSpacing(10)
+        layout.addWidget(QLabel('\u2b95'))
+        layout.addSpacing(6)
+        layout.addWidget(QLabel('Summary reports:'))
+        layout.addSpacing(8)
+        layout.addWidget(self.total)
+        layout.addWidget(QLabel(', '))
+        layout.addWidget(self.per_input)
+        layout.addWidget(QLabel(', '))
+        layout.addWidget(self.per_sample)
+        layout.addWidget(QLabel(', '))
+        layout.addWidget(self.per_marker)
+        layout.addStretch(1)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        self.setLayout(layout)
+
+    def _clicked(self, attr):
+        if self.report:
+            self.clicked.emit(getattr(self.report.records, attr))
+
+    def setReport(self, report: SummaryReport):
+        self.report = report
