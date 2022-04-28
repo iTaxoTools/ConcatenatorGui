@@ -29,6 +29,7 @@ setup(
         'concatenator==0.2.0',
         'mafftpy==0.1.2',
         'fasttreepy==0.2.0',
+        'sequence_bouncer==1.23.1',
         ],
     extras_require={
         'dev': ['pyinstaller>=4.5.1'],
