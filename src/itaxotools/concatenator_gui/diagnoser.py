@@ -34,6 +34,7 @@ from itaxotools.concatenator.library.operators import (
     OpGeneralInfoTagPaddedCodonPosition)
 
 from .bouncer import OpSequenceBouncer
+from .records import Record, RecordFlag, RecordLog
 
 
 @dataclass
@@ -43,6 +44,10 @@ class DiagnoserParams:
     foreign: bool = True
     outliers: bool = False
     iqr: float = 20.0
+
+
+class SummaryReport:
+    pass
 
 
 class Diagnoser:
@@ -143,6 +148,15 @@ class Diagnoser:
 
     def get_table_by_input_file(self):
         return self.op_general_info_per_file.get_info()
+
+    def get_summary_report(self) -> SummaryReport:
+        if self.params.report:
+            return SummaryReport()
+        return None
+
+    def get_record_log(self) -> RecordLog:
+        log = RecordLog()
+        return log
 
     def export_dir(self):
         return Path(self.temp.name)

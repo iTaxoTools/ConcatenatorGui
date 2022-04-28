@@ -127,4 +127,7 @@ class StepDone(ssm.StepState):
     def onEntry(self, event):
         super().onEntry(event)
         self.updateLabels()
-        self.warnDisjoint()
+        # self.warnDisjoint()
+        diagnoser = self.machine().states.export.data.diagnoser
+        print(diagnoser.get_summary_report())
+        print(diagnoser.get_record_log())
