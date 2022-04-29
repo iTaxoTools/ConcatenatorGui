@@ -267,7 +267,7 @@ class RecordDialog(QtWidgets.QDialog):
         body.setRowStretch(5, 1)
         body.setRowMinimumHeight(6, 24)
         body.setColumnStretch(2, 1)
-        body.setHorizontalSpacing(0)
+        body.setHorizontalSpacing(6)
         body.setContentsMargins(0, 0, 0, 0)
 
         layout = QtWidgets.QVBoxLayout()

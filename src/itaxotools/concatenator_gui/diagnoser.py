@@ -19,7 +19,7 @@
 """Data diagnoser"""
 
 
-from typing import Optional
+from typing import Optional, List, Tuple
 from tempfile import TemporaryDirectory
 from dataclasses import dataclass
 from pathlib import Path
@@ -104,11 +104,13 @@ class DataFrameModel(QtCore.QAbstractTableModel):
     def rowCount(self, parent=QtCore.QModelIndex()) -> int:
         if parent == QtCore.QModelIndex():
             return len(self._dataframe)
+
         return 0
 
     def columnCount(self, parent=QtCore.QModelIndex()) -> int:
         if parent == QtCore.QModelIndex():
             return len(self._dataframe.columns)
+
         return 0
 
     def data(self, index: QtCore.QModelIndex, role=QtCore.Qt.ItemDataRole):
@@ -132,6 +134,46 @@ class DataFrameModel(QtCore.QAbstractTableModel):
 
             if orientation == QtCore.Qt.Vertical:
                 return str(self._dataframe.index[section])
+
+        return None
+
+
+class ForeignPairsModel(QtCore.QAbstractTableModel):
+    def __init__(self, pairs: List[Tuple[str, str]], parent=None):
+        super().__init__(parent)
+        self._pairs = pairs
+
+    def rowCount(self, parent=QtCore.QModelIndex()) -> int:
+        if parent == QtCore.QModelIndex():
+            return len(self._pairs)
+
+        return 0
+
+    def columnCount(self, parent=QtCore.QModelIndex()) -> int:
+        if parent == QtCore.QModelIndex():
+            return 2
+
+        return 0
+
+    def data(self, index: QtCore.QModelIndex, role=QtCore.Qt.ItemDataRole):
+        if not index.isValid():
+            return None
+
+        if role == QtCore.Qt.DisplayRole:
+            pair = self._pairs[index.row()]
+            return str(pair[index.column()])
+
+        return None
+
+    def headerData(
+        self, section: int, orientation: QtCore.Qt.Orientation, role: QtCore.Qt.ItemDataRole
+    ):
+        if role == QtCore.Qt.DisplayRole:
+            if orientation == QtCore.Qt.Horizontal:
+                return f'Sample {section + 1}'
+
+            if orientation == QtCore.Qt.Vertical:
+                return str(section + 1)
 
         return None
 
@@ -217,6 +259,17 @@ class RecordForeign(RecordData):
         with open(path, 'w') as file:
             for x, y in self.data:
                 print(f'{x}\t{y}', file=file)
+
+    def view(self):
+        view = QtWidgets.QTableView()
+        model = ForeignPairsModel(self.data)
+        view.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
+        view.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        view.setModel(model)
+        view.resizeColumnsToContents()
+        view.setStyleSheet("QHeaderView::section {padding: 2px 5px 2px 5px;}")
+        return view
 
 
 class RecordOutliers(RecordData):
@@ -357,7 +410,9 @@ class Diagnoser:
         return self.op_general_info_per_gene.get_info(table)
 
     def _get_table_by_input_file(self):
-        return self.op_general_info_per_file.get_info()
+        table = self.op_general_info_per_file.get_info()
+        table.index = table.index + 1
+        return table
 
     def get_summary_report(self) -> Optional[SummaryReport]:
         strings = self.strings['report']
