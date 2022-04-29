@@ -46,9 +46,6 @@ class RecordData:
     def export(self, path: Path) -> None:
         raise NotImplementedError()
 
-    def model(self) -> QtCore.QAbstractItemModel:
-        raise NotImplementedError()
-
     def view(self) -> QtWidgets.QWidget:
         raise NotImplementedError()
 

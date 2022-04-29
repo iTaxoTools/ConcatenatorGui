@@ -19,7 +19,7 @@
 """Data diagnoser"""
 
 
-from typing import Optional, List, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from tempfile import TemporaryDirectory
 from dataclasses import dataclass
 from pathlib import Path
@@ -232,6 +232,95 @@ class DisjointGroupsModel(QtCore.QAbstractItemModel):
         return None
 
 
+class OutliersModel(QtCore.QAbstractItemModel):
+    def __init__(self, outliers: Dict[str, Union[str, List[str]]], parent=None):
+        super().__init__(parent)
+        outliers = {k: self._normalize(v) for k, v in outliers.items() if v}
+        self._genes = list(outliers.keys())
+        self._outliers = list(outliers.values())
+
+    def index(self, row: int, column: int, parent=QtCore.QModelIndex()) -> QtCore.QModelIndex:
+        if not self.hasIndex(row, column, parent):
+            return QtCore.QModelIndex()
+
+        if column != 0:
+            return QtCore.QModelIndex()
+
+        if not parent.isValid():
+            return self.createIndex(row, 0, self._outliers)
+        elif parent.internalPointer() is self._outliers:
+            return self.createIndex(row, 0, self._outliers[parent.row()])
+        return QtCore.QModelIndex()
+
+    def parent(self, index=QtCore.QModelIndex()) -> QtCore.QModelIndex:
+        if not index.isValid():
+            return QtCore.QModelIndex()
+        ptr = index.internalPointer()
+        if ptr is self._outliers:
+            return QtCore.QModelIndex()
+        try:
+            pos = self._outliers.index(ptr)
+            return self.createIndex(pos, 0, self._outliers)
+        except ValueError:
+            return QtCore.QModelIndex()
+        return QtCore.QModelIndex()
+
+    def rowCount(self, parent=QtCore.QModelIndex()) -> int:
+        if not parent.isValid():
+            return len(self._outliers)
+        elif parent.internalPointer() is self._outliers:
+            return len(self._outliers[parent.row()])
+        return 0
+
+    def columnCount(self, parent=QtCore.QModelIndex()) -> int:
+        return 1
+
+    def data(self, index: QtCore.QModelIndex, role=QtCore.Qt.ItemDataRole):
+        if not index.isValid():
+            return None
+
+        if role == QtCore.Qt.DisplayRole:
+            ptr = index.internalPointer()
+            if ptr is self._outliers:
+                return str(self._genes[index.row()])
+            return str(ptr[index.row()])
+
+        return None
+
+    def _normalize(self, data: Union[str, List[str]]) -> List[str]:
+        if isinstance(data, str):
+            return [data]
+        return data
+
+
+class TableView(QtWidgets.QTableView):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
+        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        self.setStyleSheet("QHeaderView::section {padding: 2px 5px 2px 5px;}")
+
+    def setModel(self, model):
+        super().setModel(model)
+        self.resizeColumnsToContents()
+        for column in range(0, model.columnCount()):
+            self.setColumnWidth(column, self.columnWidth(column) + 10)
+
+
+class TreeView(QtWidgets.QTreeView):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
+        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+
+    def setModel(self, model):
+        super().setModel(model)
+        self.header().hide()
+        self.expandAll()
+
+
 class RecordTable(RecordData):
     def _export_table(
         self, path, header=True, index=True,
@@ -242,14 +331,9 @@ class RecordTable(RecordData):
             sep=sep, float_format=float_format)
 
     def view(self):
-        view = QtWidgets.QTableView()
+        view = TableView()
         model = DataFrameModel(self.data)
-        view.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
-        view.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
-        view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         view.setModel(model)
-        view.resizeColumnsToContents()
-        view.setStyleSheet("QHeaderView::section {padding: 2px 5px 2px 5px;}")
         return view
 
 
@@ -260,15 +344,10 @@ class RecordTotal(RecordTable):
         self._export_table(path, header=False)
 
     def view(self):
-        view = QtWidgets.QTableView()
+        view = TableView()
         model = SeriesModel(self.data)
-        view.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
-        view.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
-        view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         view.setModel(model)
-        view.resizeColumnsToContents()
         view.horizontalHeader().hide()
-        view.setStyleSheet("QHeaderView::section {padding: 2px 5px 2px 5px;}")
         return view
 
 
@@ -306,7 +385,7 @@ class RecordDisjoint(RecordData):
                 print('', file=file)
 
     def view(self):
-        view = QtWidgets.QTreeView()
+        view = TreeView()
         model = DisjointGroupsModel(self.data)
         view.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
         view.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
@@ -326,14 +405,9 @@ class RecordForeign(RecordData):
                 print(f'{x}\t{y}', file=file)
 
     def view(self):
-        view = QtWidgets.QTableView()
+        view = TableView()
         model = ForeignPairsModel(self.data)
-        view.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
-        view.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
-        view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         view.setModel(model)
-        view.resizeColumnsToContents()
-        view.setStyleSheet("QHeaderView::section {padding: 2px 5px 2px 5px;}")
         return view
 
 
@@ -353,6 +427,17 @@ class RecordOutliers(RecordData):
                     for sample in data:
                         print(sample, file=file)
                 print('', file=file)
+
+    def view(self):
+        view = TreeView()
+        model = OutliersModel(self.data)
+        view.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
+        view.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        view.setModel(model)
+        view.expandAll()
+        view.header().hide()
+        return view
 
 
 class RecordPadded(RecordTable):
