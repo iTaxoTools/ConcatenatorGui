@@ -212,6 +212,7 @@ class RecordLogView(QtWidgets.QListView):
 class RecordDialog(QtWidgets.QDialog):
     def __init__(self, record: Record, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setWindowFlag(QtCore.Qt.WindowMaximizeButtonHint, True)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle(self.parent().title)
         self.record = record
@@ -229,6 +230,11 @@ class RecordDialog(QtWidgets.QDialog):
             QtCore.Qt.LinksAccessibleByMouse)
         self.description.setWordWrap(True)
 
+        if self.record.data is not None:
+            self.view = self.record.data.view()
+        else:
+            self.view = QtWidgets.QWidget()
+
         deco = {
             RecordFlag.Void: '\u27A4',
             RecordFlag.Info: '\u2714',
@@ -240,7 +246,6 @@ class RecordDialog(QtWidgets.QDialog):
         self.ok = PushButton('OK')
         self.ok.clicked.connect(self.accept)
         self.ok.setDefault(True)
-        self.ok.setAutoDefault(True)
         self.cancel = PushButton('Cancel')
         self.cancel.clicked.connect(self.reject)
 
@@ -252,17 +257,16 @@ class RecordDialog(QtWidgets.QDialog):
         buttons.setContentsMargins(0, 0, 0, 0)
 
         body = QtWidgets.QGridLayout()
-        body.setRowMinimumHeight(10, 8)
-        body.addWidget(self.deco, 11, 0, 1, 1)
-        body.addWidget(self.title, 11, 1, 1, 1)
-        body.setRowMinimumHeight(20, 8)
-        body.addWidget(self.description, 21, 0, 1, 3)
-        body.setRowMinimumHeight(50, 24)
-
+        body.setRowMinimumHeight(0, 8)
+        body.addWidget(self.deco, 1, 0, 1, 1)
+        body.addWidget(self.title, 1, 1, 1, 2)
+        body.setRowMinimumHeight(2, 8)
+        body.addWidget(self.description, 3, 0, 1, 3)
+        body.setRowMinimumHeight(4, 8)
+        body.addWidget(self.view, 5, 0, 1, 3)
+        body.setRowStretch(5, 1)
+        body.setRowMinimumHeight(6, 24)
         body.setColumnStretch(2, 1)
-        body.setRowStretch(30, 1)
-        body.setColumnMinimumWidth(0, 16)
-        body.setColumnMinimumWidth(4, 16)
         body.setHorizontalSpacing(0)
         body.setContentsMargins(0, 0, 0, 0)
 

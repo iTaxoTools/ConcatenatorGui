@@ -54,6 +54,88 @@ class DiagnoserParams:
     iqr: float = 20.0
 
 
+class SeriesModel(QtCore.QAbstractTableModel):
+
+    def __init__(self, series: pd.Series, parent=None):
+        super().__init__(parent)
+        self._series = series
+
+    def rowCount(self, parent=QtCore.QModelIndex()) -> int:
+        if parent == QtCore.QModelIndex():
+            return len(self._series)
+        return 0
+
+    def columnCount(self, parent=QtCore.QModelIndex()) -> int:
+        if parent == QtCore.QModelIndex():
+            return 1
+        return 0
+
+    def data(self, index: QtCore.QModelIndex, role=QtCore.Qt.ItemDataRole):
+        if not index.isValid():
+            return None
+
+        if role == QtCore.Qt.DisplayRole:
+            value = self._series.iloc[index.row()]
+            if isinstance(value, float):
+                return f'{value:.2f}'
+            return str(value)
+
+        return None
+
+    def headerData(
+        self, section: int, orientation: QtCore.Qt.Orientation, role: QtCore.Qt.ItemDataRole
+    ):
+        if role == QtCore.Qt.DisplayRole:
+            if orientation == QtCore.Qt.Horizontal:
+                return str(self._series.name)
+
+            if orientation == QtCore.Qt.Vertical:
+                return str(self._series.index[section])
+
+        return None
+
+
+class DataFrameModel(QtCore.QAbstractTableModel):
+
+    def __init__(self, dataframe: pd.DataFrame, parent=None):
+        super().__init__(parent)
+        self._dataframe = dataframe
+
+    def rowCount(self, parent=QtCore.QModelIndex()) -> int:
+        if parent == QtCore.QModelIndex():
+            return len(self._dataframe)
+        return 0
+
+    def columnCount(self, parent=QtCore.QModelIndex()) -> int:
+        if parent == QtCore.QModelIndex():
+            return len(self._dataframe.columns)
+        return 0
+
+    def data(self, index: QtCore.QModelIndex, role=QtCore.Qt.ItemDataRole):
+        if not index.isValid():
+            return None
+
+        if role == QtCore.Qt.DisplayRole:
+            value = self._dataframe.iloc[index.row(), index.column()]
+            if isinstance(value, float):
+                return f'{value:.2f}'
+            return str(value)
+
+        return None
+
+    def headerData(
+        self, section: int, orientation: QtCore.Qt.Orientation, role: QtCore.Qt.ItemDataRole
+    ):
+        if role == QtCore.Qt.DisplayRole:
+            if orientation == QtCore.Qt.Horizontal:
+                return str(self._dataframe.columns[section])
+
+            if orientation == QtCore.Qt.Vertical:
+                return str(self._dataframe.index[section])
+
+        return None
+
+
 class RecordTable(RecordData):
     def _export_table(
         self, path, header=True, index=True,
@@ -63,12 +145,35 @@ class RecordTable(RecordData):
             path, header=header, index=index,
             sep=sep, float_format=float_format)
 
+    def view(self):
+        view = QtWidgets.QTableView()
+        model = DataFrameModel(self.data)
+        view.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
+        view.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        view.setModel(model)
+        view.resizeColumnsToContents()
+        view.setStyleSheet("QHeaderView::section {padding: 2px 5px 2px 5px;}")
+        return view
+
 
 class RecordTotal(RecordTable):
     export_name = 'total_data.tsv'
 
     def export(self, path: Path) -> None:
         self._export_table(path, header=False)
+
+    def view(self):
+        view = QtWidgets.QTableView()
+        model = SeriesModel(self.data)
+        view.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
+        view.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        view.setModel(model)
+        view.resizeColumnsToContents()
+        view.horizontalHeader().hide()
+        view.setStyleSheet("QHeaderView::section {padding: 2px 5px 2px 5px;}")
+        return view
 
 
 class RecordByTaxon(RecordTable):
@@ -352,9 +457,9 @@ class Diagnoser:
                 RecordFlag.Warn,
                 strings['Warn']['title'],
                 strings['Warn']['description'],
-                data=RecordPadded(table[[
-                    're-aligned by Mafft yes/no',
+                data=RecordPadded(table[padded][[
                     'padded to compensate for unequal sequence lengths yes/no',
+                    're-aligned by Mafft yes/no',
                     ]]))
         return None
 
