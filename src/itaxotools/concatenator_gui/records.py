@@ -40,8 +40,10 @@ class RecordFlag(Enum):
 class RecordData:
     export_name: str = ''
 
-    def __init__(self, data: object):
+    def __init__(self, data: object, formatter: Optional[str] = None):
         self.data = data
+        if formatter:
+            self.export_name = formatter.format(self.export_name)
 
     def export(self, path: Path) -> None:
         raise NotImplementedError()
@@ -243,12 +245,13 @@ class RecordDialog(QtWidgets.QDialog):
         self.ok = PushButton('OK')
         self.ok.clicked.connect(self.accept)
         self.ok.setDefault(True)
-        self.cancel = PushButton('Cancel')
-        self.cancel.clicked.connect(self.reject)
+        self.save = PushButton('Save')
+        self.save.clicked.connect(self.handleSave)
+        self.save.setVisible(self.record.data is not None)
 
         buttons = QtWidgets.QHBoxLayout()
         buttons.addStretch(1)
-        buttons.addWidget(self.cancel)
+        buttons.addWidget(self.save)
         buttons.addWidget(self.ok)
         buttons.setSpacing(8)
         buttons.setContentsMargins(0, 0, 0, 0)
@@ -275,3 +278,11 @@ class RecordDialog(QtWidgets.QDialog):
 
     def showEvent(self, event):
         self.ok.setFocus()
+
+    def handleSave(self):
+        (path, _) = QtWidgets.QFileDialog.getSaveFileName(
+            self, self.record.title + ' - Save',
+            QtCore.QDir.currentPath() + '/' + self.record.data.export_name)
+        if path:
+            self.record.data.export(Path(path))
+            self.accept()

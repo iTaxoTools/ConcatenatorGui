@@ -352,14 +352,14 @@ class RecordTotal(RecordTable):
 
 
 class RecordByTaxon(RecordTable):
-    export_name = 'by_taxon.tsv'
+    export_name = 'per_sample.tsv'
 
     def export(self, path: Path) -> None:
         self._export_table(path, index=False)
 
 
 class RecordByGene(RecordTable):
-    export_name = 'by_gene.tsv'
+    export_name = 'per_marker.tsv'
 
     def export(self, path: Path) -> None:
         self._export_table(path)
@@ -397,7 +397,7 @@ class RecordDisjoint(RecordData):
 
 
 class RecordForeign(RecordData):
-    export_name = 'foreign_pairs.txt'
+    export_name = 'no_overlap_pairs.txt'
 
     def export(self, path: Path) -> None:
         with open(path, 'w') as file:
@@ -566,28 +566,29 @@ class Diagnoser:
 
     def get_summary_report(self) -> Optional[SummaryReport]:
         strings = self.strings['report']
+        formatter = self._export_formatter()
         if self.params.report:
             return SummaryReport(
                 total = Record(
                     RecordFlag.Void,
                     strings['total']['title'],
                     strings['total']['description'],
-                    RecordTotal(self._get_table_total())),
+                    RecordTotal(self._get_table_total(), formatter)),
                 by_taxon = Record(
                     RecordFlag.Void,
                     strings['by_taxon']['title'],
                     strings['by_taxon']['description'],
-                    RecordByTaxon(self._get_table_by_taxon())),
+                    RecordByTaxon(self._get_table_by_taxon(), formatter)),
                 by_gene = Record(
                     RecordFlag.Void,
                     strings['by_gene']['title'],
                     strings['by_gene']['description'],
-                    RecordByGene(self._get_table_by_gene())),
+                    RecordByGene(self._get_table_by_gene(), formatter)),
                 by_input = Record(
                     RecordFlag.Void,
                     strings['by_input']['title'],
                     strings['by_input']['description'],
-                    RecordByInput(self._get_table_by_input_file())),
+                    RecordByInput(self._get_table_by_input_file(), formatter)),
             )
         return None
 
@@ -607,11 +608,12 @@ class Diagnoser:
                 strings['Info']['title'],
                 strings['Info']['description'])
         else:
+            formatter = self._export_formatter()
             return Record(
                 RecordFlag.Warn,
                 strings['Warn']['title'],
                 strings['Warn']['description'],
-                data=RecordDisjoint(groups))
+                data=RecordDisjoint(groups, formatter))
 
     def _get_record_foreign(self) -> Record:
         if not self.params.foreign:
@@ -624,11 +626,12 @@ class Diagnoser:
                 strings['Info']['title'],
                 strings['Info']['description'])
         else:
+            formatter = self._export_formatter()
             return Record(
                 RecordFlag.Warn,
                 strings['Warn']['title'],
                 strings['Warn']['description'],
-                data=RecordForeign(pairs))
+                data=RecordForeign(pairs, formatter))
 
     def _get_record_outliers(self) -> Record:
         if not self.params.outliers:
@@ -644,11 +647,12 @@ class Diagnoser:
                 strings['Info']['title'],
                 strings['Info']['description'])
         else:
+            formatter = self._export_formatter()
             return Record(
                 RecordFlag.Warn,
                 strings['Warn']['title'],
                 strings['Warn']['description'],
-                data=RecordOutliers(outliers))
+                data=RecordOutliers(outliers, formatter))
 
     def _get_record_padded(self) -> Record:
         if not self.params.report:
@@ -657,6 +661,7 @@ class Diagnoser:
         table = self._get_table_by_gene()
         padded = table['padded to compensate for unequal sequence lengths yes/no'] == 'yes'
         if any(padded):
+            formatter = self._export_formatter()
             return Record(
                 RecordFlag.Warn,
                 strings['Warn']['title'],
@@ -664,7 +669,7 @@ class Diagnoser:
                 data=RecordPadded(table[padded][[
                     'padded to compensate for unequal sequence lengths yes/no',
                     're-aligned by Mafft yes/no',
-                    ]]))
+                    ]], formatter))
         return None
 
     def get_record_log(self) -> RecordLog:
@@ -690,6 +695,11 @@ class Diagnoser:
         for record in self.get_record_log():
             if record.data is not None:
                 self._export_record(record)
+
+    def _export_formatter(self):
+        if self.filename is None:
+            return None
+        return f'{self.filename}_{{}}'
 
 
 class SummaryReportLabel(QtWidgets.QLabel):
@@ -726,7 +736,7 @@ class SummaryReportView(QtWidgets.QWidget):
         self.report = None
 
         self.total = SummaryReportLabel('total', 'Total')
-        self.per_input = SummaryReportLabel('by_input', 'per input')
+        self.per_input = SummaryReportLabel('by_input', 'per input file')
         self.per_sample = SummaryReportLabel('by_taxon', 'per sample')
         self.per_marker = SummaryReportLabel('by_gene', 'per marker')
 
