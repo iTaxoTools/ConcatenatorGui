@@ -25,11 +25,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
+import json
 
 from PySide6 import QtCore
 from PySide6 import QtWidgets
 from PySide6 import QtGui
 
+from itaxotools.common import resources
 from itaxotools.common.utility import AttrDict
 from itaxotools.concatenator.library.operators import (
     OpChainGenes, OpTranslateGenes, OpApplyToGene, OpTagSet,
@@ -130,24 +132,32 @@ class RecordOutliers(RecordData):
                 print('', file=file)
 
 
+class RecordPadded(RecordTable):
+    export_name = 'padded.tsv'
+
+    def export(self, path: Path) -> None:
+        self._export_table(path)
+
+
 class SummaryReport:
     def __init__(
         self,
-        total: pd.DataFrame,
-        by_taxon: pd.DataFrame,
-        by_gene: pd.DataFrame,
-        by_input: pd.DataFrame,
+        total: Record,
+        by_taxon: Record,
+        by_gene: Record,
+        by_input: Record,
     ):
         self.records = AttrDict()
-        self.records.total = Record(RecordFlag.Info, 'Total', data=RecordTotal(total))
-        self.records.by_taxon = Record(RecordFlag.Info, 'Per Taxon', data=RecordByTaxon(by_taxon))
-        self.records.by_gene = Record(RecordFlag.Info, 'Per Gene', data=RecordByGene(by_gene))
-        self.records.by_input = Record(RecordFlag.Info, 'Per Input File', data=RecordByInput(by_input))
+        self.records.total = total
+        self.records.by_taxon = by_taxon
+        self.records.by_gene = by_gene
+        self.records.by_input = by_input
 
 
 class Diagnoser:
     def __init__(self, params: DiagnoserParams):
         self.params = params
+        self.strings = self._get_strings()
         self.op_general_info = OpGeneralInfo()
         self.op_general_info_per_gene = OpGeneralInfoPerGene()
         self.op_general_info_per_file = OpGeneralInfoPerFile()
@@ -245,46 +255,112 @@ class Diagnoser:
         return self.op_general_info_per_file.get_info()
 
     def get_summary_report(self) -> Optional[SummaryReport]:
+        strings = self.strings['report']
         if self.params.report:
             return SummaryReport(
-                total = self._get_table_total(),
-                by_taxon = self._get_table_by_taxon(),
-                by_gene = self._get_table_by_gene(),
-                by_input = self._get_table_by_input_file(),
+                total = Record(
+                    RecordFlag.Void,
+                    strings['total']['title'],
+                    strings['total']['description'],
+                    RecordTotal(self._get_table_total())),
+                by_taxon = Record(
+                    RecordFlag.Void,
+                    strings['by_taxon']['title'],
+                    strings['by_taxon']['description'],
+                    RecordByTaxon(self._get_table_by_taxon())),
+                by_gene = Record(
+                    RecordFlag.Void,
+                    strings['by_gene']['title'],
+                    strings['by_gene']['description'],
+                    RecordByGene(self._get_table_by_gene())),
+                by_input = Record(
+                    RecordFlag.Void,
+                    strings['by_input']['title'],
+                    strings['by_input']['description'],
+                    RecordByInput(self._get_table_by_input_file())),
             )
         return None
+
+    def _get_strings(self):
+        path = resources.get('itaxotools.concatenator_gui', 'docs/diagnoser.json')
+        with open(path) as file:
+            return json.load(file)
 
     def _get_record_disjoint(self) -> Record:
         if not self.params.disjoint:
             return None
         # Todo: save in a tree formation
+        strings = self.strings['disjoint']
         groups = list(self.op_general_info.table.disjoint_taxon_groups())
         if len(groups) <= 1:
-            return Record(RecordFlag.Info, 'Disjoint OK')
+            return Record(
+                RecordFlag.Info,
+                strings['Info']['title'],
+                strings['Info']['description'])
         else:
-            return Record(RecordFlag.Warn, 'Disjoint WARN', data=RecordDisjoint(groups))
+            return Record(
+                RecordFlag.Warn,
+                strings['Warn']['title'],
+                strings['Warn']['description'],
+                data=RecordDisjoint(groups))
 
     def _get_record_foreign(self) -> Record:
         if not self.params.foreign:
             return None
+        strings = self.strings['foreign']
         pairs = list(self.op_general_info.table.unconnected_taxons())
         if not pairs:
-            return Record(RecordFlag.Info, 'Foreign OK')
+            return Record(
+                RecordFlag.Info,
+                strings['Info']['title'],
+                strings['Info']['description'])
         else:
-            return Record(RecordFlag.Warn, 'Foreign WARN', data=RecordForeign(pairs))
+            return Record(
+                RecordFlag.Warn,
+                strings['Warn']['title'],
+                strings['Warn']['description'],
+                data=RecordForeign(pairs))
 
     def _get_record_outliers(self) -> Record:
         if not self.params.outliers:
             return None
+        strings = self.strings['outliers']
         outliers = self.op_sequence_bouncer.outliers
-        count = sum(len(data) for gene, data in outliers.items() if isinstance(data, list))
+        count = sum(
+            len(data) for gene, data in outliers.items()
+            if isinstance(data, list))
         if not count:
-            return Record(RecordFlag.Info, 'Outliers OK')
+            return Record(
+                RecordFlag.Info,
+                strings['Info']['title'],
+                strings['Info']['description'])
         else:
-            return Record(RecordFlag.Warn, 'Outliers WARN', data=RecordOutliers(outliers))
+            return Record(
+                RecordFlag.Warn,
+                strings['Warn']['title'],
+                strings['Warn']['description'],
+                data=RecordOutliers(outliers))
+
+    def _get_record_padded(self) -> Record:
+        if not self.params.report:
+            return None
+        strings = self.strings['padded']
+        table = self._get_table_by_gene()
+        padded = table['padded to compensate for unequal sequence lengths yes/no'] == 'yes'
+        if any(padded):
+            return Record(
+                RecordFlag.Warn,
+                strings['Warn']['title'],
+                strings['Warn']['description'],
+                data=RecordPadded(table[[
+                    're-aligned by Mafft yes/no',
+                    'padded to compensate for unequal sequence lengths yes/no',
+                    ]]))
+        return None
 
     def get_record_log(self) -> RecordLog:
         log = RecordLog()
+        log.append(self._get_record_padded())
         log.append(self._get_record_disjoint())
         log.append(self._get_record_foreign())
         log.append(self._get_record_outliers())

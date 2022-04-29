@@ -29,7 +29,9 @@ from PySide6 import QtGui
 
 from itaxotools.common.widgets import VLineSeparator, PushButton
 
+
 class RecordFlag(Enum):
+    Void = auto()
     Info = auto()
     Warn = auto()
     Fail = auto()
@@ -127,6 +129,7 @@ class RecordLogDelegate(QtWidgets.QStyledItemDelegate):
         record = index.data(QtCore.Qt.UserRole)
         painter.save()
         deco = {
+            RecordFlag.Void: '\u27A4',
             RecordFlag.Info: '\u2714',
             RecordFlag.Warn: '\u2718',
             RecordFlag.Fail: '\u2718',
@@ -214,29 +217,37 @@ class RecordDialog(QtWidgets.QDialog):
         self.record = record
 
         self.title = QtWidgets.QLabel(self.record.title)
+        self.title.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
         self.title.setStyleSheet("font-weight: bold;")
 
         self.description = QtWidgets.QLabel(self.record.description)
         self.description.setVisible(bool(record.description))
+        self.description.setTextFormat(QtCore.Qt.RichText)
+        self.description.setOpenExternalLinks(True)
+        self.description.setTextInteractionFlags(
+            QtCore.Qt.TextSelectableByMouse |
+            QtCore.Qt.LinksAccessibleByMouse)
         self.description.setWordWrap(True)
 
         deco = {
+            RecordFlag.Void: '\u27A4',
             RecordFlag.Info: '\u2714',
             RecordFlag.Warn: '\u2718',
             RecordFlag.Fail: '\u2718',
         }[self.record.type]
         self.deco = QtWidgets.QLabel(deco)
 
-        ok = PushButton('OK')
-        ok.clicked.connect(self.accept)
-        ok.setDefault(True)
-        cancel = PushButton('Cancel')
-        cancel.clicked.connect(self.reject)
+        self.ok = PushButton('OK')
+        self.ok.clicked.connect(self.accept)
+        self.ok.setDefault(True)
+        self.ok.setAutoDefault(True)
+        self.cancel = PushButton('Cancel')
+        self.cancel.clicked.connect(self.reject)
 
         buttons = QtWidgets.QHBoxLayout()
         buttons.addStretch(1)
-        buttons.addWidget(cancel)
-        buttons.addWidget(ok)
+        buttons.addWidget(self.cancel)
+        buttons.addWidget(self.ok)
         buttons.setSpacing(8)
         buttons.setContentsMargins(0, 0, 0, 0)
 
@@ -244,10 +255,12 @@ class RecordDialog(QtWidgets.QDialog):
         body.setRowMinimumHeight(10, 8)
         body.addWidget(self.deco, 11, 0, 1, 1)
         body.addWidget(self.title, 11, 1, 1, 1)
-        body.addWidget(self.description, 12, 0, 1, 3)
+        body.setRowMinimumHeight(20, 8)
+        body.addWidget(self.description, 21, 0, 1, 3)
         body.setRowMinimumHeight(50, 24)
 
         body.setColumnStretch(2, 1)
+        body.setRowStretch(30, 1)
         body.setColumnMinimumWidth(0, 16)
         body.setColumnMinimumWidth(4, 16)
         body.setHorizontalSpacing(0)
@@ -258,3 +271,6 @@ class RecordDialog(QtWidgets.QDialog):
         layout.addLayout(buttons)
         layout.setContentsMargins(24, 16, 24, 16)
         self.setLayout(layout)
+
+    def showEvent(self, event):
+        self.ok.setFocus()

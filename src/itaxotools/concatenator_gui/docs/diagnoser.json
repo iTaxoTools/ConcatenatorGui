@@ -1,0 +1,62 @@
+{
+
+  "report": {
+    "total": {
+      "title": "Summary report: Total data set",
+      "description": ""
+    },
+    "by_taxon": {
+      "title": "Summary report: Per sample",
+      "description": ""
+    },
+    "by_gene": {
+      "title": "Summary report: Per marker",
+      "description": ""
+    },
+    "by_input": {
+      "title": "Summary report: Per input file",
+      "description": ""
+    }
+  },
+
+  "disjoint": {
+    "Info": {
+      "title": "No disjoint sample groups.",
+      "description": "There are no disjoint sample groups in the data set (i.e., there is no group of samples that shares data for markers with each other, while lacking completely data for markers present in another group of samples). Note however that this does not exclude the presence of unevenly distributed missing data in the data set that could bias phylogenetic analysis. It may be useful to check the number of missing data per marker and sample in the respective summary tables."
+    },
+    "Warn": {
+      "title": "WARNING: Disjoing sample groups detected!",
+      "description": "The following disjoint sample groups were found in the data set. Each of the disjoint sample groups shares data for markers among the included samples, but does not share any marker with samples of the other groups. Such a distribution of missing data makes phylogenetic analysis among groups impossible. Check for sample names in the original single-gene data files as disjoint sample groups may originate if samples were differently named for the various concatenated markers."
+    }
+  },
+
+  "foreign": {
+    "Info": {
+      "title": "All sample pairs overlap.",
+      "description": "All pairs of samples in the data set have at least one marker in common. Distance-based analyses can be run with this data set. Note however that this does not exclude the presence of unevenly distributed missing data in the data set that could bias phylogenetic analysis. It may be useful to check the number of missing data per marker and sample in the respective summary tables."
+    },
+    "Warn": {
+      "title": "WARNING: No-overlap sample pairs detected!",
+      "description": "The following pairs of samples have no markers in common. Calculation of genetic distances and distance-based phylogenetic approaches such as Neighbor-joining will not be possible with this data set. A highly uneven distribution of missing data may also compromise other phylogenetic calculations. Check also for presence of fully disjoint sample groups in the respective output file. It may also be useful to check the number of missing data per marker and sample in the respective summary tables."
+    }
+  },
+
+  "outliers": {
+    "Info": {
+      "title": "No outlier sequences detected.",
+      "description": "The sequences of each marker were separately compared using the <a href=\"https://github.com/corydunnlab/SequenceBouncer\">SequenceBouncer</a> algorithm written by C.D. Dunn. This algorithm uses Shannon entropy values of alignment columns to identify outlier alignment sequences in a manner responsive to overall alignment context. See the original SequenceBouncer publication for details, and for the definition of the IQR coefficient which can be adjusted to make the program more or less sensitive to the detection of outliers."
+    },
+    "Warn": {
+      "title": "WARNING: Outlier sequences detected!",
+      "description": "The sequences of each marker were separately compared using the <a href=\"https://github.com/corydunnlab/SequenceBouncer\">SequenceBouncer</a> algorithm written by C.D. Dunn. This algorithm uses Shannon entropy values of alignment columns to identify outlier alignment sequences in a manner responsive to overall alignment context. See the original SequenceBouncer publication for details, and for the definition of the IQR coefficient which can be adjusted to make the program more or less sensitive to the detection of outliers.<br><br>The program detected the following sequences as outliers with the IQR setting used. These may represent misaligned, reverse-complemented or erroneous sequences, but can also simply represent outgroups or otherwise strongly divergent taxa."
+    }
+  },
+
+  "padded": {
+    "Warn": {
+      "title": "WARNING: Sequence length adjusted by terminal padding!",
+      "description": "Sequences of unequal length were detected and sequence length adjusted by terminal padding. This may result in some markers not being properly aligned for downstream analysis."
+    }
+  }
+
+}
