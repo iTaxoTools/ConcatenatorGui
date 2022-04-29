@@ -23,12 +23,9 @@ from typing import Iterator, Optional
 from enum import Enum, auto
 from pathlib import Path
 
-from PySide6.QtCore import (
-    Qt, QSize, QRect, QEvent, QAbstractItemModel, QAbstractListModel, Signal)
-from PySide6.QtWidgets import (
-    QWidget, QListView, QStyledItemDelegate, QStyle, QSizePolicy,
-    QDialog, QLabel, QHBoxLayout, QVBoxLayout, QGridLayout)
-from PySide6.QtGui import QFontMetrics
+from PySide6 import QtCore
+from PySide6 import QtWidgets
+from PySide6 import QtGui
 
 from itaxotools.common.widgets import VLineSeparator, PushButton
 
@@ -47,10 +44,10 @@ class RecordData:
     def export(self, path: Path) -> None:
         raise NotImplementedError()
 
-    def model(self) -> QAbstractItemModel:
+    def model(self) -> QtCore.QAbstractItemModel:
         raise NotImplementedError()
 
-    def view(self) -> QWidget:
+    def view(self) -> QtWidgets.QWidget:
         raise NotImplementedError()
 
 
@@ -88,7 +85,7 @@ class RecordLog:
             self.records.append(record)
 
 
-class RecordLogModel(QAbstractListModel):
+class RecordLogModel(QtCore.QAbstractListModel):
 
     def __init__(self, log):
         super().__init__()
@@ -105,80 +102,80 @@ class RecordLogModel(QAbstractListModel):
         ):
             return None
         record = self.log.records[index.row()]
-        if role == Qt.DisplayRole:
+        if role == QtCore.Qt.DisplayRole:
             return str(record)
-        if role == Qt.UserRole:
+        if role == QtCore.Qt.UserRole:
             return record
         return None
 
 
-class RecordLogDelegate(QStyledItemDelegate):
+class RecordLogDelegate(QtWidgets.QStyledItemDelegate):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._hovering = False
 
     def sizeHint(self, option, index):
-        record = index.data(Qt.UserRole)
-        font_metrics = QFontMetrics(option.font)
+        record = index.data(QtCore.Qt.UserRole)
+        font_metrics = QtGui.QFontMetrics(option.font)
         width = font_metrics.horizontalAdvance(record.title)
         height = font_metrics.height()
-        return QSize(width + 28, height + 12)
+        return QtCore.QSize(width + 28, height + 12)
 
     def paint(self, painter, option, index):
         self.initStyleOption(option, index)
-        record = index.data(Qt.UserRole)
+        record = index.data(QtCore.Qt.UserRole)
         painter.save()
         deco = {
             RecordFlag.Info: '\u2714',
             RecordFlag.Warn: '\u2718',
             RecordFlag.Fail: '\u2718',
         }[record.type]
-        decoRect = QRect(option.rect)
+        decoRect = QtCore.QRect(option.rect)
         decoRect.adjust(8, 0, 0, 0)
-        painter.drawText(decoRect, Qt.AlignVCenter, deco)
-        if option.state & QStyle.State_MouseOver and self._hovering:
+        painter.drawText(decoRect, QtCore.Qt.AlignVCenter, deco)
+        if option.state & QtWidgets.QStyle.State_MouseOver and self._hovering:
             font = painter.font()
             font.setUnderline(True)
             painter.setFont(font)
-        textRect = QRect(option.rect)
+        textRect = QtCore.QRect(option.rect)
         textRect.adjust(24, 0, 0, 0)
-        painter.drawText(textRect, Qt.AlignVCenter, record.title)
+        painter.drawText(textRect, QtCore.Qt.AlignVCenter, record.title)
         painter.restore()
 
     def editorEvent(self, event, model, option, index):
-        if event.type() == QEvent.Type.MouseMove:
+        if event.type() == QtCore.QEvent.Type.MouseMove:
             hovering = (
                 event.x() >= 24 and
                 event.x() <= self.sizeHint(option, index).width() and
                 event.y() <= self.parent().sizeHint().height())
             if hovering != self._hovering:
                 if hovering:
-                    self.parent().setCursor(Qt.PointingHandCursor)
+                    self.parent().setCursor(QtCore.Qt.PointingHandCursor)
                 else:
                     self.parent().unsetCursor()
                 self._hovering = hovering
                 self.parent().update()
         elif (
-            event.type() == QEvent.MouseButtonRelease and
-            event.button() == Qt.LeftButton and
+            event.type() == QtCore.QEvent.MouseButtonRelease and
+            event.button() == QtCore.Qt.LeftButton and
             self._hovering
         ):
             self.parent()._clicked(index)
         return super().event(event)
 
 
-class RecordLogView(QListView):
-    clicked = Signal(object)
+class RecordLogView(QtWidgets.QListView):
+    clicked = QtCore.Signal(object)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setMouseTracking(True)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.setSizePolicy(
-            QSizePolicy.Policy.Minimum,
-            QSizePolicy.Policy.Minimum)
+            QtWidgets.QSizePolicy.Policy.Minimum,
+            QtWidgets.QSizePolicy.Policy.Minimum)
         self.setStyleSheet("""
             RecordLogView {
                 background: transparent;
@@ -197,7 +194,7 @@ class RecordLogView(QListView):
         rows = 0
         if self.model():
             rows = self.model().rowCount()
-        return QSize(width, height * rows)
+        return QtCore.QSize(width, height * rows)
 
     def setLog(self, log):
         model = RecordLogModel(log)
@@ -205,21 +202,21 @@ class RecordLogView(QListView):
         self.updateGeometry()
 
     def _clicked(self, index):
-        record = index.data(Qt.UserRole)
+        record = index.data(QtCore.Qt.UserRole)
         self.clicked.emit(record)
 
 
-class RecordDialog(QDialog):
+class RecordDialog(QtWidgets.QDialog):
     def __init__(self, record: Record, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle(self.parent().title)
         self.record = record
 
-        self.title = QLabel(self.record.title)
+        self.title = QtWidgets.QLabel(self.record.title)
         self.title.setStyleSheet("font-weight: bold;")
 
-        self.description = QLabel(self.record.description)
+        self.description = QtWidgets.QLabel(self.record.description)
         self.description.setVisible(bool(record.description))
         self.description.setWordWrap(True)
 
@@ -228,7 +225,7 @@ class RecordDialog(QDialog):
             RecordFlag.Warn: '\u2718',
             RecordFlag.Fail: '\u2718',
         }[self.record.type]
-        self.deco = QLabel(deco)
+        self.deco = QtWidgets.QLabel(deco)
 
         ok = PushButton('OK')
         ok.clicked.connect(self.accept)
@@ -236,14 +233,14 @@ class RecordDialog(QDialog):
         cancel = PushButton('Cancel')
         cancel.clicked.connect(self.reject)
 
-        buttons = QHBoxLayout()
+        buttons = QtWidgets.QHBoxLayout()
         buttons.addStretch(1)
         buttons.addWidget(cancel)
         buttons.addWidget(ok)
         buttons.setSpacing(8)
         buttons.setContentsMargins(0, 0, 0, 0)
 
-        body = QGridLayout()
+        body = QtWidgets.QGridLayout()
         body.setRowMinimumHeight(10, 8)
         body.addWidget(self.deco, 11, 0, 1, 1)
         body.addWidget(self.title, 11, 1, 1, 1)
@@ -256,7 +253,7 @@ class RecordDialog(QDialog):
         body.setHorizontalSpacing(0)
         body.setContentsMargins(0, 0, 0, 0)
 
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         layout.addLayout(body)
         layout.addLayout(buttons)
         layout.setContentsMargins(24, 16, 24, 16)

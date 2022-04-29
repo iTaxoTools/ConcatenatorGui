@@ -26,9 +26,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from PySide6.QtCore import Qt, QSize, QRect, QEvent, QAbstractItemModel, QAbstractListModel, Signal
-from PySide6.QtWidgets import QWidget, QListView, QStyledItemDelegate, QStyle, QSizePolicy, QHBoxLayout, QLabel
-from PySide6.QtGui import QFontMetrics
+from PySide6 import QtCore
+from PySide6 import QtWidgets
+from PySide6 import QtGui
 
 from itaxotools.common.utility import AttrDict
 from itaxotools.concatenator.library.operators import (
@@ -303,17 +303,16 @@ class Diagnoser:
             for record in self.get_summary_report().records.values():
                 self._export_record(record)
         for record in self.get_record_log():
-            print(str(record))
             if record.data is not None:
                 self._export_record(record)
 
 
-class SummaryReportLabel(QLabel):
-    clicked = Signal(str)
+class SummaryReportLabel(QtWidgets.QLabel):
+    clicked = QtCore.Signal(str)
 
     def __init__(self, attr, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setCursor(Qt.PointingHandCursor)
+        self.setCursor(QtCore.Qt.PointingHandCursor)
         self.attr = attr
 
     def enterEvent(self, event):
@@ -328,14 +327,14 @@ class SummaryReportLabel(QLabel):
 
     def mousePressEvent(self, event):
         if (
-            event.type() == QEvent.MouseButtonPress and
-            event.button() == Qt.LeftButton
+            event.type() == QtCore.QEvent.MouseButtonPress and
+            event.button() == QtCore.Qt.LeftButton
         ):
             self.clicked.emit(self.attr)
 
 
-class SummaryReportView(QWidget):
-    clicked = Signal(object)
+class SummaryReportView(QtWidgets.QWidget):
+    clicked = QtCore.Signal(object)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -351,18 +350,18 @@ class SummaryReportView(QWidget):
         self.per_sample.clicked.connect(self._clicked)
         self.per_marker.clicked.connect(self._clicked)
 
-        layout = QHBoxLayout()
+        layout = QtWidgets.QHBoxLayout()
         layout.addSpacing(10)
-        layout.addWidget(QLabel('\u2b95'))
+        layout.addWidget(QtWidgets.QLabel('\u2b95'))
         layout.addSpacing(6)
-        layout.addWidget(QLabel('Summary reports:'))
+        layout.addWidget(QtWidgets.QLabel('Summary reports:'))
         layout.addSpacing(8)
         layout.addWidget(self.total)
-        layout.addWidget(QLabel(', '))
+        layout.addWidget(QtWidgets.QLabel(', '))
         layout.addWidget(self.per_input)
-        layout.addWidget(QLabel(', '))
+        layout.addWidget(QtWidgets.QLabel(', '))
         layout.addWidget(self.per_sample)
-        layout.addWidget(QLabel(', '))
+        layout.addWidget(QtWidgets.QLabel(', '))
         layout.addWidget(self.per_marker)
         layout.addStretch(1)
         layout.setContentsMargins(0, 0, 0, 0)
