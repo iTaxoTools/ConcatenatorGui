@@ -27,7 +27,7 @@ from pathlib import Path
 from itaxotools import common
 import itaxotools.common.resources # noqa
 
-from ..records import RecordLogView
+from ..records import RecordLogView, RecordDialog
 from ..diagnoser import SummaryReportView
 from .. import step_state_machine as ssm
 from .. import widgets
@@ -63,7 +63,8 @@ class StepDone(ssm.StepState):
         self.report_view = SummaryReportView()
         self.log_view = RecordLogView()
 
-        self.report_view.clicked.connect(print)
+        self.report_view.clicked.connect(self.open_record)
+        self.log_view.clicked.connect(self.open_record)
 
         path = common.resources.get(
             'itaxotools.concatenator_gui', 'docs/report.html')
@@ -100,6 +101,11 @@ class StepDone(ssm.StepState):
         file = Path(dir) / link
         url = QtCore.QUrl.fromLocalFile(str(file))
         QtGui.QDesktopServices.openUrl(url)
+
+    def open_record(self, record):
+        self.dialog = RecordDialog(record, self.machine().parent())
+        self.dialog.setModal(True)
+        self.dialog.show()
 
     def updateLabels(self):
         path = self.machine().states.export.data.target

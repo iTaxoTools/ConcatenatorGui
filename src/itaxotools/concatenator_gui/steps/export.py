@@ -103,6 +103,7 @@ class FileCompression(Enum):
 class DiagnoserOptionsDialog(QtWidgets.QDialog):
     def __init__(self, params: DiagnoserParams, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.params = params
         self.draw()
         self.load_params()
@@ -220,6 +221,7 @@ class DiagnoserOptionsDialog(QtWidgets.QDialog):
 class TreeOptionsDialog(QtWidgets.QDialog):
     def __init__(self, params, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
 
         self.params = params
         self.draw()

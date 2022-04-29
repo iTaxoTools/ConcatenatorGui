@@ -263,6 +263,7 @@ class DataObject(object):
 class OptionsDialog(QtWidgets.QDialog):
     def __init__(self, view, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.view = view
 
         self.setWindowTitle(self.parent().title)

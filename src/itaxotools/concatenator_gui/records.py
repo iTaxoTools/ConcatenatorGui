@@ -23,10 +23,14 @@ from typing import Iterator, Optional
 from enum import Enum, auto
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QSize, QRect, QEvent, QAbstractItemModel, QAbstractListModel
-from PySide6.QtWidgets import QWidget, QListView, QStyledItemDelegate, QStyle, QSizePolicy
+from PySide6.QtCore import (
+    Qt, QSize, QRect, QEvent, QAbstractItemModel, QAbstractListModel, Signal)
+from PySide6.QtWidgets import (
+    QWidget, QListView, QStyledItemDelegate, QStyle, QSizePolicy,
+    QDialog, QLabel, QHBoxLayout, QVBoxLayout, QGridLayout)
 from PySide6.QtGui import QFontMetrics
 
+from itaxotools.common.widgets import VLineSeparator, PushButton
 
 class RecordFlag(Enum):
     Info = auto()
@@ -160,12 +164,13 @@ class RecordLogDelegate(QStyledItemDelegate):
             event.button() == Qt.LeftButton and
             self._hovering
         ):
-            record = index.data(Qt.UserRole)
-            print(str(record))
+            self.parent()._clicked(index)
         return super().event(event)
 
 
 class RecordLogView(QListView):
+    clicked = Signal(object)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setMouseTracking(True)
@@ -198,3 +203,61 @@ class RecordLogView(QListView):
         model = RecordLogModel(log)
         self.setModel(model)
         self.updateGeometry()
+
+    def _clicked(self, index):
+        record = index.data(Qt.UserRole)
+        self.clicked.emit(record)
+
+
+class RecordDialog(QDialog):
+    def __init__(self, record: Record, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle(self.parent().title)
+        self.record = record
+
+        self.title = QLabel(self.record.title)
+        self.title.setStyleSheet("font-weight: bold;")
+
+        self.description = QLabel(self.record.description)
+        self.description.setVisible(bool(record.description))
+        self.description.setWordWrap(True)
+
+        deco = {
+            RecordFlag.Info: '\u2714',
+            RecordFlag.Warn: '\u2718',
+            RecordFlag.Fail: '\u2718',
+        }[self.record.type]
+        self.deco = QLabel(deco)
+
+        ok = PushButton('OK')
+        ok.clicked.connect(self.accept)
+        ok.setDefault(True)
+        cancel = PushButton('Cancel')
+        cancel.clicked.connect(self.reject)
+
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+        buttons.addWidget(cancel)
+        buttons.addWidget(ok)
+        buttons.setSpacing(8)
+        buttons.setContentsMargins(0, 0, 0, 0)
+
+        body = QGridLayout()
+        body.setRowMinimumHeight(10, 8)
+        body.addWidget(self.deco, 11, 0, 1, 1)
+        body.addWidget(self.title, 11, 1, 1, 1)
+        body.addWidget(self.description, 12, 0, 1, 3)
+        body.setRowMinimumHeight(50, 24)
+
+        body.setColumnStretch(2, 1)
+        body.setColumnMinimumWidth(0, 16)
+        body.setColumnMinimumWidth(4, 16)
+        body.setHorizontalSpacing(0)
+        body.setContentsMargins(0, 0, 0, 0)
+
+        layout = QVBoxLayout()
+        layout.addLayout(body)
+        layout.addLayout(buttons)
+        layout.setContentsMargins(24, 16, 24, 16)
+        self.setLayout(layout)
