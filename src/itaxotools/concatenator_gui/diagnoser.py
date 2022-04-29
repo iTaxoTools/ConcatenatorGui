@@ -178,6 +178,60 @@ class ForeignPairsModel(QtCore.QAbstractTableModel):
         return None
 
 
+class DisjointGroupsModel(QtCore.QAbstractItemModel):
+    def __init__(self, groups: List[List[str]], parent=None):
+        super().__init__(parent)
+        self._groups = groups
+
+    def index(self, row: int, column: int, parent=QtCore.QModelIndex()) -> QtCore.QModelIndex:
+        if not self.hasIndex(row, column, parent):
+            return QtCore.QModelIndex()
+
+        if column != 0:
+            return QtCore.QModelIndex()
+
+        if not parent.isValid():
+            return self.createIndex(row, 0, self._groups)
+        elif parent.internalPointer() is self._groups:
+            return self.createIndex(row, 0, self._groups[parent.row()])
+        return QtCore.QModelIndex()
+
+    def parent(self, index=QtCore.QModelIndex()) -> QtCore.QModelIndex:
+        if not index.isValid():
+            return QtCore.QModelIndex()
+        ptr = index.internalPointer()
+        if ptr is self._groups:
+            return QtCore.QModelIndex()
+        try:
+            pos = self._groups.index(ptr)
+            return self.createIndex(pos, 0, self._groups)
+        except ValueError:
+            return QtCore.QModelIndex()
+        return QtCore.QModelIndex()
+
+    def rowCount(self, parent=QtCore.QModelIndex()) -> int:
+        if not parent.isValid():
+            return len(self._groups)
+        elif parent.internalPointer() is self._groups:
+            return len(self._groups[parent.row()])
+        return 0
+
+    def columnCount(self, parent=QtCore.QModelIndex()) -> int:
+        return 1
+
+    def data(self, index: QtCore.QModelIndex, role=QtCore.Qt.ItemDataRole):
+        if not index.isValid():
+            return None
+
+        if role == QtCore.Qt.DisplayRole:
+            ptr = index.internalPointer()
+            if ptr is self._groups:
+                return str(f'Group {index.row() + 1}')
+            return str(ptr[index.row()])
+
+        return None
+
+
 class RecordTable(RecordData):
     def _export_table(
         self, path, header=True, index=True,
@@ -250,6 +304,17 @@ class RecordDisjoint(RecordData):
                 for sample in group:
                     print(sample, file=file)
                 print('', file=file)
+
+    def view(self):
+        view = QtWidgets.QTreeView()
+        model = DisjointGroupsModel(self.data)
+        view.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
+        view.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        view.setModel(model)
+        view.expandAll()
+        view.header().hide()
+        return view
 
 
 class RecordForeign(RecordData):
@@ -449,9 +514,8 @@ class Diagnoser:
     def _get_record_disjoint(self) -> Record:
         if not self.params.disjoint:
             return None
-        # Todo: save in a tree formation
         strings = self.strings['disjoint']
-        groups = list(self.op_general_info.table.disjoint_taxon_groups())
+        groups = list(list(group) for group in self.op_general_info.table.disjoint_taxon_groups())
         if len(groups) <= 1:
             return Record(
                 RecordFlag.Info,

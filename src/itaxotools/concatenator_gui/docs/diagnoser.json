@@ -25,7 +25,7 @@
       "description": "There are no disjoint sample groups in the data set (i.e., there is no group of samples that shares data for markers with each other, while lacking completely data for markers present in another group of samples). Note however that this does not exclude the presence of unevenly distributed missing data in the data set that could bias phylogenetic analysis. It may be useful to check the number of missing data per marker and sample in the respective summary tables."
     },
     "Warn": {
-      "title": "WARNING: Disjoing sample groups detected!",
+      "title": "WARNING: Disjoint sample groups detected!",
       "description": "The following disjoint sample groups were found in the data set. Each of the disjoint sample groups shares data for markers among the included samples, but does not share any marker with samples of the other groups. Such a distribution of missing data makes phylogenetic analysis among groups impossible. Check for sample names in the original single-gene data files as disjoint sample groups may originate if samples were differently named for the various concatenated markers."
     }
   },
