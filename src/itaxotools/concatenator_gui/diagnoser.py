@@ -338,7 +338,7 @@ class RecordTable(RecordData):
 
 
 class RecordTotal(RecordTable):
-    export_name = 'total_data.tsv'
+    export_name = 'total_data_set.tsv'
 
     def export(self, path: Path) -> None:
         self._export_table(path, header=False)
@@ -366,7 +366,7 @@ class RecordByGene(RecordTable):
 
 
 class RecordByInput(RecordTable):
-    export_name = 'by_input_file.tsv'
+    export_name = 'per_input_file.tsv'
 
     def export(self, path: Path) -> None:
         self._export_table(path)

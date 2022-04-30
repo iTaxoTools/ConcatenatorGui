@@ -273,10 +273,10 @@ class OptionsDialog(QtWidgets.QDialog):
         items = self.view.selectedItems()
         if len(items) == 1:
             item = items[0]
-            self.label_char.setText('Gene Name:')
+            self.label_char.setText('Marker Name:')
             self.char.setText(item.name)
         elif len(items) > 1:
-            self.label_char.setText('Gene Name:')
+            self.label_char.setText('Marker Name:')
             self.char.setText(f'{len(items)} items selected')
 
             item = CodonItem(None, model.Charset(''))
@@ -317,10 +317,10 @@ class OptionsDialog(QtWidgets.QDialog):
         label_2 = QtWidgets.QLabel('2nd Codon:')
         label_3 = QtWidgets.QLabel('3rd Codon:')
         name_desc = QtWidgets.QLabel(
-            'Double asterisks (**) are replaced by the gene name.')
+            'Double asterisks (**) are replaced by the marker name.')
 
         self.split = QtWidgets.QCheckBox(
-            ' Subset codon positions for all selected genes.')
+            ' Subset codon positions for all selected markers.')
         self.char = QtWidgets.QLineEdit('')
         self.char.setReadOnly(True)
         self.char.setStyleSheet("""
@@ -441,7 +441,7 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Mark genes for codon subsetting in the character set '
+            'Select markers for codon subsetting in the character set '
             'specifications of the output file. '
             'Double-click an option field to edit it.')
         label = QtWidgets.QLabel(text)
@@ -458,11 +458,11 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
         return widget
 
     def draw_summary(self):
-        sets = widgets.InfoLabel('Genes')
-        marked = widgets.InfoLabel('Marked', 0)
+        sets = widgets.InfoLabel('Markers')
+        marked = widgets.InfoLabel('Selected', 0)
 
-        sets.setToolTip('Total number of genes.')
-        marked.setToolTip('Number of genes marked for subsetting.')
+        sets.setToolTip('Total number of markers.')
+        marked.setToolTip('Number of markers selected for subsetting.')
 
         summary = QtWidgets.QHBoxLayout()
         summary.addWidget(sets)
@@ -489,7 +489,7 @@ class StepCodonsEdit(ssm.StepTriStateEdit):
             'Name', 'Action', 'Genetic Code', 'Reading Frame', 'Naming'])
 
         headerItem = view.headerItem()
-        headerItem.setToolTip(0, 'Gene name')
+        headerItem.setToolTip(0, 'Marker name')
         headerItem.setToolTip(1, 'Pending action')
         headerItem.setToolTip(2, 'Genetic code variant (translation table)')
         headerItem.setToolTip(3, 'Reading frame')

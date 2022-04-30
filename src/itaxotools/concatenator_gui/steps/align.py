@@ -218,7 +218,7 @@ class StepAlignOptions(ssm.StepState):
 
 class StepAlignSetsEdit(ssm.StepTriStateEdit):
 
-    description = 'Select which genes to align'
+    description = 'Select which markers to align'
 
     def onEntry(self, event):
         super().onEntry(event)
@@ -242,8 +242,8 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Mark genes for alignment by double-clicking, or by '
-            'selecting them and then clicking "Align".')
+            'Select markers for alignment by double-clicking, or by '
+            'highlighting them and then clicking "Align".')
         label = QtWidgets.QLabel(text)
 
         frame = self.draw_frame()
@@ -258,11 +258,11 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
         return widget
 
     def draw_summary(self):
-        sets = widgets.InfoLabel('Genes')
-        marked = widgets.InfoLabel('Marked', 0)
+        sets = widgets.InfoLabel('Markers')
+        marked = widgets.InfoLabel('Selected', 0)
 
-        sets.setToolTip('Total number of genes.')
-        marked.setToolTip('Number of genes pending alignment.')
+        sets.setToolTip('Total number of markers.')
+        marked.setToolTip('Number of markers pending alignment.')
 
         summary = QtWidgets.QHBoxLayout()
         summary.addWidget(sets)
@@ -363,7 +363,7 @@ class StepAlignSetsDone(ssm.StepTriStateDone):
         if self.result:
             s = 's' if self.result > 1 else ''
             self.parent().update(
-                text=f'Successfully aligned {str(self.result)} gene{s}.')
+                text=f'Successfully aligned {str(self.result)} marker{s}.')
         else:
             self.parent().update(
                 text='Successfully aligned sequences.')

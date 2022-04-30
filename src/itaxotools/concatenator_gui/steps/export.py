@@ -113,17 +113,17 @@ class DiagnoserOptionsDialog(QtWidgets.QDialog):
 
     def draw(self):
         self.header = QtWidgets.QLabel(
-            'Diagnostic options for data validation: ')
+            'Options for data validation: ')
 
         self.report = QtWidgets.QCheckBox(
             'Produce summary report tables.')
         self.disjoint = QtWidgets.QCheckBox(
             'Detect disjoint sample groups.')
         self.foreign = QtWidgets.QCheckBox(
-            'Detect foreign samples.')
+            'Detect non-overlapping samples.')
 
         self.outliers = QtWidgets.QCheckBox(
-            'Detect outlier sequences.')
+            'Detect outlier sequences using SequenceBouncer.')
         self.outliers.stateChanged.connect(self.setIqrEnabled)
 
         self.iqr_label = QtWidgets.QLabel(
@@ -325,8 +325,8 @@ class StepExportEdit(ssm.StepTriStateEdit):
         timestamp = QtWidgets.QCheckBox('Append timestamp to filename.')
         timestamp.setChecked(True)
         diagnose_config = PushButton(
-            'Diagnostic Options', onclick=self.handleDiagnoseShowConfigDialog)
-        diagnose_config.setMaximumWidth(160)
+            'Data Validation Options', onclick=self.handleDiagnoseShowConfigDialog)
+        diagnose_config.setMaximumWidth(200)
 
         scheme.setToolTip((
             'Select one of the available sequence file formats.' + '\n'
@@ -392,7 +392,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
         layout = QtWidgets.QVBoxLayout()
 
         phylo_warning = QtWidgets.QLabel(
-            '\u21AA Only available if all sequences are aligned/uniform.')
+            '\u21AA Only available if all sequences are aligned / of uniform length.')
 
         phylo_concat = QtWidgets.QCheckBox(
             'Calculate tree for the concatenated alignment.')
@@ -409,7 +409,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
 
         phylo_config = PushButton(
             'FastTree Options', onclick=self.handlePhyloShowConfigDialog)
-        phylo_config.setMaximumWidth(160)
+        phylo_config.setMaximumWidth(200)
 
         layout.addWidget(phylo_warning)
         layout.addWidget(phylo_concat)

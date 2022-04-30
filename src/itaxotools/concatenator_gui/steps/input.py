@@ -231,14 +231,14 @@ class StepInput(ssm.StepState):
 
     def draw_summary(self):
         files = widgets.InfoLabel('Files')
-        genes = widgets.InfoLabel('Genes')
+        genes = widgets.InfoLabel('Markers')
         samples = widgets.InfoLabel('Samples')
         nucleotides = widgets.InfoLabel('Nucleotides')
 
         files.setToolTip(
             'The total number of imported files.')
         genes.setToolTip(
-            'The total number of genes contained in all files.')
+            'The total number of markers contained in all files.')
         samples.setToolTip(
             'The number of unique samples across all genes.')
         nucleotides.setToolTip(

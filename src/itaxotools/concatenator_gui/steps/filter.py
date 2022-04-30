@@ -130,8 +130,8 @@ class FilterItem(widgets.ModelItem):
 
 class StepFilter(ssm.StepState):
 
-    title = 'Filter Genes'
-    description = 'Rename or delete genes'
+    title = 'Filter Markers'
+    description = 'Rename or delete markers'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -188,7 +188,7 @@ class StepFilter(ssm.StepState):
         widget = QtWidgets.QWidget()
 
         text = (
-            'Select multiple genes by click-and-drag, or '
+            'Select multiple markers by click-and-drag, or '
             'by clicking while holding Ctrl/Shift. '
             'Click column headers to sort by column.')
         label = QtWidgets.QLabel(text)
@@ -205,13 +205,13 @@ class StepFilter(ssm.StepState):
         return widget
 
     def draw_summary(self):
-        sets = widgets.InfoLabel('Genes')
+        sets = widgets.InfoLabel('Markers')
         renamed = widgets.InfoLabel('Renamed', 0)
         deleted = widgets.InfoLabel('Deleted', 0)
 
-        sets.setToolTip('Total number of genes.')
-        renamed.setToolTip('Genes pending renaming.')
-        deleted.setToolTip('Genes pending deletion.')
+        sets.setToolTip('Total number of markers.')
+        renamed.setToolTip('Markers pending renaming.')
+        deleted.setToolTip('Markers pending deletion.')
 
         summary = QtWidgets.QHBoxLayout()
         summary.addWidget(sets)
@@ -317,7 +317,7 @@ class StepFilter(ssm.StepState):
         msgBox = QtWidgets.QMessageBox(self.machine().parent())
         msgBox.setWindowTitle(self.machine().parent().title)
         msgBox.setIcon(QtWidgets.QMessageBox.Critical)
-        msgBox.setText('Cannot continue because \nall genes are deleted.')
+        msgBox.setText('Cannot continue because \nall markers are deleted.')
         msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
         self.machine().parent().msgShow(msgBox)
         return False
