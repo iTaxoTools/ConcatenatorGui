@@ -22,6 +22,7 @@
 from typing import Iterator, Optional
 from enum import Enum, auto
 from pathlib import Path
+from itertools import chain
 
 from PySide6 import QtCore
 from PySide6 import QtWidgets
@@ -85,6 +86,12 @@ class RecordLog:
         if record is not None:
             self.records.append(record)
 
+    def sorted(self):
+        return list(chain(
+            iter(record for record in self if record.type == RecordFlag.Fail),
+            iter(record for record in self if record.type == RecordFlag.Warn),
+            iter(record for record in self if record.type == RecordFlag.Info),
+        ))
 
 class RecordLogModel(QtCore.QAbstractListModel):
 
@@ -102,7 +109,7 @@ class RecordLogModel(QtCore.QAbstractListModel):
             index.column() != 0
         ):
             return None
-        record = self.log.records[index.row()]
+        record = self.log.sorted()[index.row()]
         if role == QtCore.Qt.DisplayRole:
             return str(record)
         if role == QtCore.Qt.UserRole:

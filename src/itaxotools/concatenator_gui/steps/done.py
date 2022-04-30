@@ -27,7 +27,7 @@ from pathlib import Path
 from itaxotools import common
 import itaxotools.common.resources # noqa
 
-from ..records import RecordLogView, RecordDialog
+from ..records import RecordLogView, RecordDialog, RecordFlag
 from ..diagnoser import SummaryReportView
 from .. import step_state_machine as ssm
 from .. import widgets
@@ -119,38 +119,25 @@ class StepDone(ssm.StepState):
         self.confirm.setText((
             f'<b>Successfully exported {text} to "{path.name}"</b>'))
 
-    def warnDisjoint(self):
-        if not self.machine().states.export.data.diagnoser:
+    def notifyWarnings(self, log):
+        warnings = (record for record in log if record.type != RecordFlag.Info)
+        if not any(warnings):
             return
-        group_count = self.machine().states.export.data.diagnoser.disjoint_groups
-        if not group_count:
-            return
-        if group_count > 1:
-            msgBox = QtWidgets.QMessageBox(self.machine().parent())
-            msgBox.setWindowTitle(self.machine().parent().title)
-            msgBox.setIcon(QtWidgets.QMessageBox.Warning)
-            msgBox.setText(f'Disjoint sample groups detected!')
-            msgBox.setInformativeText(
-                f'We detected {group_count} distinct sample groups. '
-                'This could be the result of slight differences in sample names between input files. '
-                'Please open the disjoint group report to verify this is not a mistake.'
-                )
-            msgBox.setStandardButtons(
-                QtWidgets.QMessageBox.Ignore | QtWidgets.QMessageBox.Open)
-            msgBox.setDefaultButton(QtWidgets.QMessageBox.Ignore)
-            button = self.machine().parent().msgShow(msgBox)
-            if button == QtWidgets.QMessageBox.Open:
-                self.open_report_link('disjoint_groups.txt')
+
+        msgBox = QtWidgets.QMessageBox(self.machine().parent())
+        msgBox.setWindowTitle(self.machine().parent().title)
+        msgBox.setIcon(QtWidgets.QMessageBox.Warning)
+        msgBox.setText('We detected some possible problems with the data set.')
+        msgBox.setInformativeText('Please click on the issued warnings for details.')
+        msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        button = self.machine().parent().msgShow(msgBox)
 
     def onEntry(self, event):
         super().onEntry(event)
         self.updateLabels()
-        # self.warnDisjoint()
         diagnoser = self.machine().states.export.data.diagnoser
-        # for name, record in diagnoser.get_summary_report().records.items():
-        #     print(str(record))
-        #     print(record.data.data.to_string())
-        #     print('')
-        # print(diagnoser.get_record_log())
-        self.report_view.setReport(diagnoser.get_summary_report())
-        self.log_view.setLog(diagnoser.get_record_log())
+        report = diagnoser.get_summary_report()
+        record_log = diagnoser.get_record_log()
+        self.report_view.setReport(report)
+        self.log_view.setLog(record_log)
+        self.notifyWarnings(record_log)
