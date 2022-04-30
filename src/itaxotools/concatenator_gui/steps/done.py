@@ -111,7 +111,7 @@ class StepDone(ssm.StepState):
         path = self.machine().states.export.data.target
         count_seqs = self.machine().states.export.data.seqs
         s = 's' if count_seqs > 1 else ''
-        text = f'{count_seqs} sequence{s}'
+        text = f'{count_seqs} marker{s}'
         count_trees = self.machine().states.export.data.trees
         if count_trees:
             s = 's' if count_trees > 1 else ''

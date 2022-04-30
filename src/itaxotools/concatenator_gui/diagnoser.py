@@ -304,6 +304,7 @@ class TableView(QtWidgets.QTableView):
     def setModel(self, model):
         super().setModel(model)
         self.resizeColumnsToContents()
+        self.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Fixed)
         for column in range(0, model.columnCount()):
             self.setColumnWidth(column, self.columnWidth(column) + 10)
 
@@ -533,9 +534,9 @@ class Diagnoser:
 
     def _get_table_header(self):
         return pd.Series({
-            'Name of output file': self.filename,
-            'Timestamp of output file': self.timestamp,
-            'Output file format': self.scheme.text,
+            'Output filename': self.filename,
+            'Output timestamp': self.timestamp,
+            'Output format': self.scheme.text,
             'Number of input files used': self.input_files_count,
         })
 
@@ -545,11 +546,11 @@ class Diagnoser:
     def _get_table_total(self):
         header = self._get_table_header()
         table = self.op_general_info.table.total_data()
-        table["GC content of sequences"] = f'{table["GC content of sequences"]:.1f}'
-        table["% missing data"] = f'{table["% missing data"]:.1f}'
-        table["Average number of nucleotides per taxon"] = f'{table["Average number of nucleotides per taxon"]:.2f}'
-        table["Average number of markers per taxon"] = f'{table["Average number of markers per taxon"]:.2f}'
-        table["Average number of taxa per marker"] = f'{table["Average number of taxa per marker"]:.2f}'
+        table["GC content (%)"] = f'{table["GC content (%)"]:.1f}'
+        table["Missing nucleotides (%)"] = f'{table["Missing nucleotides (%)"]:.1f}'
+        table["Average number of nucleotides per sample"] = f'{table["Average number of nucleotides per sample"]:.2f}'
+        table["Average number of markers per sample"] = f'{table["Average number of markers per sample"]:.2f}'
+        table["Average number of samples per marker"] = f'{table["Average number of samples per marker"]:.2f}'
         return pd.concat([header, table])
 
     def _get_table_by_taxon(self):
@@ -560,9 +561,7 @@ class Diagnoser:
         return self.op_general_info_per_gene.get_info(table)
 
     def _get_table_by_input_file(self):
-        table = self.op_general_info_per_file.get_info()
-        table.index = table.index + 1
-        return table
+        return self.op_general_info_per_file.get_info()
 
     def get_summary_report(self) -> Optional[SummaryReport]:
         strings = self.strings['report']
@@ -659,7 +658,7 @@ class Diagnoser:
             return None
         strings = self.strings['padded']
         table = self._get_table_by_gene()
-        padded = table['padded to compensate for unequal sequence lengths yes/no'] == 'yes'
+        padded = table['Padded to compensate for unequal sequence lengths'] == 'yes'
         if any(padded):
             formatter = self._export_formatter()
             return Record(
@@ -667,8 +666,8 @@ class Diagnoser:
                 strings['Warn']['title'],
                 strings['Warn']['description'],
                 data=RecordPadded(table[padded][[
-                    'padded to compensate for unequal sequence lengths yes/no',
-                    're-aligned by Mafft yes/no',
+                    'Padded to compensate for unequal sequence lengths',
+                    'Re-aligned by MAFFT',
                     ]], formatter))
         return None
 
