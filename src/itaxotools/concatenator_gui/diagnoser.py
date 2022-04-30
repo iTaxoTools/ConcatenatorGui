@@ -766,5 +766,6 @@ class SummaryReportView(QtWidgets.QWidget):
         if self.report:
             self.clicked.emit(getattr(self.report.records, attr))
 
-    def setReport(self, report: SummaryReport):
+    def setReport(self, report: Optional[SummaryReport]):
         self.report = report
+        self.setVisible(report is not None)

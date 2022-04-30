@@ -59,7 +59,7 @@ class StepDone(ssm.StepState):
         self.confirm.setTextFormat(QtCore.Qt.RichText)
         self.confirm.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
 
-        self.diagnostics = QtWidgets.QLabel('Below you may find the summary reports for all performed diagnostics:')
+        self.diagnostics = QtWidgets.QLabel('Below you may find the results of data validation:')
         self.report_view = SummaryReportView()
         self.log_view = RecordLogView()
 
@@ -67,28 +67,27 @@ class StepDone(ssm.StepState):
         self.log_view.clicked.connect(self.open_record)
 
         path = common.resources.get(
-            'itaxotools.concatenator_gui', 'docs/report.html')
-        with open(path) as f:
-            text = f.read()
-        self.report = widgets.HtmlLabel(path)
-        self.report.setOpenExternalLinks(False)
-        self.report.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByMouse)
-        self.report.linkActivated.connect(self.open_report_link)
-
-        path = common.resources.get(
             'itaxotools.concatenator_gui', 'docs/done.html')
         self.label = widgets.HtmlLabel(path)
         self.label.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByMouse)
-        self.label.setVisible(False)
+
+        views = QtWidgets.QVBoxLayout()
+        views.addWidget(self.report_view)
+        views.addWidget(self.log_view)
+        views.setContentsMargins(16, 4, 16, 4)
+
+        self.validation = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self.diagnostics)
+        layout.addSpacing(8)
+        layout.addLayout(views)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.validation.setLayout(layout)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.progress)
-        layout.addWidget(self.diagnostics)
-        layout.addSpacing(16)
-        layout.addWidget(self.report_view)
-        layout.addWidget(self.log_view)
-        # layout.addWidget(self.report)
-        # layout.addWidget(self.label)
+        layout.addWidget(self.validation)
+        layout.addWidget(self.label)
         layout.addStretch(1)
         layout.setSpacing(16)
         layout.setContentsMargins(0, 0, 0, 32)
@@ -141,3 +140,6 @@ class StepDone(ssm.StepState):
         self.report_view.setReport(report)
         self.log_view.setLog(record_log)
         self.notifyWarnings(record_log)
+
+        showValidation = bool(any(record_log) or report is not None)
+        self.validation.setVisible(showValidation)
