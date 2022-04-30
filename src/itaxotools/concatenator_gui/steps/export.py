@@ -31,6 +31,7 @@ from dataclasses import dataclass
 
 import shutil
 import pandas as pd
+import re
 
 from itaxotools import common
 from itaxotools.common.utility import AttrDict
@@ -692,8 +693,6 @@ class StepExport(ssm.StepTriState):
         with self.states.wait.redirect():
             print(f'Saving diagnostics...')
 
-        self.data.diagnoser.export_all()
-
         with self.states.wait.redirect():
             print(f'Done exporting, moving results to {self.data.target}')
 
@@ -752,15 +751,19 @@ class StepExport(ssm.StepTriState):
         timestamp = self.states.edit.get_timestamp()
         basename = self.states.edit.infer_base_name()
         basename += self.states.edit.get_time_string(timestamp)
-        (fileName, _) = QtWidgets.QFileDialog.getSaveFileName(
+        (fileName, extension) = QtWidgets.QFileDialog.getSaveFileName(
             self.machine().parent(),
             self.machine().parent().title + ' - Export',
             QtCore.QDir.currentPath() + '/' + basename,
             self.states.edit.infer_dialog_filter())
+        fileName = Path(fileName)
+        extension = re.search('\(\*(.+?)\)', extension)[1]
+        if fileName.suffix is not extension:
+            fileName = fileName.with_suffix(extension)
         if not fileName:
             return False
         if self.isTargetDir():
-            if Path(fileName).exists():
+            if fileName.exists():
                 msgBox = QtWidgets.QMessageBox(self.machine().parent())
                 msgBox.setWindowTitle(self.machine().parent().title)
                 msgBox.setIcon(QtWidgets.QMessageBox.Critical)
@@ -769,11 +772,11 @@ class StepExport(ssm.StepTriState):
                 msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
                 self.machine().parent().msgShow(msgBox)
                 return False
-        self.data.target = Path(fileName)
+        self.data.target = fileName
         self.data.diagnoser = Diagnoser(self.states.edit.diagnoser_params)
         self.data.diagnoser.scheme = self.states.edit.scheme.currentData()
         self.data.diagnoser.timestamp = timestamp
-        self.data.diagnoser.filename = self.data.target.name
+        self.data.diagnoser.filename = self.data.target
         return True
 
     def filterCancel(self, event):

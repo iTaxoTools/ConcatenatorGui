@@ -339,7 +339,7 @@ class RecordTable(RecordData):
 
 
 class RecordTotal(RecordTable):
-    export_name = 'total_data_set.tsv'
+    export_name = 'summary_total.tsv'
 
     def export(self, path: Path) -> None:
         self._export_table(path, header=False)
@@ -353,21 +353,21 @@ class RecordTotal(RecordTable):
 
 
 class RecordByTaxon(RecordTable):
-    export_name = 'per_sample.tsv'
+    export_name = 'summary_per_sample.tsv'
 
     def export(self, path: Path) -> None:
         self._export_table(path, index=False)
 
 
 class RecordByGene(RecordTable):
-    export_name = 'per_marker.tsv'
+    export_name = 'summary_per_marker.tsv'
 
     def export(self, path: Path) -> None:
         self._export_table(path)
 
 
 class RecordByInput(RecordTable):
-    export_name = 'per_input_file.tsv'
+    export_name = 'summary_per_input_file.tsv'
 
     def export(self, path: Path) -> None:
         self._export_table(path)
@@ -698,7 +698,7 @@ class Diagnoser:
     def _export_formatter(self):
         if self.filename is None:
             return None
-        return f'{self.filename}_{{}}'
+        return f'{self.filename.stem}_{{}}'
 
 
 class SummaryReportLabel(QtWidgets.QLabel):
