@@ -50,7 +50,7 @@ class DiagnoserParams:
     report: bool = True
     disjoint: bool = True
     foreign: bool = True
-    outliers: bool = True
+    outliers: bool = False
     iqr: float = 20.0
 
 

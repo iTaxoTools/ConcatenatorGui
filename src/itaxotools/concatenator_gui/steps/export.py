@@ -556,6 +556,7 @@ class StepExport(ssm.StepTriState):
     def work(self):
         self.data.total = 0
         self.data.trees = 0
+        self.update(0, 0, 'Exporting sequences...')
         if self.data.phylo_do_concat or self.data.phylo_do_all:
             self.work_export('Step 1/3: Exporting sequences')
             self.work_phylo_prep('Step 2/3: Phylogeny preparation')
@@ -614,7 +615,8 @@ class StepExport(ssm.StepTriState):
         stream = self.work_get_stream()
         writer = self.states.edit.writer
         self.data.diagnoser.modify_writer_filters(writer)
-        writer(stream, out)
+        with self.states.wait.redirect():
+            writer(stream, out)
         self.data.seqs = self.data.total
 
     def work_phylo_prep(self, description):
@@ -757,9 +759,11 @@ class StepExport(ssm.StepTriState):
             QtCore.QDir.currentPath() + '/' + basename,
             self.states.edit.infer_dialog_filter())
         fileName = Path(fileName)
-        extension = re.search('\(\*(.+?)\)', extension)[1]
-        if fileName.suffix is not extension:
-            fileName = fileName.with_suffix(extension)
+        extension = re.search('\(\*(.+?)\)', extension)
+        if extension is not None:
+            extension = extension[1]
+            if fileName.suffix is not extension:
+                fileName = fileName.with_suffix(extension)
         if not fileName:
             return False
         if self.isTargetDir():

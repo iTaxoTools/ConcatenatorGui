@@ -20,6 +20,7 @@
 
 
 from typing import Dict, List, Union
+from logging import Handler, Formatter, INFO
 from time import sleep
 
 from Bio.SeqRecord import SeqRecord
@@ -29,6 +30,37 @@ from itaxotools.concatenator.library.model import Operator
 from itaxotools.concatenator.library.utils import Field
 
 from itaxotools.sequence_bouncer import SequenceBouncer, InputSequence
+from itaxotools.sequence_bouncer.SequenceBouncer import logger, version
+
+
+class PrintHandler(Handler):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setLevel(INFO)
+
+    def emit(self, message):
+        print(self.format(message))
+
+
+class NoLogSequenceBouncer(SequenceBouncer):
+
+    def initialize_logger(self):
+        "Also adds file handler if required"
+        v = self.vars
+        p = self.params
+
+        self.logger = logger.getChild(str(id(self)))
+        self.logger.propagate = False
+        self.logger.addHandler(PrintHandler())
+
+        self.logger.info('\nSequenceBouncer: A method to remove outlier entries from a multiple sequence alignment\n')
+        self.logger.info('Cory Dunn')
+        self.logger.info('University of Helsinki')
+        self.logger.info('cory.dunn@helsinki.fi')
+        self.logger.info('Version: ' + version)
+        self.logger.info('Please cite DOI: 10.1101/2020.11.24.395459')
+        self.logger.info('___\n')
 
 
 class OpSequenceBouncer(Operator):
@@ -47,7 +79,7 @@ class OpSequenceBouncer(Operator):
 
     def call(self, gene):
         input = self.input_from_gene(gene)
-        bouncer = SequenceBouncer(
+        bouncer = NoLogSequenceBouncer(
             input, IQR_coefficient=self.iqr, gap_percent_cut=100, write_none=True)
         try:
             verdict = bouncer()
@@ -55,5 +87,4 @@ class OpSequenceBouncer(Operator):
                 sample for sample, accepted in verdict.items() if not accepted]
         except Exception as exception:
             self.outliers[gene.name] = str(exception)
-        print(f'BOUNCED {gene.name}', self.outliers[gene.name])
         return gene
