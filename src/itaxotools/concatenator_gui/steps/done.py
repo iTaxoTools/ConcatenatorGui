@@ -74,6 +74,7 @@ class StepDone(ssm.StepState):
         views = QtWidgets.QVBoxLayout()
         views.addWidget(self.report_view)
         views.addWidget(self.log_view)
+        views.setSpacing(16)
         views.setContentsMargins(16, 4, 16, 4)
 
         self.validation = QtWidgets.QWidget()

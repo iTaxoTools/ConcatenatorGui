@@ -417,7 +417,8 @@ class StepAlignSets(ssm.StepTriState):
         charsets = {
             k for k, v in self.machine().states.input.data.charsets.items()
             if v.aligned and v.translation is not None
-            and v.name not in self.charsets_cached}
+            and v.name not in self.charsets_cached
+            and v.samples}
         files = [
             f for f in self.machine().states.input.data.files.values()
             if any(cs.name in charsets for cs in f.charsets.values())]

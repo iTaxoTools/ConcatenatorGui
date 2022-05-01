@@ -112,6 +112,8 @@ class DataGroup:
     def __len__(self):
         return self.length
 
+    def __bool__(self):
+        return bool(self.length > 0)
 
 @dataclass(frozen=True)
 class Sample:
