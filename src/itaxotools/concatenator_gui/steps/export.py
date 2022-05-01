@@ -758,14 +758,14 @@ class StepExport(ssm.StepTriState):
             self.machine().parent().title + ' - Export',
             QtCore.QDir.currentPath() + '/' + basename,
             self.states.edit.infer_dialog_filter())
+        if not fileName:
+            return False
         fileName = Path(fileName)
         extension = re.search('\(\*(.+?)\)', extension)
         if extension is not None:
             extension = extension[1]
             if fileName.suffix is not extension:
                 fileName = fileName.with_suffix(extension)
-        if not fileName:
-            return False
         if self.isTargetDir():
             if fileName.exists():
                 msgBox = QtWidgets.QMessageBox(self.machine().parent())

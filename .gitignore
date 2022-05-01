@@ -9,6 +9,9 @@ __pycache__/
 *.so
 *~
 
+# apple meta
+.DS_Store
+
 # due to using tox and pytest
 .tox
 .cache

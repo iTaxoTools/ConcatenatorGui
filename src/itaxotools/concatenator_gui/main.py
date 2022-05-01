@@ -186,7 +186,7 @@ class Main(common.widgets.ToolDialog):
 
         self.stepProgressBar = spb.StepProgressBar()
         font = QtGui.QGuiApplication.font()
-        font.setPointSize(9)
+        font.setPixelSize(12)
         font.setLetterSpacing(QtGui.QFont.AbsoluteSpacing, 1)
         font.setBold(True)
         self.stepProgressBar.font = font

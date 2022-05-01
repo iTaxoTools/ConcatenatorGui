@@ -63,8 +63,8 @@ class StepDone(ssm.StepState):
         self.report_view = SummaryReportView()
         self.log_view = RecordLogView()
 
-        self.report_view.clicked.connect(self.open_record)
-        self.log_view.clicked.connect(self.open_record)
+        self.report_view.link_clicked.connect(self.open_record)
+        self.log_view.link_clicked.connect(self.open_record)
 
         path = common.resources.get(
             'itaxotools.concatenator_gui', 'docs/done.html')

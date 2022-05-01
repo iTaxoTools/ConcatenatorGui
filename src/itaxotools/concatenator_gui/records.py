@@ -164,7 +164,7 @@ class RecordLogDelegate(QtWidgets.QStyledItemDelegate):
                 else:
                     self.parent().unsetCursor()
                 self._hovering = hovering
-                self.parent().update()
+                # self.parent().update()
         elif (
             event.type() == QtCore.QEvent.MouseButtonRelease and
             event.button() == QtCore.Qt.LeftButton and
@@ -175,7 +175,7 @@ class RecordLogDelegate(QtWidgets.QStyledItemDelegate):
 
 
 class RecordLogView(QtWidgets.QListView):
-    clicked = QtCore.Signal(object)
+    link_clicked = QtCore.Signal(object)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -212,7 +212,7 @@ class RecordLogView(QtWidgets.QListView):
 
     def _clicked(self, index):
         record = index.data(QtCore.Qt.UserRole)
-        self.clicked.emit(record)
+        self.link_clicked.emit(record)
 
 
 class RecordDialog(QtWidgets.QDialog):

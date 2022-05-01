@@ -8,5 +8,4 @@ from itaxotools.concatenator_gui import run
 
 if __name__ == '__main__':
     multiprocessing.freeze_support()
-    multiprocessing.set_start_method('spawn')
     run()

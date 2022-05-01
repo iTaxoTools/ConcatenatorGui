@@ -728,7 +728,7 @@ class SummaryReportLabel(QtWidgets.QLabel):
 
 
 class SummaryReportView(QtWidgets.QWidget):
-    clicked = QtCore.Signal(object)
+    link_clicked = QtCore.Signal(object)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -764,7 +764,7 @@ class SummaryReportView(QtWidgets.QWidget):
 
     def _clicked(self, attr):
         if self.report:
-            self.clicked.emit(getattr(self.report.records, attr))
+            self.link_clicked.emit(getattr(self.report.records, attr))
 
     def setReport(self, report: Optional[SummaryReport]):
         self.report = report
