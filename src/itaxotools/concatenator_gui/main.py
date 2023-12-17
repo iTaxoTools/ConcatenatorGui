@@ -34,6 +34,7 @@ from .steps.about import StepAbout
 from .steps.input import StepInput
 from .steps.filter import StepFilter
 from .steps.align import StepAlignOptions, StepAlignSets
+from .steps.trim import StepTrim
 from .steps.codons import StepCodons
 from .steps.export import StepExport
 from .steps.done import StepDone
@@ -225,6 +226,7 @@ class Main(common.widgets.ToolDialog):
         m.addStep('filter', 'Markers', 1, True, StepFilter)
         m.addStep('align_options', 'Align', 1, True, StepAlignOptions)
         m.addStep('align_sets', '', 1, False, StepAlignSets)
+        m.addStep('trim', 'Trim', 1, True, StepTrim)
         m.addStep('codons', 'Codons', 1, True, StepCodons)
         m.addStep('export', 'Export', 1, True, StepExport)
         m.addStep('done', 'Done', 1, False, StepDone)
