@@ -28,6 +28,8 @@ from itaxotools import common
 import itaxotools.common.widgets
 import itaxotools.common.resources # noqa
 
+from itaxotools.common.utility import AttrDict
+
 from itaxotools.concatenator.library.model import GeneSeries
 from itaxotools.concatenator.library.operators import OpUpdateMetadata
 from itaxotools.concatenator.library.codons import (
@@ -38,35 +40,57 @@ from .. import widgets
 from .. import step_state_machine as ssm
 
 from .wait import StepWaitBar
-
+from .align import RichRadioButton
 
 
 class StepTrimEdit(ssm.StepTriStateEdit):
 
     description = 'Select trimming method'
 
-    def onEntry(self, event):
-        super().onEntry(event)
-        last_filter_update = self.machine().states.filter.timestamp_get()
-        if last_filter_update > self.timestamp_get():
-            self.timestamp_set()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.data = AttrDict()
+        self.data.skip = False
+        self.data.last = None
 
     def draw(self):
         widget = QtWidgets.QWidget()
 
-        text = ('You may chose to trim your sequences using Gblocks.')
-        label = QtWidgets.QLabel(text)
+        label = QtWidgets.QLabel('You may choose to trim your sequences. The same method will be used for all markers:')
 
-        frame = QtWidgets.QFrame()
+        gblocks = RichRadioButton('Gblocks:', 'eliminate poorly aligned positions and divergent regions.', widget)
+        clipkit = RichRadioButton('Clipkit:', 'only keep phylogenetically informative sites.', widget)
+        skip = QtWidgets.QRadioButton('Skip trimming', widget)
+        skip.setStyleSheet("QRadioButton { letter-spacing: 1px; }")
+        skip.setChecked(True)
+
+        radios = QtWidgets.QVBoxLayout()
+        radios.addWidget(gblocks)
+        radios.addWidget(clipkit)
+        radios.addSpacing(16)
+        radios.addWidget(skip)
+        radios.setSpacing(16)
+        radios.setContentsMargins(16, 0, 0, 0)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(label)
-        layout.addWidget(frame, 1)
+        layout.addLayout(radios)
+        layout.addStretch(1)
         layout.setSpacing(24)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(0, 0, 0, 32)
         widget.setLayout(layout)
 
+        self.radios = AttrDict()
+        self.radios.gblocks = gblocks
+        self.radios.clipkit = clipkit
+        self.radios.skip = skip
+
         return widget
+
+    def get_method(self):
+        for method in self.radios:
+            if self.radios[method].isChecked():
+                return method
 
 
 class StepTrimWait(StepWaitBar):
@@ -74,16 +98,16 @@ class StepTrimWait(StepWaitBar):
 
 
 class StepTrimDone(ssm.StepTriStateDone):
-    description = 'Position trimming complete'
+    description = 'Site trimming complete'
 
     def onEntry(self, event):
         super().onEntry(event)
         self.parent().update(
-            text=f'Successfully trimmed positions.')
+            text=f'Successfully trimmed sites.')
 
 
 class StepTrimFail(ssm.StepTriStateFail):
-    description = 'Codon subsetting failed'
+    description = 'Position trimming failed'
 
     def onEntry(self, event):
         super().onEntry(event)
@@ -93,12 +117,18 @@ class StepTrimFail(ssm.StepTriStateFail):
 
 
 class StepTrim(ssm.StepTriState):
-    title = 'Trim Sequence Positions'
+    title = 'Trim Sequence Sites'
 
     StepEdit = StepTrimEdit
     StepWait = StepTrimWait
     StepDone = StepTrimDone
     StepFail = StepTrimFail
+
+    def onEntry(self, event):
+        super().onEntry(event)
+        last_filter_update = self.machine().states.filter.timestamp_get()
+        if last_filter_update > self.timestamp_get():
+            self.timestamp_set()
 
     def work(self):
         with self.states['wait'].redirect():
@@ -107,6 +137,10 @@ class StepTrim(ssm.StepTriState):
             sleep(2)
             print('Done pretending!')
             self.update(1, 1, 'text')
+
+    def skipWait(self):
+        method = self.states.edit.get_method()
+        return bool(method == 'skip')
 
     def onFail(self, exception, trace):
         # raise exception
