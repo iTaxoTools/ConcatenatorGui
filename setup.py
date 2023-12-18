@@ -26,11 +26,14 @@ setup(
     install_requires=[
         'pyside6>=6.1.1',
         'itaxotools-common==0.2.2',
+        'itaxotools-pygblocks',
         'concatenator==0.2.1',
         'mafftpy==0.1.2',
         'fasttreepy==0.2.0',
         'sequence_bouncer==1.23.1',
-        ],
+        'biopython',
+        'clipkit',
+    ],
     extras_require={
         'dev': ['pyinstaller>=4.5.1'],
     },

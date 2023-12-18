@@ -54,42 +54,10 @@ from itaxotools.pygblocks import compute_mask, trim_sequence
 from .. import model
 from .. import widgets
 from .. import step_state_machine as ssm
+from ..trim import OpTrimGblocks
 
 from .wait import StepWaitBar
 from .align import RichRadioButton
-
-
-class OpTrim(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.genes = set()
-
-    def call(self, gene: GeneSeries) -> Optional[GeneSeries]:
-        print(f'Trimming {gene.name}:\n')
-        if gene.series is None:
-            print('N/A')
-            print()
-            return gene
-
-        print('- Original sequences:\n')
-        for sequence in gene.series:
-            print(sequence)
-        print()
-
-        print('- Mask:\n')
-        mask = compute_mask(sequence for sequence in gene.series)
-        print(mask)
-        print()
-
-        gene.series = gene.series.apply(trim_sequence, mask=mask)
-        print('- Trimmed sequences:\n')
-        for sequence in gene.series:
-            print(sequence)
-
-        print(f'\n{"-"*20}\n')
-
-        self.genes.add(gene.name)
-        return gene
 
 
 class StepTrimEdit(ssm.StepTriStateEdit):
@@ -220,7 +188,7 @@ class StepTrim(ssm.StepTriState):
         print('Options:\n')
         print('- defaults')
         print(f'\n{"-"*20}\n')
-        operator = OpTrim()
+        operator = OpTrimGblocks()
         stream = stream.pipe(operator)
 
         path = Path(self.temp_cache.name)
