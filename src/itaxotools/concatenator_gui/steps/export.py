@@ -28,6 +28,7 @@ from datetime import datetime
 from itertools import chain
 from pathlib import Path
 from dataclasses import dataclass
+from typing import Optional
 
 import shutil
 import pandas as pd
@@ -475,7 +476,9 @@ class StepExportEdit(ssm.StepTriStateEdit):
     def checkGenesChanged(self):
         last_update = max(
             self.machine().states.filter.timestamp_get(),
-            self.machine().states.align_sets.timestamp_get())
+            self.machine().states.align_sets.timestamp_get(),
+            self.machine().states.trim.timestamp_get(),
+        )
         return self.timestamp_get() < last_update
 
     def updatePhyloAvailable(self):
@@ -581,6 +584,7 @@ class StepExport(ssm.StepTriState):
             read_from_path(file.path)
             for file in self.machine().states.input.data.files.values()]
         input_streams = self.data.diagnoser.pipe_input_streams(input_streams)
+
         aligned_cache = Path(self.machine().states.align_sets.temp_cache.name)
         aligned_charsets = {
             k for k, v in self.machine().states.input.data.charsets.items()
@@ -590,7 +594,18 @@ class StepExport(ssm.StepTriState):
             .pipe(OpFilterGenes(aligned_charsets))
             )
         aligned_stream = self.data.diagnoser.pipe_aligned_stream(aligned_stream)
-        all_streams = [aligned_stream] + input_streams
+
+        trimmed_skip = self.machine().states.trim.method_last == 'skip'
+        trimmed_stream = GeneStream([])
+        if not trimmed_skip:
+            trimmed_cache = Path(self.machine().states.trim.temp_cache.name)
+            trimmed_charsets = self.machine().states.trim.charsets_cached
+            trimmed_stream = (
+                read_from_path(trimmed_cache)
+                .pipe(OpFilterGenes(trimmed_charsets))
+                )
+
+        all_streams = [trimmed_stream, aligned_stream] + input_streams
         translation = self.machine().states.filter.translation
         stream = (
             GeneStream(chain(*all_streams))

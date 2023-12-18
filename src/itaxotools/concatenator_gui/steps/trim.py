@@ -191,6 +191,7 @@ class StepTrim(ssm.StepTriState):
         if last_update > self.timestamp_get():
             self.temp_cache = TemporaryDirectory(prefix='concat_trim_cache_')
             self.charsets_cached = set()
+            self.method_last = None
 
     def onExit(self, event):
         super().onExit(event)
@@ -221,14 +222,24 @@ class StepTrim(ssm.StepTriState):
         print(f'\n{"-"*20}\n')
         operator = OpTrim()
         stream = stream.pipe(operator)
-        for gene in stream:
-            pass
+
+        path = Path(self.temp_cache.name)
+        writer = get_writer(FileType.Directory, FileFormat.Fasta)
+        writer.params.translate_missing.value = ''
+        writer.params.translate_gap.value = ''
+        writer.params.padding.value = ''
+        writer.params.sanitize.value = False
+        writer.params.drop_empty.value = False
+        writer(stream, path,)
+
         self.charsets_cached = {
             k for k, v in self.machine().states.input.data.charsets.items()
             if v.translation is not None and k in operator.genes}
         print('Done trimming!')
         print()
         self.update(1, 1, 'text')
+
+        print(self.temp_cache.name)
 
     def work_get_stream(self):
         input_streams = [
