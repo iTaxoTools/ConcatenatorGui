@@ -203,7 +203,7 @@ class StepAlignOptions(ssm.StepState):
         return widget
 
     def get_strategy(self):
-        for strategy in self.radios:
+        for strategy in self.radios.keys():
             if self.radios[strategy].isChecked():
                 return strategy
 

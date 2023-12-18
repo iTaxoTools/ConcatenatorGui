@@ -105,7 +105,7 @@ class StepTrimEdit(ssm.StepTriStateEdit):
         return widget
 
     def get_method(self):
-        for method in self.radios:
+        for method in self.radios.keys():
             if self.radios[method].isChecked():
                 return method
 

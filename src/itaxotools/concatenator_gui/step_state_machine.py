@@ -164,7 +164,7 @@ class StepState(StepSubState):
         transitions.exit = m.navigateTransition(NavigateAction.Exit)
         transitions.exit.setTargetState(m.states.final)
         for transition in transitions:
-            self.addTransition(transitions[transition])
+            self.addTransition(transition)
         self.transitions = transitions
 
     def setNextState(self, state):

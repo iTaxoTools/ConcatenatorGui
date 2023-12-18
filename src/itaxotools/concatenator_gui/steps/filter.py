@@ -164,7 +164,7 @@ class StepFilter(ssm.StepState):
         transitions.exit = m.navigateTransition(ssm.NavigateAction.Exit)
         transitions.exit.setTargetState(m.states.final)
         for transition in transitions:
-            self.addTransition(transitions[transition])
+            self.addTransition(transition)
         self.transitions = transitions
 
     def populate_view(self):
