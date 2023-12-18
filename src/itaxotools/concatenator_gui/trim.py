@@ -20,12 +20,19 @@
 
 from typing import Optional
 
+import pandas as pd
+
 from Bio.Align import MultipleSeqAlignment
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from itaxotools.concatenator.library.model import GeneSeries, Operator
 from itaxotools.pygblocks import compute_mask, trim_sequence
+
+from clipkit.helpers import get_seq_type, get_gap_chars, create_msa
+from clipkit.smart_gap_helper import smart_gap_threshold_determination
+from clipkit.modes import TrimmingMode
+from clipkit.msa import MSA
 
 
 class OpTrimGblocks(Operator):
@@ -67,15 +74,48 @@ class OpTrimClipKit(Operator):
         self.genes = set()
 
     def call(self, gene: GeneSeries) -> Optional[GeneSeries]:
+        print(f'Trimming {gene.name}:\n')
+        if gene.series is None:
+            print('N/A')
+            print()
+            return gene
 
-        msa = MultipleSeqAlignment(
+        print('- Original sequences:\n')
+        for sequence in gene.series:
+            print(sequence)
+        print()
+
+        mode = TrimmingMode.smart_gap
+
+        alignment = MultipleSeqAlignment(
             SeqRecord(Seq(seq), id=id)
             for id, seq in gene.series.items())
 
-        print(f'Trimming {gene.name}:\n')
-        print(msa)
+        sequence_type = get_seq_type(alignment)
+        gap_characters = get_gap_chars(sequence_type)
+        gaps = smart_gap_threshold_determination(alignment, gap_characters)
+
+        msa = create_msa(alignment, gap_characters)
+        msa.trim(mode, gap_threshold=gaps)
+
+        for index, record in zip(gene.series.index, msa.to_bio_msa()):
+            gene.series.at[index] = str(record.seq)
+
+        print('- Mask:\n')
+        mask = self.get_mask(msa)
+        print(mask)
+        print()
+
+        print('- Trimmed sequences:\n')
+        for sequence in gene.series:
+            print(sequence)
+
         print(f'\n{"-"*20}\n')
 
         self.genes.add(gene.name)
         return gene
 
+    def get_mask(self, msa: MSA) -> str:
+        length = msa._original_length
+        trimmed = msa._site_positions_to_trim
+        return ''.join('.' if x in trimmed else '#' for x in range(length))
