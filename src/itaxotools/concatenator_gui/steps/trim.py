@@ -49,6 +49,8 @@ from itaxotools.concatenator.library.operators import (
     OpGeneralInfoTagPaddedLength,
     OpGeneralInfoTagPaddedCodonPosition)
 
+from itaxotools.pygblocks import compute_mask, trim_sequence
+
 from .. import model
 from .. import widgets
 from .. import step_state_machine as ssm
@@ -63,9 +65,30 @@ class OpTrim(Operator):
         self.genes = set()
 
     def call(self, gene: GeneSeries) -> Optional[GeneSeries]:
-        print(f'Trimming: {gene.name}')
+        print(f'Trimming {gene.name}:\n')
+        if gene.series is None:
+            print('N/A')
+            print()
+            return gene
+
+        print('- Original sequences:\n')
+        for sequence in gene.series:
+            print(sequence)
+        print()
+
+        print('- Mask:\n')
+        mask = compute_mask(sequence for sequence in gene.series)
+        print(mask)
+        print()
+
+        gene.series = gene.series.apply(trim_sequence, mask=mask)
+        print('- Trimmed sequences:\n')
+        for sequence in gene.series:
+            print(sequence)
+
+        print(f'\n{"-"*20}\n')
+
         self.genes.add(gene.name)
-        sleep(1)
         return gene
 
 
@@ -191,7 +214,11 @@ class StepTrim(ssm.StepTriState):
 
     def work_trim(self, stream: GeneStream):
         self.update(0, 0, 'Getting ready...')
-        print('Pretend to do some actual work...')
+        print('Trimming sequences using pyGblocks:')
+        print()
+        print('Options:\n')
+        print('- defaults')
+        print(f'\n{"-"*20}\n')
         operator = OpTrim()
         stream = stream.pipe(operator)
         for gene in stream:
@@ -199,7 +226,8 @@ class StepTrim(ssm.StepTriState):
         self.charsets_cached = {
             k for k, v in self.machine().states.input.data.charsets.items()
             if v.translation is not None and k in operator.genes}
-        print('Done pretending!')
+        print('Done trimming!')
+        print()
         self.update(1, 1, 'text')
 
     def work_get_stream(self):
