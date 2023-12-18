@@ -111,7 +111,9 @@ class StepTrimEdit(ssm.StepTriStateEdit):
 
 
 class StepTrimWait(StepWaitBar):
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logger.setWordWrapMode(QtGui.QTextOption.WrapAnywhere)
 
 
 class StepTrimDone(ssm.StepTriStateDone):
@@ -181,19 +183,21 @@ class StepTrim(ssm.StepTriState):
             self.method_last = method
 
     def work_trim(self, stream: GeneStream, method: str):
+        if method == 'gblocks':
+            title = 'pyGblocks'
+            operator = OpTrimGblocks()
+        elif method == 'clipkit':
+            title = 'ClipKit'
+            operator = OpTrimClipKit()
+        else:
+            raise Exception('Unexpected trimming method')
+
         self.update(0, 0, 'Getting ready...')
-        print('Trimming sequences using pyGblocks:')
+        print(f'Trimming sequences using {title}:')
         print()
         print('Options:\n')
         print('- defaults')
         print(f'\n{"-"*20}\n')
-
-        if method == 'gblocks':
-            operator = OpTrimGblocks()
-        elif method == 'clipkit':
-            operator = OpTrimClipKit()
-        else:
-            raise Exception('Unexpected trimming method')
 
         stream = stream.pipe(operator)
 
