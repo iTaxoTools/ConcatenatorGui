@@ -54,7 +54,7 @@ from itaxotools.pygblocks import compute_mask, trim_sequence
 from .. import model
 from .. import widgets
 from .. import step_state_machine as ssm
-from ..trim import OpTrimGblocks
+from ..trim import OpTrimGblocks, OpTrimClipKit
 
 from .wait import StepWaitBar
 from .align import RichRadioButton
@@ -79,8 +79,7 @@ class StepTrimEdit(ssm.StepTriStateEdit):
         clipkit = RichRadioButton('Clipkit:', 'only keep phylogenetically informative sites.', widget)
         skip = QtWidgets.QRadioButton('Skip trimming', widget)
         skip.setStyleSheet("QRadioButton { letter-spacing: 1px; }")
-        clipkit.setEnabled(False)
-        gblocks.setChecked(True)
+        clipkit.setChecked(True)
 
         radios = QtWidgets.QVBoxLayout()
         radios.addWidget(gblocks)
@@ -178,17 +177,24 @@ class StepTrim(ssm.StepTriState):
                 print('NOTHING TO DO')
                 return
             stream = self.work_get_stream()
-            self.work_trim(stream)
+            self.work_trim(stream, method)
             self.method_last = method
 
-    def work_trim(self, stream: GeneStream):
+    def work_trim(self, stream: GeneStream, method: str):
         self.update(0, 0, 'Getting ready...')
         print('Trimming sequences using pyGblocks:')
         print()
         print('Options:\n')
         print('- defaults')
         print(f'\n{"-"*20}\n')
-        operator = OpTrimGblocks()
+
+        if method == 'gblocks':
+            operator = OpTrimGblocks()
+        elif method == 'clipkit':
+            operator = OpTrimClipKit()
+        else:
+            raise Exception('Unexpected trimming method')
+
         stream = stream.pipe(operator)
 
         path = Path(self.temp_cache.name)

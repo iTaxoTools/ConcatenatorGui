@@ -20,6 +20,10 @@
 
 from typing import Optional
 
+from Bio.Align import MultipleSeqAlignment
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+
 from itaxotools.concatenator.library.model import GeneSeries, Operator
 from itaxotools.pygblocks import compute_mask, trim_sequence
 
@@ -51,6 +55,25 @@ class OpTrimGblocks(Operator):
         for sequence in gene.series:
             print(sequence)
 
+        print(f'\n{"-"*20}\n')
+
+        self.genes.add(gene.name)
+        return gene
+
+
+class OpTrimClipKit(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.genes = set()
+
+    def call(self, gene: GeneSeries) -> Optional[GeneSeries]:
+
+        msa = MultipleSeqAlignment(
+            SeqRecord(Seq(seq), id=id)
+            for id, seq in gene.series.items())
+
+        print(f'Trimming {gene.name}:\n')
+        print(msa)
         print(f'\n{"-"*20}\n')
 
         self.genes.add(gene.name)
