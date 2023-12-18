@@ -121,8 +121,13 @@ class StepTrimDone(ssm.StepTriStateDone):
 
     def onEntry(self, event):
         super().onEntry(event)
-        self.parent().update(
-            text=f'Successfully trimmed sites.')
+        if self.result:
+            s = 's' if self.result > 1 else ''
+            self.parent().update(
+                text=f'Successfully trimmed {str(self.result)} marker{s}.')
+        else:
+            self.parent().update(
+                text='Successfully trimmed sequences.')
 
 
 class StepTrimFail(ssm.StepTriStateFail):
@@ -176,13 +181,26 @@ class StepTrim(ssm.StepTriState):
         method = self.states.edit.get_method()
         with self.states.wait.redirect():
             if not charsets and method == self.method_last:
-                print('NOTHING TO DO')
-                return
+                self.work_nothing(method, len(self.charsets_cached))
+                return 0
             stream = self.work_get_stream()
-            self.work_trim(stream, method)
+            self.work_trim(stream, method, len(charsets))
             self.method_last = method
+        return len(charsets)
 
-    def work_trim(self, stream: GeneStream, method: str):
+    def work_nothing(self, method: str, total:int):
+        if method == 'gblocks':
+            title = 'pyGblocks'
+        elif method == 'clipkit':
+            title = 'ClipKit'
+        else:
+            raise Exception('Unexpected trimming method')
+
+        print(f'Trimming sequences using {title}...')
+        print()
+        print(f'Found {total} markers already cached, skipping!')
+
+    def work_trim(self, stream: GeneStream, method: str, total: int):
         if method == 'gblocks':
             title = 'pyGblocks'
             operator = OpTrimGblocks()
@@ -216,8 +234,6 @@ class StepTrim(ssm.StepTriState):
         print('Done trimming!')
         print()
         self.update(1, 1, 'text')
-
-        print(self.temp_cache.name)
 
     def work_get_stream(self):
         input_streams = [

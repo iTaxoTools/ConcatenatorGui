@@ -289,7 +289,7 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
             'Nucleotides', 'Missing', 'Uniform'])
 
         headerItem = view.headerItem()
-        headerItem.setToolTip(0, 'Gene name')
+        headerItem.setToolTip(0, 'Marker name')
         headerItem.setToolTip(1, 'Pending action')
         headerItem.setToolTip(2, 'Total number of sequences')
         headerItem.setToolTip(3, 'Total number of nucleotide characters')
