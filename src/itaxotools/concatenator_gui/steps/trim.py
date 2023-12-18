@@ -79,7 +79,7 @@ class StepTrimEdit(ssm.StepTriStateEdit):
         clipkit = RichRadioButton('Clipkit:', 'only keep phylogenetically informative sites.', widget)
         skip = QtWidgets.QRadioButton('Skip trimming', widget)
         skip.setStyleSheet("QRadioButton { letter-spacing: 1px; }")
-        clipkit.setChecked(True)
+        skip.setChecked(True)
 
         radios = QtWidgets.QVBoxLayout()
         radios.addWidget(gblocks)
