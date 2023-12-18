@@ -47,20 +47,19 @@ class OpTrimGblocks(Operator):
             print()
             return gene
 
-        print('- Original sequences:\n')
-        for sequence in gene.series:
-            print(sequence)
+        id_length = max(len(index) for index in gene.series.index) + 4
+
+        for id, sequence in gene.series.items():
+            print(id.ljust(id_length), sequence)
         print()
 
-        print('- Mask:\n')
         mask = compute_mask(sequence for sequence in gene.series)
-        print(mask)
+        print('MASK'.ljust(id_length), mask)
         print()
 
         gene.series = gene.series.apply(trim_sequence, mask=mask)
-        print('- Trimmed sequences:\n')
-        for sequence in gene.series:
-            print(sequence)
+        for id, sequence in gene.series.items():
+            print(id.ljust(id_length), sequence)
 
         print(f'\n{"-"*20}\n')
 
@@ -80,9 +79,10 @@ class OpTrimClipKit(Operator):
             print()
             return gene
 
-        print('- Original sequences:\n')
-        for sequence in gene.series:
-            print(sequence)
+        id_length = max(len(index) for index in gene.series.index) + 4
+
+        for id, sequence in gene.series.items():
+            print(id.ljust(id_length), sequence)
         print()
 
         mode = TrimmingMode.smart_gap
@@ -101,14 +101,12 @@ class OpTrimClipKit(Operator):
         for index, record in zip(gene.series.index, msa.to_bio_msa()):
             gene.series.at[index] = str(record.seq)
 
-        print('- Mask:\n')
         mask = self.get_mask(msa)
-        print(mask)
+        print('MASK'.ljust(id_length), mask)
         print()
 
-        print('- Trimmed sequences:\n')
-        for sequence in gene.series:
-            print(sequence)
+        for id, sequence in gene.series.items():
+            print(id.ljust(id_length), sequence)
 
         print(f'\n{"-"*20}\n')
 
