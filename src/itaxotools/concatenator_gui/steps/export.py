@@ -327,7 +327,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
         timestamp = QtWidgets.QCheckBox('Append timestamp to filename.')
         timestamp.setChecked(True)
         diagnose_config = PushButton(
-            'Data Validation Options', onclick=self.handleDiagnoseShowConfigDialog)
+            'Data validation options', onclick=self.handleDiagnoseShowConfigDialog)
         diagnose_config.setMaximumWidth(200)
 
         scheme.setToolTip((
@@ -410,7 +410,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
         phylo_all.stateChanged.connect(self.handlePhyloUpdate)
 
         phylo_config = PushButton(
-            'FastTree Options', onclick=self.handlePhyloShowConfigDialog)
+            'FastTree options', onclick=self.handlePhyloShowConfigDialog)
         phylo_config.setMaximumWidth(200)
 
         layout.addWidget(phylo_warning)

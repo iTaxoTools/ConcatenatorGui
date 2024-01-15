@@ -27,7 +27,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from itaxotools.concatenator.library.model import GeneSeries, Operator
-from itaxotools.pygblocks import compute_mask, trim_sequence
+from itaxotools.pygblocks import Options, compute_mask, trim_sequence
 
 from clipkit.helpers import get_seq_type, get_gap_chars, create_msa
 from clipkit.smart_gap_helper import smart_gap_threshold_determination
@@ -36,11 +36,14 @@ from clipkit.msa import MSA
 
 
 class OpTrimGblocks(Operator):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, options: Options, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.options = options
         self.genes = set()
 
     def call(self, gene: GeneSeries) -> Optional[GeneSeries]:
+        options = Options(**self.options.as_dict())
+
         print(f'Trimming {gene.name}:\n')
         if gene.series is None:
             print('N/A')
@@ -53,7 +56,7 @@ class OpTrimGblocks(Operator):
             print(id.ljust(id_length), sequence)
         print()
 
-        mask = compute_mask(sequence for sequence in gene.series)
+        mask = compute_mask((sequence for sequence in gene.series), options)
         print('MASK'.ljust(id_length), mask)
         print()
 

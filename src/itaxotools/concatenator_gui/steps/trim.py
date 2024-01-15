@@ -33,7 +33,7 @@ import itaxotools.common.widgets
 import itaxotools.common.resources # noqa
 
 from itaxotools.common.utility import AttrDict
-
+from itaxotools.common.widgets import PushButton
 from itaxotools.concatenator import (
     FileType, FileFormat, GeneStream, FileWriter,
     get_writer, get_extension, read_from_path)
@@ -49,7 +49,7 @@ from itaxotools.concatenator.library.operators import (
     OpGeneralInfoTagPaddedLength,
     OpGeneralInfoTagPaddedCodonPosition)
 
-from itaxotools.pygblocks import compute_mask, trim_sequence
+from itaxotools.pygblocks import Options
 
 from .. import model
 from .. import widgets
@@ -58,6 +58,129 @@ from ..trim import OpTrimGblocks, OpTrimClipKit
 
 from .wait import StepWaitBar
 from .align import RichRadioButton
+
+
+class GblocksOptions(QtWidgets.QWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._option_count = -1
+
+        options = QtWidgets.QGridLayout()
+        options.setHorizontalSpacing(16)
+        options.setVerticalSpacing(12)
+        options.setColumnStretch(99, 1)
+
+        self.fields = AttrDict()
+
+        self.fields.GT = self.getPercentageField()
+        self.addOption(options, self.fields.GT, 'Gaps allowed', 'Maximum percentage of gaps allowed for any position.')
+
+        self.fields.IS = self.getPercentageField()
+        self.addOption(options, self.fields.IS, 'Conservation threshold (IS)', 'Minimum percentage of identical sequences for a conserved position.')
+
+        self.fields.FS = self.getPercentageField()
+        self.addOption(options, self.fields.FS, 'Flank position threshold (FS)', 'Minimum percentage of identical sequences for a flank position.')
+
+        self.fields.GC = self.getTextField()
+        self.fields.GC.setPlaceholderText('-?*XxNn')
+        self.addOption(options, self.fields.GC, 'Gap definition', 'Definition of gap characters.')
+
+        self.fields.CP = self.getIntegerField()
+        self.fields.CP.setPlaceholderText('8')
+        self.addOption(options, self.fields.CP, 'Nonconserved (CP)', 'Maximum number of contiguous nonconserved positions.')
+
+        self.fields.BL = self.getIntegerField()
+        self.fields.BL.setPlaceholderText('15')
+        self.addOption(options, self.fields.BL, 'Block length (BL)', 'Minimum length of a block, for both 1st and 2nd iteration.')
+
+        config_restore = PushButton('Restore defaults', onclick=self.restoreDefaults)
+        config_restore.setFixedWidth(200)
+
+        config_restore_layout = QtWidgets.QHBoxLayout()
+        config_restore_layout.addWidget(config_restore, 1)
+        config_restore_layout.addStretch(1)
+
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(16, 0, 0, 0)
+        layout.setSpacing(28)
+        layout.addLayout(options)
+        layout.addLayout(config_restore_layout)
+
+        self.restoreDefaults()
+
+    def addOption(self, layout: QtWidgets.QGridLayout, field: QtWidgets.QWidget, name: str, tooltip: str):
+        label = QtWidgets.QLabel(name + ':')
+        label.setToolTip(tooltip)
+        field.setToolTip(tooltip)
+
+        self._option_count += 1
+
+        col, row = divmod(self._option_count, 3)
+        layout.addWidget(label, row, col * 3)
+        layout.addWidget(field, row, col * 3 + 1)
+
+        if row == 0:
+            layout.setColumnMinimumWidth(col * 3 + 2, 48)
+
+    def getPercentageField(self):
+        spinbox = QtWidgets.QDoubleSpinBox()
+        spinbox.setSuffix(' %')
+        spinbox.setMinimum(0)
+        spinbox.setMaximum(100)
+        spinbox.setDecimals(2)
+        spinbox.setSingleStep(1.0)
+        spinbox.setFixedWidth(100)
+        return spinbox
+
+    def getIntegerField(self):
+        edit = QtWidgets.QLineEdit()
+        validator = QtGui.QIntValidator()
+        edit.setValidator(validator)
+        edit.setFixedWidth(100)
+        return edit
+
+    def getTextField(self):
+        edit = QtWidgets.QLineEdit()
+        edit.setFixedWidth(100)
+        return edit
+
+    def restoreDefaults(self):
+        print(self.toOptions())
+        self.fields.IS.setValue(50.00)
+        self.fields.FS.setValue(85.00)
+        self.fields.GT.setValue(0.00)
+        self.fields.CP.setText('8')
+        self.fields.BL.setText('15')
+        self.fields.GC.setText('-?*XxNn')
+
+    def getTextOrPlaceholder(self, field):
+        if field.text():
+            return field.text()
+        return field.placeholderText()
+
+    def toOptions(self) -> Options:
+        IS = self.fields.IS.value() / 100
+        FS = self.fields.FS.value() / 100
+        GT = self.fields.GT.value() / 100
+
+        CP = int(self.getTextOrPlaceholder(self.fields.CP))
+        BL = int(self.getTextOrPlaceholder(self.fields.BL))
+        GC = self.getTextOrPlaceholder(self.fields.GC)
+
+        return Options(
+            IS=None,
+            FS=None,
+            GT=None,
+
+            CP=CP,
+            BL1=BL,
+            BL2=BL,
+            GC=GC,
+
+            IS_percent=IS,
+            FS_percent=FS,
+            GT_percent=GT,
+        )
 
 
 class StepTrimEdit(ssm.StepTriStateEdit):
@@ -73,13 +196,13 @@ class StepTrimEdit(ssm.StepTriStateEdit):
     def draw(self):
         widget = QtWidgets.QWidget()
 
-        label = QtWidgets.QLabel('You may choose to trim your sequences. The same method will be used for all markers:')
+        head_label = QtWidgets.QLabel('You may choose to trim your sequences. You will then be given the option to select which markers to align.')
 
         gblocks = RichRadioButton('Gblocks:', 'eliminate poorly aligned positions and divergent regions.', widget)
         clipkit = RichRadioButton('Clipkit:', 'only keep phylogenetically informative sites.', widget)
         skip = QtWidgets.QRadioButton('Skip trimming', widget)
         skip.setStyleSheet("QRadioButton { letter-spacing: 1px; }")
-        skip.setChecked(True)
+        gblocks.setChecked(True)
 
         radios = QtWidgets.QVBoxLayout()
         radios.addWidget(gblocks)
@@ -89,9 +212,15 @@ class StepTrimEdit(ssm.StepTriStateEdit):
         radios.setSpacing(16)
         radios.setContentsMargins(16, 0, 0, 0)
 
+        config_label = QtWidgets.QLabel('You may configure the trimming parameters below. Hover options for more information.')
+        self.gblocks_options = GblocksOptions()
+
         layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(label)
+        layout.addWidget(head_label)
         layout.addLayout(radios)
+        layout.addSpacing(16)
+        layout.addWidget(config_label)
+        layout.addWidget(self.gblocks_options)
         layout.addStretch(1)
         layout.setSpacing(24)
         layout.setContentsMargins(0, 0, 0, 32)
@@ -180,7 +309,8 @@ class StepTrim(ssm.StepTriState):
             and v.name not in self.charsets_cached}
         method = self.states.edit.get_method()
         with self.states.wait.redirect():
-            if not charsets and method == self.method_last:
+            if False:
+            # if not charsets and method == self.method_last:
                 self.work_nothing(method, len(self.charsets_cached))
                 return 0
             stream = self.work_get_stream()
@@ -203,7 +333,8 @@ class StepTrim(ssm.StepTriState):
     def work_trim(self, stream: GeneStream, method: str, total: int):
         if method == 'gblocks':
             title = 'pyGblocks'
-            operator = OpTrimGblocks()
+            options = self.states.edit.gblocks_options.toOptions()
+            operator = OpTrimGblocks(options)
         elif method == 'clipkit':
             title = 'ClipKit'
             operator = OpTrimClipKit()
