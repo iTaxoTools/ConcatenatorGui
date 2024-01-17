@@ -82,8 +82,8 @@ class GblocksOptions(QtWidgets.QWidget):
         self.addOption(options, self.fields.FS, 'Flank position threshold (FS)', 'Minimum percentage of identical sequences for a flank position.')
 
         self.fields.GC = self.getTextField()
-        self.fields.GC.setPlaceholderText('-?*XxNn')
-        self.addOption(options, self.fields.GC, 'Gap definition', 'Definition of gap characters.')
+        self.fields.GC.setPlaceholderText('-?*')
+        self.addOption(options, self.fields.GC, 'Gap definition', 'Definition of gap characters, such as -?*XxNn.')
 
         self.fields.CP = self.getIntegerField()
         self.fields.CP.setPlaceholderText('8')
@@ -151,7 +151,7 @@ class GblocksOptions(QtWidgets.QWidget):
         self.fields.GT.setValue(0.00)
         self.fields.CP.setText('8')
         self.fields.BL.setText('15')
-        self.fields.GC.setText('-?*XxNn')
+        self.fields.GC.setText('-?*')
 
     def getTextOrPlaceholder(self, field):
         if field.text():
