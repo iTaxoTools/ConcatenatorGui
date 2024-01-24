@@ -26,7 +26,7 @@ setup(
     install_requires=[
         'pyside6>=6.1.1',
         'itaxotools-common==0.3.3',
-        'itaxotools-pygblocks',
+        'itaxotools-pygblocks==0.1.0',
         'concatenator==0.2.1',
         'mafftpy==0.1.2',
         'fasttreepy==0.2.0',

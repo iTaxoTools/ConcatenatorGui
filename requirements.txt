@@ -12,6 +12,7 @@ fasttreepy==0.2.0
 fonttools==4.33.3
 isodate==0.6.1
 itaxotools-common==0.3.0
+itaxotools-pygblocks==0.1.0
 kiwisolver==1.4.2
 mafftpy==0.1.2
 matplotlib==3.5.1
