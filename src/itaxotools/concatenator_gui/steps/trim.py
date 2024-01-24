@@ -145,7 +145,6 @@ class GblocksOptions(QtWidgets.QWidget):
         return edit
 
     def restoreDefaults(self):
-        print(self.toOptions())
         self.fields.IS.setValue(50.00)
         self.fields.FS.setValue(85.00)
         self.fields.GT.setValue(0.00)
@@ -196,13 +195,15 @@ class StepTrimEdit(ssm.StepTriStateEdit):
     def draw(self):
         widget = QtWidgets.QWidget()
 
-        head_label = QtWidgets.QLabel('You may choose to trim your sequences. You will then be given the option to select which markers to align.')
+        head_label = QtWidgets.QLabel('You may choose to trim your sequences. This will apply to all markers.')
 
         gblocks = RichRadioButton('Gblocks:', 'eliminate poorly aligned positions and divergent regions.', widget)
         clipkit = RichRadioButton('Clipkit:', 'only keep phylogenetically informative sites.', widget)
         skip = QtWidgets.QRadioButton('Skip trimming', widget)
         skip.setStyleSheet("QRadioButton { letter-spacing: 1px; }")
-        gblocks.setChecked(True)
+
+        clipkit.setEnabled(False)
+        skip.setChecked(True)
 
         radios = QtWidgets.QVBoxLayout()
         radios.addWidget(gblocks)
