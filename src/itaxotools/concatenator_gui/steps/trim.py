@@ -197,40 +197,44 @@ class StepTrimEdit(ssm.StepTriStateEdit):
 
         head_label = QtWidgets.QLabel('You may choose to trim your sequences. This will apply to all markers.')
 
-        gblocks = RichRadioButton('Gblocks:', 'eliminate poorly aligned positions and divergent regions.', widget)
-        clipkit = RichRadioButton('Clipkit:', 'only keep phylogenetically informative sites.', widget)
-        skip = QtWidgets.QRadioButton('Skip trimming', widget)
-        skip.setStyleSheet("QRadioButton { letter-spacing: 1px; }")
-
-        clipkit.setEnabled(False)
-        skip.setChecked(True)
+        self.radios = AttrDict()
+        self.radios.gblocks = RichRadioButton('Gblocks:', 'eliminate poorly aligned positions and divergent regions.', widget)
+        self.radios.clipkit = RichRadioButton('Clipkit:', 'only keep phylogenetically informative sites.', widget)
+        self.radios.skip = QtWidgets.QRadioButton('Skip trimming', widget)
+        self.radios.skip.setStyleSheet("QRadioButton { letter-spacing: 1px; }")
 
         radios = QtWidgets.QVBoxLayout()
-        radios.addWidget(gblocks)
-        radios.addWidget(clipkit)
+        radios.addWidget(self.radios.gblocks)
+        radios.addWidget(self.radios.clipkit)
         radios.addSpacing(16)
-        radios.addWidget(skip)
+        radios.addWidget(self.radios.skip)
         radios.setSpacing(16)
         radios.setContentsMargins(16, 0, 0, 0)
 
-        config_label = QtWidgets.QLabel('You may configure the trimming parameters below. Hover options for more information.')
-        self.gblocks_options = GblocksOptions()
+        self.options = AttrDict()
+        self.options.gblocks = GblocksOptions()
+        self.options.clipkit = QtWidgets.QLabel('not implemented yet')
+        self.options.skip = QtWidgets.QWidget()
+
+        self.options_label = QtWidgets.QLabel('You may configure the trimming parameters below. Hover options for more information.')
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(head_label)
         layout.addLayout(radios)
         layout.addSpacing(16)
-        layout.addWidget(config_label)
-        layout.addWidget(self.gblocks_options)
+        layout.addWidget(self.options_label)
+        layout.addWidget(self.options.gblocks)
+        layout.addWidget(self.options.clipkit)
+        layout.addWidget(self.options.skip)
         layout.addStretch(1)
         layout.setSpacing(24)
         layout.setContentsMargins(0, 0, 0, 32)
         widget.setLayout(layout)
 
-        self.radios = AttrDict()
-        self.radios.gblocks = gblocks
-        self.radios.clipkit = clipkit
-        self.radios.skip = skip
+        for radio in self.radios:
+            radio.toggled.connect(self.update_options_shown)
+
+        self.radios.skip.setChecked(True)
 
         return widget
 
@@ -238,6 +242,15 @@ class StepTrimEdit(ssm.StepTriStateEdit):
         for method in self.radios.keys():
             if self.radios[method].isChecked():
                 return method
+
+    def update_options_shown(self, status):
+        if not status:
+            return
+        method = self.get_method()
+        for option in self.options:
+            option.setVisible(False)
+        self.options[method].setVisible(True)
+        self.options_label.setVisible(method != "skip")
 
 
 class StepTrimWait(StepWaitBar):
@@ -334,7 +347,7 @@ class StepTrim(ssm.StepTriState):
     def work_trim(self, stream: GeneStream, method: str, total: int):
         if method == 'gblocks':
             title = 'pyGblocks'
-            options = self.states.edit.gblocks_options.toOptions()
+            options = self.states.edit.options.gblocks.toOptions()
             operator = OpTrimGblocks(options)
         elif method == 'clipkit':
             title = 'ClipKit'
