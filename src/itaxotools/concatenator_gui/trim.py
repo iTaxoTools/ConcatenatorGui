@@ -19,6 +19,7 @@
 """Trimming operators"""
 
 from typing import Optional
+from enum import Enum
 
 import pandas as pd
 
@@ -33,6 +34,21 @@ from clipkit.helpers import get_seq_type, get_gap_chars, create_msa
 from clipkit.smart_gap_helper import smart_gap_threshold_determination
 from clipkit.modes import TrimmingMode
 from clipkit.msa import MSA
+
+
+class ClipKitTrimmingMode(Enum):
+    smart_gap = "smart-gap", "dynamic determination of gaps threshold"
+    gappy = "gappy", "trim all sites that are above a threshold of gappyness"
+    kpic = "kpic", "keep only parismony informative and constant sites"
+    kpic_smart_gap = "kpic-smart-gap", "a combination of kpic- and smart-gap-based trimming"
+    kpic_gappy = "kpic-gappy", "a combination of kpic- and gappy-based trimming"
+    kpi = "kpi", "keep only parsimony informative sites"
+    kpi_smart_gap = "kpi-smart-gap", "a combination of kpi- and smart-gap-based trimming"
+    kpi_gappy = "kpi-gappy", "a combination of kpi- and gappy-based trimming"
+
+    def __init__(self, mode: str, description: str):
+        self.mode = mode
+        self.description = description
 
 
 class OpTrimGblocks(Operator):
@@ -71,8 +87,11 @@ class OpTrimGblocks(Operator):
 
 
 class OpTrimClipKit(Operator):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, options: dict, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.mode = getattr(TrimmingMode, options.get('mode'))
+        self.gap_characters = list(options.get('gap_characters', None))
+        self.gaps = options.get('gaps', None)
         self.genes = set()
 
     def call(self, gene: GeneSeries) -> Optional[GeneSeries]:
@@ -88,18 +107,23 @@ class OpTrimClipKit(Operator):
             print(id.ljust(id_length), sequence)
         print()
 
-        mode = TrimmingMode.smart_gap
-
         alignment = MultipleSeqAlignment(
             SeqRecord(Seq(seq), id=id)
             for id, seq in gene.series.items())
 
-        sequence_type = get_seq_type(alignment)
-        gap_characters = get_gap_chars(sequence_type)
-        gaps = smart_gap_threshold_determination(alignment, gap_characters)
+        if not self.gap_characters:
+            sequence_type = get_seq_type(alignment)
+            self.gap_characters = get_gap_chars(sequence_type)
 
-        msa = create_msa(alignment, gap_characters)
-        msa.trim(mode, gap_threshold=gaps)
+        if self.mode in {
+            TrimmingMode.smart_gap,
+            TrimmingMode.kpi_smart_gap,
+            TrimmingMode.kpic_smart_gap,
+        }:
+            self.gaps = smart_gap_threshold_determination(alignment, self.gap_characters)
+
+        msa = create_msa(alignment, self.gap_characters)
+        msa.trim(self.mode, gap_threshold=self.gaps)
 
         for index, record in zip(gene.series.index, msa.to_bio_msa()):
             gene.series.at[index] = str(record.seq)

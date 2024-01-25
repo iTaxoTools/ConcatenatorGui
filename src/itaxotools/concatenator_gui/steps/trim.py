@@ -54,10 +54,14 @@ from itaxotools.pygblocks import Options
 from .. import model
 from .. import widgets
 from .. import step_state_machine as ssm
-from ..trim import OpTrimGblocks, OpTrimClipKit
+from ..trim import OpTrimGblocks, OpTrimClipKit, ClipKitTrimmingMode
 
 from .wait import StepWaitBar
 from .align import RichRadioButton
+
+
+def expand_gap_characters(gc):
+    return ''.join(c.upper() + c.lower() if c.isalpha() else c for c in gc)
 
 
 class GblocksOptions(QtWidgets.QWidget):
@@ -174,12 +178,134 @@ class GblocksOptions(QtWidgets.QWidget):
             CP=CP,
             BL1=BL,
             BL2=BL,
-            GC=GC,
+            GC=expand_gap_characters(GC),
 
             IS_percent=IS,
             FS_percent=FS,
             GT_percent=GT,
         )
+
+
+class ClipkitOptions(QtWidgets.QWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._gappy_default = 90.00
+        self._option_count = -1
+
+        options = QtWidgets.QGridLayout()
+        options.setHorizontalSpacing(16)
+        options.setVerticalSpacing(12)
+        options.setColumnStretch(99, 1)
+
+        self.fields = AttrDict()
+
+        self.fields.mode = self.getModeField()
+        self.addOption(options, self.fields.mode, 'ClipKIT mode', 'One of the various trimming modes implemented in ClipKIT.', large=True)
+
+        self.fields.gaps = self.getGappyField()
+        self.addOption(options, self.fields.gaps, 'Gaps allowed', 'Maximum percentage of gaps allowed for any position.')
+
+        self.fields.gap_characters = self.getTextField()
+        self.fields.gap_characters.setPlaceholderText('-?*')
+        self.addOption(options, self.fields.gap_characters, 'Gap definition', 'Definition of gap characters, such as -?*XxNn.')
+
+        self.fields.mode.currentIndexChanged.connect(self.update_gappy_field)
+
+        config_restore = PushButton('Restore defaults', onclick=self.restoreDefaults)
+        config_restore.setFixedWidth(200)
+
+        config_restore_layout = QtWidgets.QHBoxLayout()
+        config_restore_layout.addWidget(config_restore, 1)
+        config_restore_layout.addStretch(1)
+
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(16, 0, 0, 0)
+        layout.setSpacing(28)
+        layout.addLayout(options)
+        layout.addLayout(config_restore_layout)
+
+        self.restoreDefaults()
+
+    def addOption(self, layout: QtWidgets.QGridLayout, field: QtWidgets.QWidget, name: str, tooltip: str, large=False):
+        label = QtWidgets.QLabel(name + ':')
+        label.setToolTip(tooltip)
+        field.setToolTip(tooltip)
+
+        self._option_count += 1
+        row, col = divmod(self._option_count, 2)
+
+        span = 1
+        if large:
+            self._option_count += 1
+            span = 4
+
+        layout.addWidget(label, row, col * 3, 1, 1)
+        layout.addWidget(field, row, col * 3 + 1, 1, span)
+
+        if row == 0:
+            layout.setColumnMinimumWidth(col * 3 + 2, 48)
+
+    def getModeField(self):
+        combobox = QtWidgets.QComboBox()
+        for mode in ClipKitTrimmingMode:
+            combobox.addItem(f'{mode.mode}: {mode.description}', mode)
+        return combobox
+
+    def getGappyField(self):
+        spinbox = QtWidgets.QDoubleSpinBox()
+        spinbox.setSuffix(' %')
+        spinbox.setMinimum(0)
+        spinbox.setMaximum(100)
+        spinbox.setDecimals(2)
+        spinbox.setSingleStep(1.0)
+        spinbox.setFixedWidth(100)
+        return spinbox
+
+    def getTextField(self):
+        edit = QtWidgets.QLineEdit()
+        edit.setFixedWidth(100)
+        return edit
+
+    def restoreDefaults(self):
+        self.fields.mode.setCurrentIndex(0)
+        self.fields.gaps.setValue(self._gappy_default)
+        self.fields.gap_characters.setText('-?*')
+        self.update_gappy_field(0)
+
+    def update_gappy_field(self, index: int):
+        mode = self.fields.mode.itemData(index)
+        if not 'gappy' in mode.mode:
+            self.fields.gaps.setMinimum(0)
+            self.fields.gaps.setMaximum(0)
+            self.fields.gaps.setValue(0)
+            self.fields.gaps.setSpecialValueText('N/A')
+            self.fields.gaps.setEnabled(False)
+        else:
+            self.fields.gaps.setMinimum(0)
+            self.fields.gaps.setMaximum(100)
+            self.fields.gaps.setValue(self._gappy_default)
+            self.fields.gaps.setSpecialValueText('')
+            self.fields.gaps.setEnabled(True)
+
+    def getTextOrPlaceholder(self, field):
+        if field.text():
+            return field.text()
+        return field.placeholderText()
+
+    def toOptions(self) -> Options:
+        mode = self.fields.mode.currentData()
+        gaps = self.fields.gaps.value() / 100
+        gap_characters = self.getTextOrPlaceholder(self.fields.gap_characters)
+
+        options = dict(
+            mode=mode.name,
+            gap_characters=expand_gap_characters(gap_characters),
+        )
+
+        if 'gappy' in mode.name:
+            options['gaps'] = gaps
+
+        return options
 
 
 class StepTrimEdit(ssm.StepTriStateEdit):
@@ -198,8 +324,8 @@ class StepTrimEdit(ssm.StepTriStateEdit):
         head_label = QtWidgets.QLabel('You may choose to trim your sequences. This will apply to all markers.')
 
         self.radios = AttrDict()
-        self.radios.gblocks = RichRadioButton('Gblocks:', 'eliminate poorly aligned positions and divergent regions.', widget)
-        self.radios.clipkit = RichRadioButton('Clipkit:', 'only keep phylogenetically informative sites.', widget)
+        self.radios.gblocks = RichRadioButton('pyGblocks:', 'eliminate poorly aligned positions and divergent regions.', widget)
+        self.radios.clipkit = RichRadioButton('ClipKIT:', 'only keep phylogenetically informative sites.', widget)
         self.radios.skip = QtWidgets.QRadioButton('Skip trimming', widget)
         self.radios.skip.setStyleSheet("QRadioButton { letter-spacing: 1px; }")
 
@@ -213,7 +339,7 @@ class StepTrimEdit(ssm.StepTriStateEdit):
 
         self.options = AttrDict()
         self.options.gblocks = GblocksOptions()
-        self.options.clipkit = QtWidgets.QLabel('not implemented yet')
+        self.options.clipkit = ClipkitOptions()
         self.options.skip = QtWidgets.QWidget()
 
         self.options_label = QtWidgets.QLabel('You may configure the trimming parameters below. Hover options for more information.')
@@ -336,7 +462,7 @@ class StepTrim(ssm.StepTriState):
         if method == 'gblocks':
             title = 'pyGblocks'
         elif method == 'clipkit':
-            title = 'ClipKit'
+            title = 'ClipKIT'
         else:
             raise Exception('Unexpected trimming method')
 
@@ -348,10 +474,12 @@ class StepTrim(ssm.StepTriState):
         if method == 'gblocks':
             title = 'pyGblocks'
             options = self.states.edit.options.gblocks.toOptions()
+            options_dict = options.as_dict()
             operator = OpTrimGblocks(options)
         elif method == 'clipkit':
-            title = 'ClipKit'
-            operator = OpTrimClipKit()
+            title = 'ClipKIT'
+            options_dict = self.states.edit.options.clipkit.toOptions()
+            operator = OpTrimClipKit(options_dict)
         else:
             raise Exception('Unexpected trimming method')
 
@@ -359,7 +487,8 @@ class StepTrim(ssm.StepTriState):
         print(f'Trimming sequences using {title}:')
         print()
         print('Options:\n')
-        print('- defaults')
+        for key, value in options_dict.items():
+            print(f'- {key}: {value}')
         print(f'\n{"-"*20}\n')
 
         stream = stream.pipe(operator)
