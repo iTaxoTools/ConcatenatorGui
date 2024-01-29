@@ -310,7 +310,7 @@ class ClipkitOptions(QtWidgets.QWidget):
 
 class StepTrimEdit(ssm.StepTriStateEdit):
 
-    description = 'Select trimming method'
+    description = 'Select trimming toolkit'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -321,7 +321,9 @@ class StepTrimEdit(ssm.StepTriStateEdit):
     def draw(self):
         widget = QtWidgets.QWidget()
 
-        head_label = QtWidgets.QLabel('You may choose to trim your sequences. This will apply to all markers.')
+        path = common.resources.get(
+            'itaxotools.concatenator_gui', 'docs/trim.html')
+        head_label = widgets.HtmlLabel(path)
 
         self.radios = AttrDict()
         self.radios.gblocks = RichRadioButton('pyGblocks:', 'eliminate poorly aligned positions and divergent regions.', widget)
@@ -347,14 +349,14 @@ class StepTrimEdit(ssm.StepTriStateEdit):
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(head_label)
         layout.addLayout(radios)
-        layout.addSpacing(16)
+        layout.addSpacing(12)
         layout.addWidget(self.options_label)
         layout.addWidget(self.options.gblocks)
         layout.addWidget(self.options.clipkit)
         layout.addWidget(self.options.skip)
         layout.addStretch(1)
         layout.setSpacing(24)
-        layout.setContentsMargins(0, 0, 0, 32)
+        layout.setContentsMargins(0, 0, 0, 12)
         widget.setLayout(layout)
 
         for radio in self.radios:
@@ -386,7 +388,7 @@ class StepTrimWait(StepWaitBar):
 
 
 class StepTrimDone(ssm.StepTriStateDone):
-    description = 'Site trimming complete'
+    description = 'Trimming complete'
 
     def onEntry(self, event):
         super().onEntry(event)
@@ -464,7 +466,7 @@ class StepTrim(ssm.StepTriState):
         elif method == 'clipkit':
             title = 'ClipKIT'
         else:
-            raise Exception('Unexpected trimming method')
+            raise Exception('Unexpected trimming toolkit')
 
         print(f'Trimming sequences using {title}...')
         print()
@@ -481,7 +483,7 @@ class StepTrim(ssm.StepTriState):
             options_dict = self.states.edit.options.clipkit.toOptions()
             operator = OpTrimClipKit(options_dict)
         else:
-            raise Exception('Unexpected trimming method')
+            raise Exception('Unexpected trimming toolkit')
 
         self.update(0, 0, 'Getting ready...')
         print(f'Trimming sequences using {title}:')

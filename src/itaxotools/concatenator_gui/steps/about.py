@@ -43,7 +43,6 @@ class StepAbout(ssm.StepState):
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.about)
         layout.addStretch(1)
-        layout.addSpacing(24)
         layout.addWidget(self.cite)
         layout.setSpacing(24)
         layout.setContentsMargins(0, 0, 0, 0)

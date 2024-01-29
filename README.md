@@ -5,7 +5,8 @@ Perform a sequence of transformations on a series of input files:
 * Concatenate sequences from different files
 * Convert between different file formats: Nexus, Fasta, Tabfile etc.
 * Rename or delete markers and create codon subsets.
-* Align sequences per marker using MAFFT.
+* Align sequences per marker using MAFFTpy.
+* Trim sequences per marker using pyGblocks or ClipKIT.
 * Calculate phylogenetic trees per marker using FastTree.
 
 This is a Qt GUI for [Concatenator](https://github.com/iTaxoTools/concatenator).
@@ -53,14 +54,19 @@ You may rename or delete the imported markers. Gene names must be unique.
 You may choose to align your sequences per marker using [MAFFTpy](https://github.com/iTaxoTools/MAFFTpy). First select a strategy, which will be used for all alignments. Then highlight the markers you wish to align and click "Align" to select them. Finally, click "Next" to begin the calculations.
 
 
-#### 4. Character Sets by Codon
+#### 4. Trim Sequences
+
+You may choose to trim your sequences per marker using [pyGblocks](https://github.com/iTaxoTools/pygblocks) or [ClipKIT](https://github.com/JLSteenwyk/ClipKIT). First select one of either toolkits, which will be used for all alignments. A set of parameters will appear depending on the tool selected, which can be customized or kept at the default values. Continue by clicking "Next", then highlight the markers you wish to trim and click "Trim" to select them. Finally, click "Next" to begin the calculations.
+
+
+#### 5. Character Sets by Codon
 
 You may subset any number of markers by codon. This information is only exported for certain file formats, such as Nexus. It is possible to specify the reading frame of each marker and the names of the resulting character sets. For bulk editing, select one or more markers and click the "Edit" button. You may also double-click a specific field on the marker table to edit it.
 
 In the future, it will be possible to automatically check for invalid reading frames and to determine the reading frames for each marker based on the genetic code type.
 
 
-#### 5. Export Sequence Data
+#### 6. Export Sequence Data
 
 Start by selecting an output file format, then set the corresponding options. You may hover any option with the mouse cursor for more information. When you are ready, click "Export" and select a save location.
 
