@@ -477,7 +477,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
         last_update = max(
             self.machine().states.filter.timestamp_get(),
             self.machine().states.align_sets.timestamp_get(),
-            self.machine().states.trim.timestamp_get(),
+            self.machine().states.trim_sets.timestamp_get(),
         )
         return self.timestamp_get() < last_update
 
@@ -595,11 +595,11 @@ class StepExport(ssm.StepTriState):
             )
         aligned_stream = self.data.diagnoser.pipe_aligned_stream(aligned_stream)
 
-        trimmed_skip = self.machine().states.trim.method_last == 'skip'
+        trimmed_skip = self.machine().states.trim_options.data.skip
         trimmed_stream = GeneStream([])
         if not trimmed_skip:
-            trimmed_cache = Path(self.machine().states.trim.temp_cache.name)
-            trimmed_charsets = self.machine().states.trim.charsets_cached
+            trimmed_cache = Path(self.machine().states.trim_sets.temp_cache.name)
+            trimmed_charsets = self.machine().states.trim_sets.charsets_cached
             trimmed_stream = (
                 read_from_path(trimmed_cache)
                 .pipe(OpFilterGenes(trimmed_charsets))

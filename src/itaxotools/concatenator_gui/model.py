@@ -129,6 +129,7 @@ class Charset:
     samples: Optional[DataGroup] = field(default=None, repr=False)
     translation: str = None
     aligned: bool = False
+    trimmed: bool = False
     split: bool = False
 
     def __post_init__(self):

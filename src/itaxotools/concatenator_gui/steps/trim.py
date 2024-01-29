@@ -64,6 +64,53 @@ def expand_gap_characters(gc):
     return ''.join(c.upper() + c.lower() if c.isalpha() else c for c in gc)
 
 
+class TrimItem(widgets.ModelItem):
+    fields = [
+        'display_name',
+        'action',
+        'samples_len',
+        'nucleotides',
+        'missing',
+        'uniform',
+        ]
+
+    def __init__(self, parent, charset: model.Charset):
+        super().__init__(parent, charset)
+        self.setFlags(QtCore.Qt.ItemIsSelectable |
+                      QtCore.Qt.ItemIsEnabled |
+                      QtCore.Qt.ItemNeverHasChildren)
+        self.samples_len = len(self.model.samples)
+        self.tag_new('trimmed')
+        self.refresh()
+
+    def trim(self):
+        self.trimmed = True
+        self.refresh()
+
+    def clear(self):
+        self.trimmed = False
+        self.refresh()
+
+    def toggle(self):
+        self.trimmed = not self.trimmed
+        self.refresh()
+
+    def refresh(self):
+        self.updateField('action')
+        self.tag_set('trimmed', self.trimmed)
+        self.treeWidget().signalTagUpdate.emit()
+        self.setBold(self.trimmed)
+
+    def setBold(self, value):
+        font = self.font(0)
+        font.setBold(value)
+        self.setFont(0, font)
+
+    @property
+    def action(self):
+        return 'Trim' if self.trimmed else '-'
+
+
 class GblocksOptions(QtWidgets.QWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -308,15 +355,17 @@ class ClipkitOptions(QtWidgets.QWidget):
         return options
 
 
-class StepTrimEdit(ssm.StepTriStateEdit):
+class StepTrimOptions(ssm.StepState):
 
+    title = 'Trim Sequence Sites'
     description = 'Select trimming toolkit'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.data = AttrDict()
         self.data.skip = False
-        self.data.last = None
+        self.data.last_method = None
+        self.data.last_options = None
 
     def draw(self):
         widget = QtWidgets.QWidget()
@@ -371,6 +420,14 @@ class StepTrimEdit(ssm.StepTriStateEdit):
             if self.radios[method].isChecked():
                 return method
 
+    def get_options_dict(self):
+        method = self.get_method()
+        if method == 'gblocks':
+            return self.options.gblocks.toOptions().as_dict()
+        elif method == 'clipkit':
+            return self.options.clipkit.toOptions()
+        return {}
+
     def update_options_shown(self, status):
         if not status:
             return
@@ -380,14 +437,160 @@ class StepTrimEdit(ssm.StepTriStateEdit):
         self.options[method].setVisible(True)
         self.options_label.setVisible(method != "skip")
 
+    def onExit(self, event):
+        super().onExit(event)
+        self.data.skip = self.radios.skip.isChecked()
+        method = self.get_method()
+        options = self.get_options_dict()
 
-class StepTrimWait(StepWaitBar):
+        if self.data.last_method != method or self.data.last_options != options:
+            self.data.last_method = method
+            self.data.last_options = options
+            self.timestamp_set()
+
+
+class StepTrimSetsEdit(ssm.StepTriStateEdit):
+
+    description = 'Select which markers to trim'
+
+    def onEntry(self, event):
+        super().onEntry(event)
+        last_filter_update = self.machine().states.filter.timestamp_get()
+        if last_filter_update > self.timestamp_get():
+            self.populate_view()
+            self.timestamp_set()
+
+    def populate_view(self):
+        self.view.clear()
+        charsets = [
+            cs for cs in self.machine().states.input.data.charsets.values()
+            if cs.translation is not None]
+        for charset in charsets:
+            TrimItem(self.view, charset)
+        self.view.resizeColumnsToContents()
+        self.sets.setValue(len(charsets))
+        self.updateSummary()
+
+    def draw(self):
+        widget = QtWidgets.QWidget()
+
+        text = (
+            'Select markers for trimming by double-clicking, or by '
+            'highlighting them and then clicking "Trim".')
+        label = QtWidgets.QLabel(text)
+
+        frame = self.draw_frame()
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(label)
+        layout.addWidget(frame, 1)
+        layout.setSpacing(24)
+        layout.setContentsMargins(0, 0, 0, 0)
+        widget.setLayout(layout)
+
+        return widget
+
+    def draw_summary(self):
+        sets = widgets.InfoLabel('Markers')
+        marked = widgets.InfoLabel('Selected', 0)
+
+        sets.setToolTip('Total number of markers.')
+        marked.setToolTip('Number of markers pending trimming.')
+
+        summary = QtWidgets.QHBoxLayout()
+        summary.addWidget(sets)
+        summary.addWidget(marked)
+        summary.addStretch(1)
+        summary.setSpacing(24)
+        summary.setContentsMargins(4, 0, 4, 0)
+
+        self.sets = sets
+        self.marked = marked
+
+        return summary
+
+    def draw_frame(self):
+        frame = common.widgets.Frame()
+
+        view = widgets.TreeWidget()
+        view.signalTagUpdate.connect(self.updateSummary)
+        view.itemActivated.connect(self.handleActivated)
+        view.setIndentation(0)
+        view.setColumnCount(6, 2)
+        view.setHeaderLabels([
+            'Name', 'Action', 'Samples',
+            'Nucleotides', 'Missing', 'Uniform'])
+
+        headerItem = view.headerItem()
+        headerItem.setToolTip(0, 'Marker name')
+        headerItem.setToolTip(1, 'Pending action')
+        headerItem.setToolTip(2, 'Total number of sequences')
+        headerItem.setToolTip(3, 'Total number of nucleotide characters')
+        headerItem.setToolTip(4, 'Proportion of missing data')
+        headerItem.setToolTip(5, 'Are all sequences of the same length?')
+
+        all = common.widgets.PushButton('Trim All', onclick=self.handleAll)
+        trim = common.widgets.PushButton('Trim', onclick=self.handleTrim)
+        clear = common.widgets.PushButton('Clear', onclick=self.handleClear)
+
+        search = widgets.ViewSearchWidget(self, view)
+
+        controls = QtWidgets.QHBoxLayout()
+        controls.addWidget(all)
+        controls.addWidget(trim)
+        controls.addWidget(clear)
+        controls.addStretch(1)
+        controls.addWidget(search)
+        controls.setSpacing(8)
+        controls.setContentsMargins(0, 0, 0, 0)
+
+        summary = self.draw_summary()
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addLayout(controls)
+        layout.addWidget(view, 1)
+        layout.addLayout(summary)
+        layout.setSpacing(12)
+        layout.setContentsMargins(16, 16, 16, 12)
+        frame.setLayout(layout)
+
+        self.view = view
+        self.frame = frame
+        self.search = search
+
+        return frame
+
+    def updateSummary(self):
+        self.marked.setValue(self.view.tag_get('trimmed'))
+
+    def handleTrim(self, checked=False):
+        item = None
+        for item in self.view.selectedItems():
+            item.trim()
+        self.view.scrollToItem(item)
+
+    def handleClear(self, checked=False):
+        item = None
+        for item in self.view.selectedItems():
+            item.clear()
+        self.view.scrollToItem(item)
+
+    def handleAll(self, checked=False):
+        self.view.selectAll()
+        self.handleTrim()
+
+    def handleActivated(self, item, column):
+        item.toggle()
+        self.view.scrollToItem(item)
+
+
+class StepTrimSetsWait(StepWaitBar):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.logger.setWordWrapMode(QtGui.QTextOption.WrapAnywhere)
 
 
-class StepTrimDone(ssm.StepTriStateDone):
+class StepTrimSetsDone(ssm.StepTriStateDone):
     description = 'Trimming complete'
 
     def onEntry(self, event):
@@ -401,8 +604,8 @@ class StepTrimDone(ssm.StepTriStateDone):
                 text='Successfully trimmed sequences.')
 
 
-class StepTrimFail(ssm.StepTriStateFail):
-    description = 'Position trimming failed'
+class StepTrimSetsFail(ssm.StepTriStateFail):
+    description = 'Trimming failed'
 
     def onEntry(self, event):
         super().onEntry(event)
@@ -411,53 +614,49 @@ class StepTrimFail(ssm.StepTriStateFail):
             text=f'Position trimming failed: {message}')
 
 
-class StepTrim(ssm.StepTriState):
+class StepTrimSets(ssm.StepTriState):
     title = 'Trim Sequence Sites'
 
-    StepEdit = StepTrimEdit
-    StepWait = StepTrimWait
-    StepDone = StepTrimDone
-    StepFail = StepTrimFail
+    StepEdit = StepTrimSetsEdit
+    StepWait = StepTrimSetsWait
+    StepDone = StepTrimSetsDone
+    StepFail = StepTrimSetsFail
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.temp_cache = None
         self.charsets_cached = set()
-        self.method_last = None
-        self.process = None
+        self.charsets_last = set()
 
     def onEntry(self, event):
         super().onEntry(event)
         input_update = self.machine().states.input.timestamp_get()
         last_filter_update = self.machine().states.filter.timestamp_get()
-        align_options_update = self.machine().states.align_options.timestamp_get()
         align_sets_update = self.machine().states.align_sets.timestamp_get()
-        last_update = max(input_update, last_filter_update, align_options_update, align_sets_update)
+        trim_options_update = self.machine().states.trim_options.timestamp_get()
+        last_update = max(input_update, last_filter_update, align_sets_update, trim_options_update)
         if last_update > self.timestamp_get():
             self.temp_cache = TemporaryDirectory(prefix='concat_trim_cache_')
             self.charsets_cached = set()
-            self.method_last = None
 
     def onExit(self, event):
         super().onExit(event)
-        method = self.states.edit.get_method()
-        if method != self.method_last:
+        charsets = {
+            k for k, v in self.machine().states.input.data.charsets.items()
+            if v.trimmed and v.translation is not None}
+        if self.charsets_last != charsets:
+            self.charsets_last = charsets
             self.timestamp_set()
 
     def work(self):
         charsets = {
             k for k, v in self.machine().states.input.data.charsets.items()
-            if v.translation is not None and v.samples
+            if v.trimmed and v.translation is not None and v.samples
             and v.name not in self.charsets_cached}
-        method = self.states.edit.get_method()
+        method = self.machine().states.trim_options.get_method()
         with self.states.wait.redirect():
-            if False:
-            # if not charsets and method == self.method_last:
-                self.work_nothing(method, len(self.charsets_cached))
-                return 0
-            stream = self.work_get_stream()
+            stream = self.work_get_stream(charsets)
             self.work_trim(stream, method, len(charsets))
-            self.method_last = method
         return len(charsets)
 
     def work_nothing(self, method: str, total:int):
@@ -475,25 +674,35 @@ class StepTrim(ssm.StepTriState):
     def work_trim(self, stream: GeneStream, method: str, total: int):
         if method == 'gblocks':
             title = 'pyGblocks'
-            options = self.states.edit.options.gblocks.toOptions()
+            options = self.machine().states.trim_options.options.gblocks.toOptions()
             options_dict = options.as_dict()
             operator = OpTrimGblocks(options)
         elif method == 'clipkit':
             title = 'ClipKIT'
-            options_dict = self.states.edit.options.clipkit.toOptions()
+            options_dict = self.machine().states.trim_options.options.clipkit.toOptions()
             operator = OpTrimClipKit(options_dict)
         else:
             raise Exception('Unexpected trimming toolkit')
 
         self.update(0, 0, 'Getting ready...')
-        print(f'Trimming sequences using {title}:')
+        print(f'Starting trimming for {total} markers '
+              f'({len(self.charsets_cached)} already cached)...')
+        print()
+        print(f'Selected toolkit: {title}')
         print()
         print('Options:\n')
         for key, value in options_dict.items():
             print(f'- {key}: {value}')
         print(f'\n{"-"*20}\n')
 
-        stream = stream.pipe(operator)
+        def cache_func(series):
+            if series:
+                self.charsets_cached.add(series.name)
+            return series
+
+        cache_operator = OpApplyToGene(cache_func)
+
+        stream = stream.pipe(operator).pipe(cache_operator)
 
         path = Path(self.temp_cache.name)
         writer = get_writer(FileType.Directory, FileFormat.Fasta)
@@ -504,14 +713,14 @@ class StepTrim(ssm.StepTriState):
         writer.params.drop_empty.value = False
         writer(stream, path,)
 
-        self.charsets_cached = {
-            k for k, v in self.machine().states.input.data.charsets.items()
-            if v.translation is not None and k in operator.genes}
-        print('Done trimming!')
+        print('Completed site trimming!')
         print()
         self.update(1, 1, 'text')
 
-    def work_get_stream(self):
+        # if total > 0:
+        #     self.timestamp_set()
+
+    def work_get_stream(self, charsets):
         input_streams = [
             read_from_path(file.path)
             for file in self.machine().states.input.data.files.values()]
@@ -527,12 +736,21 @@ class StepTrim(ssm.StepTriState):
         stream = (
             GeneStream(chain(*all_streams))
             .pipe(OpChainGenes())
+            .pipe(OpFilterGenes(charsets))
             )
         return stream
 
+    def skipAll(self):
+        skip = self.machine().states['trim_options'].data.skip
+        return bool(skip)
+
     def skipWait(self):
-        method = self.states.edit.get_method()
-        return bool(method == 'skip')
+        skip = self.states['edit'].marked.value == 0
+        return bool(skip)
+
+    def onCancel(self, exception):
+        # self.process.quit()
+        pass
 
     def onFail(self, exception, trace):
         # raise exception

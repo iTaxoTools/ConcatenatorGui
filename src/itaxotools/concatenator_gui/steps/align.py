@@ -297,7 +297,7 @@ class StepAlignSetsEdit(ssm.StepTriStateEdit):
         headerItem.setToolTip(5, 'Are all sequences of the same length?')
 
         all = common.widgets.PushButton('Align All', onclick=self.handleAll)
-        align = common.widgets.PushButton('Align ', onclick=self.handleAlign)
+        align = common.widgets.PushButton('Align', onclick=self.handleAlign)
         clear = common.widgets.PushButton('Clear', onclick=self.handleClear)
 
         search = widgets.ViewSearchWidget(self, view)
@@ -462,8 +462,9 @@ class StepAlignSets(ssm.StepTriState):
         # We could also benefit from the use of a process pool
         # and running the mafft workers in parallel
         strategy = self.machine().states.align_options.get_strategy()
-        print(f'Starting alignment for {len(charsets)} sequences '
+        print(f'Starting alignment for {len(charsets)} markers '
               f'({len(self.charsets_cached)} already cached)...')
+        print()
         print(f'Selected strategy: {strategy}\n')
         files = Path(self.temp_prep.name).glob('*')
         outdir = Path(self.temp_cache.name)
@@ -492,7 +493,7 @@ class StepAlignSets(ssm.StepTriState):
             print(f'\nAligned {charset}')
             print(f'\n{"-"*20}\n')
         self.update(1, 1, 'Done')
-        print('Completed sequence alignment.')
+        print('Completed sequence alignment!')
 
     def onCancel(self, exception):
         self.process.quit()
