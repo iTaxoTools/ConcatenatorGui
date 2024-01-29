@@ -72,6 +72,7 @@ class TrimItem(widgets.ModelItem):
         'nucleotides',
         'missing',
         'uniform',
+        'aligned_string',
         ]
 
     def __init__(self, parent, charset: model.Charset):
@@ -97,6 +98,7 @@ class TrimItem(widgets.ModelItem):
 
     def refresh(self):
         self.updateField('action')
+        self.updateField('aligned_string')
         self.tag_set('trimmed', self.trimmed)
         self.treeWidget().signalTagUpdate.emit()
         self.setBold(self.trimmed)
@@ -109,6 +111,10 @@ class TrimItem(widgets.ModelItem):
     @property
     def action(self):
         return 'Trim' if self.trimmed else '-'
+
+    @property
+    def aligned_string(self):
+        return 'Yes' if self.aligned else 'No'
 
 
 class GblocksOptions(QtWidgets.QWidget):
@@ -459,6 +465,8 @@ class StepTrimSetsEdit(ssm.StepTriStateEdit):
         if last_filter_update > self.timestamp_get():
             self.populate_view()
             self.timestamp_set()
+        for item in self.view.iterate():
+            item.refresh()
 
     def populate_view(self):
         self.view.clear()
@@ -516,10 +524,10 @@ class StepTrimSetsEdit(ssm.StepTriStateEdit):
         view.signalTagUpdate.connect(self.updateSummary)
         view.itemActivated.connect(self.handleActivated)
         view.setIndentation(0)
-        view.setColumnCount(6, 2)
+        view.setColumnCount(7, 2)
         view.setHeaderLabels([
             'Name', 'Action', 'Samples',
-            'Nucleotides', 'Missing', 'Uniform'])
+            'Nucleotides', 'Missing', 'Uniform', 'Aligned'])
 
         headerItem = view.headerItem()
         headerItem.setToolTip(0, 'Marker name')
@@ -528,6 +536,7 @@ class StepTrimSetsEdit(ssm.StepTriStateEdit):
         headerItem.setToolTip(3, 'Total number of nucleotide characters')
         headerItem.setToolTip(4, 'Proportion of missing data')
         headerItem.setToolTip(5, 'Are all sequences of the same length?')
+        headerItem.setToolTip(6, 'Were the sequences aligned with MAFFT?')
 
         all = common.widgets.PushButton('Trim All', onclick=self.handleAll)
         trim = common.widgets.PushButton('Trim', onclick=self.handleTrim)
@@ -774,3 +783,17 @@ class StepTrimSets(ssm.StepTriState):
         msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
         res = self.machine().parent().msgShow(msgBox)
         return res == QtWidgets.QMessageBox.Yes
+
+    def filterNext(self, event):
+        bad_charsets = {
+            k for k, v in self.machine().states.input.data.charsets.items()
+            if v.trimmed and v.uniform == 'No' and not v.aligned}
+        if not bad_charsets:
+            return True
+        msgBox = QtWidgets.QMessageBox(self.machine().parent())
+        msgBox.setWindowTitle(self.machine().parent().title)
+        msgBox.setIcon(QtWidgets.QMessageBox.Critical)
+        msgBox.setText('Cannot trim markers that are not \nof uniform length or aligned.')
+        msgBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        self.machine().parent().msgShow(msgBox)
+        return False
