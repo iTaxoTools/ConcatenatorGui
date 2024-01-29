@@ -173,7 +173,7 @@ class StepAlignOptions(ssm.StepState):
         ginsi = RichRadioButton('G-INS-i', desc, widget)
         skip = QtWidgets.QRadioButton('Skip alignment', widget)
         skip.setStyleSheet("QRadioButton { letter-spacing: 1px; }")
-        auto.setChecked(True)
+        skip.setChecked(True)
 
         radios = QtWidgets.QVBoxLayout()
         radios.addWidget(auto)
