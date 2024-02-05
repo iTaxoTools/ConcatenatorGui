@@ -284,6 +284,7 @@ class RecordDialog(QtWidgets.QDialog):
         self.setLayout(layout)
 
     def showEvent(self, event):
+        super().showEvent(event)
         self.ok.setFocus()
 
     def handleSave(self):
