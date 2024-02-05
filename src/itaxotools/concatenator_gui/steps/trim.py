@@ -704,6 +704,9 @@ class StepTrimSets(ssm.StepTriState):
             print(f'- {key}: {value}')
         print(f'\n{"-"*20}\n')
 
+        if total > 0:
+            print('Trimming sites for each marker. Kept positions marked with hash (#), dropped positions with a dot (.)\n')
+
         def cache_func(series):
             if series:
                 self.charsets_cached.add(series.name)

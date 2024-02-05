@@ -57,30 +57,20 @@ class OpTrimGblocks(Operator):
         self.options = options
         self.genes = set()
 
+    def print_mask(self, name: str, mask: str):
+        print(f'{name}: {mask}\n')
+
     def call(self, gene: GeneSeries) -> Optional[GeneSeries]:
         options = Options(**self.options.as_dict())
 
-        print(f'Trimming {gene.name}:\n')
         if gene.series is None:
-            print('N/A')
-            print()
+            self.print_mask(gene.name, 'N/A')
             return gene
 
-        id_length = max(len(index) for index in gene.series.index) + 4
-
-        for id, sequence in gene.series.items():
-            print(id.ljust(id_length), sequence)
-        print()
-
         mask = compute_mask((sequence for sequence in gene.series), options)
-        print('MASK'.ljust(id_length), mask)
-        print()
+        self.print_mask(gene.name, mask)
 
         gene.series = gene.series.apply(trim_sequence, mask=mask)
-        for id, sequence in gene.series.items():
-            print(id.ljust(id_length), sequence)
-
-        print(f'\n{"-"*20}\n')
 
         self.genes.add(gene.name)
         return gene
@@ -94,18 +84,13 @@ class OpTrimClipKit(Operator):
         self.gaps = options.get('gaps', None)
         self.genes = set()
 
+    def print_mask(self, name: str, mask: str):
+        print(f'{name}: {mask}\n')
+
     def call(self, gene: GeneSeries) -> Optional[GeneSeries]:
-        print(f'Trimming {gene.name}:\n')
         if gene.series is None:
-            print('N/A')
-            print()
+            self.print_mask(gene.name, 'N/A')
             return gene
-
-        id_length = max(len(index) for index in gene.series.index) + 4
-
-        for id, sequence in gene.series.items():
-            print(id.ljust(id_length), sequence)
-        print()
 
         alignment = MultipleSeqAlignment(
             SeqRecord(Seq(seq), id=id)
@@ -129,13 +114,7 @@ class OpTrimClipKit(Operator):
             gene.series.at[index] = str(record.seq)
 
         mask = self.get_mask(msa)
-        print('MASK'.ljust(id_length), mask)
-        print()
-
-        for id, sequence in gene.series.items():
-            print(id.ljust(id_length), sequence)
-
-        print(f'\n{"-"*20}\n')
+        self.print_mask(gene.name, mask)
 
         self.genes.add(gene.name)
         return gene
