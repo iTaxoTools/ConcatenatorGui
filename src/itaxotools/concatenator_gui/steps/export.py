@@ -674,6 +674,7 @@ class StepExport(ssm.StepTriState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.data = AttrDict()
+
         self.data.temp = None
         self.data.target = None
         self.data.counter = 0
@@ -683,17 +684,41 @@ class StepExport(ssm.StepTriState):
         self.data.phylo_prep = None
         self.data.phylo_calc = None
 
+        self.data.phylo_do_concat = False
+        self.data.phylo_do_all = False
+        self.data.exclude_by_site = False
+        self.data.exclude_by_marker = False
+
     def work(self):
         self.data.total = 0
         self.data.trees = 0
-        self.update(0, 0, 'Exporting sequences...')
+        self.update(0, 0, 'Preparing for export...')
+
+        steps = self.get_total_work_steps()
+        step = 1
+
+        if self.data.exclude_by_site or self.data.exclude_by_marker:
+            self.work_exclude_samples(f'Step {step}/{steps}: Excluding samples')
+            step += 1
+
+        self.work_export(f'Step {step}/{steps}: Exporting sequences')
+        step += 1
+
         if self.data.phylo_do_concat or self.data.phylo_do_all:
-            self.work_export('Step 1/3: Exporting sequences')
-            self.work_phylo_prep('Step 2/3: Phylogeny preparation')
-            self.work_phylo_calc('Step 3/3: Phylogeny calculation')
-        else:
-            self.work_export('Please wait...')
+            self.work_phylo_prep(f'Step {step}/{steps}: Phylogeny preparation')
+            step += 1
+            self.work_phylo_calc(f'Step {step}/{steps}: Phylogeny calculation')
+            step += 1
+
         self.work_save()
+
+    def get_total_work_steps(self):
+        steps = 1
+        if self.data.phylo_do_concat or self.data.phylo_do_all:
+            steps += 2
+        if self.data.exclude_by_site or self.data.exclude_by_marker:
+            steps += 1
+        return steps
 
     def checker_func(self, series):
         text = (
@@ -745,7 +770,7 @@ class StepExport(ssm.StepTriState):
 
     def work_export(self, description):
         self.header.showTask(title=self.title, description=description)
-        self.data.counter = 0
+        self.data.counter = 1
         self.data.total = len([
             cs for cs in self.machine().states.input.data.charsets.values()
             if cs.translation is not None])
@@ -832,6 +857,12 @@ class StepExport(ssm.StepTriState):
                     src / item.name,
                     out / f'{item.stem}.tre')
 
+    def work_exclude_samples(self, description):
+        self.header.showTask(title=self.title, description=description)
+        print('EXCLUDE PLACEHOLDER')
+        import time
+        time.sleep(2)
+
     def work_save(self):
         self.states.wait.reset()
         with self.states.wait.redirect():
@@ -892,6 +923,8 @@ class StepExport(ssm.StepTriState):
     def filterNext(self, event):
         self.data.phylo_do_concat = self.states.edit.phylo_concat.isChecked()
         self.data.phylo_do_all = self.states.edit.phylo_all.isChecked()
+        self.data.exclude_by_site = self.states.edit.exclusion_params.by_site
+        self.data.exclude_by_marker = self.states.edit.exclusion_params.by_marker
         timestamp = self.states.edit.get_timestamp()
         basename = self.states.edit.infer_base_name()
         basename += self.states.edit.get_time_string(timestamp)
