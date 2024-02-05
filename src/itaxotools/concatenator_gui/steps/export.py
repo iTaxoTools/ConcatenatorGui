@@ -56,6 +56,7 @@ from itaxotools.fasttreepy.params import params as fasttreepy_params
 from itaxotools.fasttreepy.gui.main import CustomView as TreeParamView
 from .. import step_state_machine as ssm
 from ..diagnoser import Diagnoser, DiagnoserParams
+from ..exclusion import ExclusionParams
 from .wait import StepWaitBar
 
 
@@ -220,6 +221,110 @@ class DiagnoserOptionsDialog(QtWidgets.QDialog):
         self.params.iqr = float(self.iqr_edit.text())
 
 
+class ExclusionOptionsDialog(QtWidgets.QDialog):
+    def __init__(self, params: ExclusionParams, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        self.params = params
+        self.draw()
+        self.load_params()
+
+        self.setWindowTitle(self.parent().title)
+        self.setFixedSize(self.sizeHint())
+
+    def getPercentageField(self):
+        spinbox = QtWidgets.QDoubleSpinBox()
+        spinbox.setSuffix(' %')
+        spinbox.setMinimum(0)
+        spinbox.setMaximum(100)
+        spinbox.setDecimals(2)
+        spinbox.setSingleStep(1.0)
+        spinbox.setFixedWidth(100)
+        return spinbox
+
+    def draw(self):
+        self.header = QtWidgets.QLabel(
+            'Options for sample exclusion: ')
+
+        self.by_site = QtWidgets.QCheckBox(
+            'Maximum missing sites:')
+        self.by_marker = QtWidgets.QCheckBox(
+            'Maximum missing markers:')
+
+        self.maximum_missing_sites = self.getPercentageField()
+        self.maximum_missing_markers = self.getPercentageField()
+
+        self.by_site.toggled.connect(self.maximum_missing_sites.setEnabled)
+        self.by_marker.toggled.connect(self.maximum_missing_markers.setEnabled)
+
+        self.footer = QtWidgets.QLabel(
+            'Hover fields for more details.')
+
+        self.by_site.setToolTip(
+            'Exclude samples where the percentage of gaps for all sites \n'
+            'across all markers exceeds a certain percentage.')
+        self.by_marker.setToolTip(
+            'Exclude samples where the percentage of missing markers \n'
+            'exceed a certain percentage. A marker is considered missing \n'
+            'if it is not available or if it consists entirely of gaps.')
+        self.maximum_missing_sites.setToolTip(self.by_site.toolTip())
+        self.maximum_missing_markers.setToolTip(self.by_marker.toolTip())
+
+        ok = common.widgets.PushButton('OK')
+        ok.clicked.connect(self.accept)
+        ok.setDefault(True)
+        cancel = common.widgets.PushButton('Cancel')
+        cancel.clicked.connect(self.reject)
+
+        buttons = QtWidgets.QHBoxLayout()
+        buttons.addStretch(1)
+        buttons.addWidget(cancel)
+        buttons.addWidget(ok)
+        buttons.setSpacing(8)
+        buttons.setContentsMargins(0, 0, 0, 0)
+
+        options = QtWidgets.QGridLayout()
+        options.setRowMinimumHeight(10, 8)
+        options.addWidget(self.header, 11, 0, 1, 4)
+        options.setRowMinimumHeight(20, 16)
+        options.addWidget(self.by_site, 21, 1, 1, 1)
+        options.addWidget(self.by_marker, 22, 1, 1, 1)
+        options.addWidget(self.maximum_missing_sites, 21, 3, 1, 1)
+        options.addWidget(self.maximum_missing_markers, 22, 3, 1, 1)
+        options.setRowMinimumHeight(30, 16)
+        options.addWidget(self.footer, 31, 0, 1, 4)
+        options.setRowMinimumHeight(40, 24)
+
+        options.setColumnStretch(3, 1)
+        options.setColumnMinimumWidth(0, 16)
+        options.setColumnMinimumWidth(4, 16)
+        options.setContentsMargins(0, 0, 0, 0)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addLayout(options)
+        layout.addLayout(buttons)
+        layout.setContentsMargins(24, 16, 24, 16)
+        self.setLayout(layout)
+
+    def accept(self):
+        super().accept()
+        self.save_params()
+
+    def load_params(self):
+        self.by_site.setChecked(self.params.by_site)
+        self.by_marker.setChecked(self.params.by_marker)
+        self.maximum_missing_sites.setValue(self.params.maximum_missing_sites)
+        self.maximum_missing_markers.setValue(self.params.maximum_missing_markers)
+        self.maximum_missing_sites.setEnabled(self.params.by_site)
+        self.maximum_missing_markers.setEnabled(self.params.by_marker)
+
+    def save_params(self):
+        self.params.by_site = self.by_site.isChecked()
+        self.params.by_marker = self.by_marker.isChecked()
+        self.params.maximum_missing_sites = self.maximum_missing_sites.value()
+        self.params.maximum_missing_markers = self.maximum_missing_markers.value()
+
+
 class TreeOptionsDialog(QtWidgets.QDialog):
     def __init__(self, params, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -277,6 +382,7 @@ class StepExportEdit(ssm.StepTriStateEdit):
         super().__init__(*args, **kwargs)
         self.phylo_params = fasttreepy_params()
         self.diagnoser_params = DiagnoserParams()
+        self.exclusion_params = ExclusionParams()
         self.phylo_available = False
         self.writer: Optional[FileWriter] = None
         self.scheme_changed()
@@ -305,14 +411,14 @@ class StepExportEdit(ssm.StepTriStateEdit):
 
         layout = QtWidgets.QGridLayout()
         layout.addWidget(label, 0, 0)
-        layout.addWidget(separator, 0, 2, 6, 1)
+        layout.addWidget(separator, 0, 2, 8, 1)
         layout.addLayout(self.draw_left(), 1, 0)
-        layout.addLayout(self.draw_right(), 1, 3, 5, 1)
-        layout.addWidget(label_trees, 3, 0)
-        layout.addLayout(self.draw_trees(), 4, 0)
+        layout.addLayout(self.draw_right(), 1, 3, 7, 1)
+        layout.addLayout(self.draw_buttons(), 3, 0)
+        layout.addWidget(label_trees, 5, 0)
+        layout.addLayout(self.draw_trees(), 6, 0)
+        layout.setRowStretch(7, 1)
         layout.setColumnStretch(1, 1)
-        layout.setRowMinimumHeight(2, 8)
-        layout.setRowStretch(5, 1)
         layout.setSpacing(8)
         layout.setContentsMargins(0, 0, 0, 0)
         widget.setLayout(layout)
@@ -326,10 +432,6 @@ class StepExportEdit(ssm.StepTriStateEdit):
         compression = QtWidgets.QComboBox()
         timestamp = QtWidgets.QCheckBox('Append timestamp to filename.')
         timestamp.setChecked(True)
-        diagnose_config = PushButton(
-            'Data validation options', onclick=self.handleDiagnoseShowConfigDialog)
-        diagnose_config.setMaximumWidth(200)
-
         scheme.setToolTip((
             'Select one of the available sequence file formats.' + '\n'
             'Some options may only be available for certain formats.'
@@ -340,10 +442,6 @@ class StepExportEdit(ssm.StepTriStateEdit):
             ))
         timestamp.setToolTip(
             'The timestamp follows ISO 8601 in local time.')
-        diagnose_config.setToolTip(
-            'Select between a series of diagnostic options'
-            'for data validation.')
-
         label_format = QtWidgets.QLabel('Output file format:')
         label_compression = QtWidgets.QLabel('File compression:')
 
@@ -363,10 +461,8 @@ class StepExportEdit(ssm.StepTriStateEdit):
         layout.addWidget(scheme, 0, 1)
         layout.addWidget(compression, 1, 1)
         layout.addWidget(timestamp, 3, 0, 1, 2)
-        layout.addWidget(diagnose_config, 5, 0, 1, 2)
 
         layout.setRowStretch(5, 1)
-        layout.setRowMinimumHeight(4, 8)
         layout.setColumnMinimumWidth(1, 160)
         layout.setSpacing(16)
         layout.setContentsMargins(24, 16, 24, 16)
@@ -374,6 +470,31 @@ class StepExportEdit(ssm.StepTriStateEdit):
         self.scheme = scheme
         self.compression = compression
         self.timestamp = timestamp
+
+        return layout
+
+    def draw_buttons(self):
+        layout = QtWidgets.QHBoxLayout()
+
+        diagnose_config = PushButton(
+            'Data validation options', onclick=self.handleDiagnoseShowConfigDialog)
+
+        exclusion_config = PushButton(
+            'Exclude missing samples', onclick=self.handleExcludeShowConfigDialog)
+
+        diagnose_config.setMaximumWidth(200)
+        exclusion_config.setMaximumWidth(200)
+
+        diagnose_config.setToolTip(
+            'Select between a series of diagnostic options \n'
+            'for data validation.')
+        exclusion_config.setToolTip(
+            'Exclude samples with excess of missing data \n'
+            'based on missing markers or positions.')
+
+        layout.addWidget(diagnose_config)
+        layout.addWidget(exclusion_config)
+        layout.setContentsMargins(0, 0, 0, 16)
 
         return layout
 
@@ -513,6 +634,12 @@ class StepExportEdit(ssm.StepTriStateEdit):
     def handleDiagnoseShowConfigDialog(self):
         self.dialog = DiagnoserOptionsDialog(
             self.diagnoser_params, self.machine().parent())
+        self.dialog.setModal(True)
+        self.dialog.show()
+
+    def handleExcludeShowConfigDialog(self):
+        self.dialog = ExclusionOptionsDialog(
+            self.exclusion_params, self.machine().parent())
         self.dialog.setModal(True)
         self.dialog.show()
 
