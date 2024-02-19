@@ -56,7 +56,7 @@ from itaxotools.fasttreepy.params import params as fasttreepy_params
 from itaxotools.fasttreepy.gui.main import CustomView as TreeParamView
 from .. import step_state_machine as ssm
 from ..diagnoser import Diagnoser, DiagnoserParams
-from ..exclusion import ExclusionParams, OpCountMissing
+from ..exclusion import ExclusionParams, OpCountMissing, OpExcludeSamples
 from .wait import StepWaitBar
 
 
@@ -772,6 +772,12 @@ class StepExport(ssm.StepTriState):
             )
         return stream
 
+    def work_get_excluded_stream(self):
+        if not self.data.excluded:
+            return self.work_get_stream()
+        operator = OpExcludeSamples(self.data.excluded)
+        return self.work_get_stream().pipe(operator)
+
     def work_export(self, description):
         self.header.showTask(title=self.title, description=description)
         self.data.counter = 1
@@ -783,7 +789,7 @@ class StepExport(ssm.StepTriState):
         with self.states.wait.redirect():
             print('Exporting files, please wait...\n')
             print(f'Writing to temporary file: {out}\n')
-        stream = self.work_get_stream()
+        stream = self.work_get_excluded_stream()
         writer = self.states.edit.writer
         self.data.diagnoser.modify_writer_filters(writer)
         with self.states.wait.redirect():
@@ -810,7 +816,7 @@ class StepExport(ssm.StepTriState):
         with self.states.wait.redirect():
             print('\nPreparing for concatenated phylogeny, please wait...\n')
             print(f'Writing to temporary file: {out}\n')
-        stream = self.work_get_stream()
+        stream = self.work_get_excluded_stream()
         writer = get_writer(FileType.File, FileFormat.Fasta)
         writer(stream, out)
         return 1
@@ -820,7 +826,7 @@ class StepExport(ssm.StepTriState):
         with self.states.wait.redirect():
             print('\nPreparing for individual phylogeny, please wait...\n')
             print(f'Writing to temporary file: {out}\n')
-        stream = self.work_get_stream()
+        stream = self.work_get_excluded_stream()
         writer = get_writer(FileType.Directory, FileFormat.Fasta)
         writer(stream, out)
         return self.data.total
@@ -885,6 +891,13 @@ class StepExport(ssm.StepTriState):
             excluded |= operator.exclude_by_marker(self.data.maximum_missing_markers / 100)
 
         self.data.excluded = excluded
+
+        with self.states.wait.redirect():
+            print('Excluded samples:')
+            for sample in excluded:
+                print('-', sample)
+            print()
+
 
     def work_save(self):
         self.states.wait.reset()

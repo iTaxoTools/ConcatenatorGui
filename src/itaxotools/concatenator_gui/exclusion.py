@@ -78,3 +78,19 @@ class OpCountMissing(Operator):
     def exclude_by_marker(self, maximum_missing_markers: float) -> set[str]:
         total_genes = max(len(infos) for infos in self.data.values())
         return {id for id in self.data if self._should_exclude_id_by_marker(id, total_genes, maximum_missing_markers)}
+
+
+class OpExcludeSamples(Operator):
+    def __init__(self, samples, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.samples = samples
+
+    def call(self, gene: GeneSeries) -> Optional[GeneSeries]:
+        if not gene:
+            return None
+        if gene.series is None:
+            return gene
+        gene = gene.copy()
+        mask = gene.series.index.isin(self.samples)
+        gene.series = gene.series[~mask]
+        return gene
