@@ -56,7 +56,7 @@ from itaxotools.fasttreepy.params import params as fasttreepy_params
 from itaxotools.fasttreepy.gui.main import CustomView as TreeParamView
 from .. import step_state_machine as ssm
 from ..diagnoser import Diagnoser, DiagnoserParams
-from ..exclusion import ExclusionParams
+from ..exclusion import ExclusionParams, OpCountMissing
 from .wait import StepWaitBar
 
 
@@ -681,6 +681,7 @@ class StepExport(ssm.StepTriState):
         self.data.total = 0
         self.data.seqs = 0
         self.data.trees = 0
+        self.data.excluded = set()
         self.data.phylo_prep = None
         self.data.phylo_calc = None
 
@@ -688,10 +689,13 @@ class StepExport(ssm.StepTriState):
         self.data.phylo_do_all = False
         self.data.exclude_by_site = False
         self.data.exclude_by_marker = False
+        self.data.maximum_missing_sites = 0.0
+        self.data.maximum_missing_markers = 0.0
 
     def work(self):
         self.data.total = 0
         self.data.trees = 0
+        self.data.excluded = set()
         self.update(0, 0, 'Preparing for export...')
 
         steps = self.get_total_work_steps()
@@ -859,9 +863,28 @@ class StepExport(ssm.StepTriState):
 
     def work_exclude_samples(self, description):
         self.header.showTask(title=self.title, description=description)
-        print('EXCLUDE PLACEHOLDER')
-        import time
-        time.sleep(2)
+
+        with self.states.wait.redirect():
+            print('Excluding samples...')
+            print('- by site:', self.data.exclude_by_site, self.data.maximum_missing_sites)
+            print('- by marker:', self.data.exclude_by_marker, self.data.maximum_missing_markers)
+            print()
+
+        operator = OpCountMissing()
+        stream = self.work_get_stream()
+        stream = stream.pipe(operator)
+        for gene in stream:
+            pass
+
+        excluded = set()
+
+        if self.data.exclude_by_site:
+            excluded |= operator.exclude_by_site(self.data.maximum_missing_sites / 100)
+
+        if self.data.exclude_by_marker:
+            excluded |= operator.exclude_by_marker(self.data.maximum_missing_markers / 100)
+
+        self.data.excluded = excluded
 
     def work_save(self):
         self.states.wait.reset()
@@ -925,6 +948,8 @@ class StepExport(ssm.StepTriState):
         self.data.phylo_do_all = self.states.edit.phylo_all.isChecked()
         self.data.exclude_by_site = self.states.edit.exclusion_params.by_site
         self.data.exclude_by_marker = self.states.edit.exclusion_params.by_marker
+        self.data.maximum_missing_sites = self.states.edit.exclusion_params.maximum_missing_sites
+        self.data.maximum_missing_markers = self.states.edit.exclusion_params.maximum_missing_markers
         timestamp = self.states.edit.get_timestamp()
         basename = self.states.edit.infer_base_name()
         basename += self.states.edit.get_time_string(timestamp)
