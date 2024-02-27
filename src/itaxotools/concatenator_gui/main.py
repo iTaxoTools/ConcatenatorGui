@@ -233,7 +233,7 @@ class Main(common.widgets.ToolDialog):
         m.addStep('done', 'Done', 1, False, StepDone)
 
         m.setInitialState(m.states.about)
-        m.finished.connect(lambda: self.reject(force=True))
+        m.finished.connect(self.close)
 
         self.machine = m
 
