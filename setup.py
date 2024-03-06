@@ -11,7 +11,7 @@ long_description = (here / 'README.md').read_text(encoding='utf-8')
 
 setup(
     name='concatenator-gui',
-    version='0.2.1',
+    version='0.3.2',
     description='A Qt GUI for Concatenator',
     long_description=long_description,
     long_description_content_type='text/markdown',
