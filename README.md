@@ -18,9 +18,16 @@ Download and run the standalone executables without installing Python.</br>
 
 
 ### Installing from source
-Clone and install the latest version (requires Python 3.8.6 or later):
+Clone and install the latest version (requires Python 3.11 or later):
 ```
 git clone https://github.com/iTaxoTools/ConcatenatorGui.git
+cd ConcatenatorGui
+pip install . -f packages.html
+```
+
+If you are using an older version of Python (3.8.6 or later), please clone and install from the Windows 7 compatibility branch (no longer maintained):
+```
+git clone https://github.com/iTaxoTools/ConcatenatorGui.git -b win7-compat
 cd ConcatenatorGui
 pip install . -f packages.html
 ```
